@@ -30,7 +30,7 @@ general {
 }
 
 library {
-	name = "My Music on OpenWrt"
+	name = "My Music on owntone"
 	port = $(uci_get_by_type owntone port 3689)
 	directories = { "$(uci_get_by_type owntone directories)" }
 	podcasts = { "/Podcasts" }
@@ -48,6 +48,7 @@ EOF
 
 start() {
         gen_config_file
+        mkdir -p /var/cache/owntone
         local enabled=$(uci_get_by_type owntone enabled 0)
         [ "$enabled" == "0" ] && return 1
         $SSD -p $PID -S -b -x $BIN -- -P $PID -c /var/etc/owntone.conf
