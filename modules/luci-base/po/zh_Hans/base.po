@@ -12131,3 +12131,6 @@ msgstr "移远蜂窝网络"
 
 msgid "Temperature"
 msgstr "温度"
+
+msgid "control"
+msgstr "掌控"
