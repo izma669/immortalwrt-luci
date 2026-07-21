@@ -291,7 +291,7 @@ body {
 }
 
 .container {
-	width: 100%;
+	width: 95%;
     /* max-width: 940px; */  /* 注释或删除此行 */
 	margin-left: auto;
 	margin-right: auto;
