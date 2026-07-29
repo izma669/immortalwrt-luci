@@ -52,6 +52,8 @@ define Package/$(PKG_NAME)/install
 	cp -pR ./root/* $(1)/
 	$(INSTALL_DIR) $(1)/usr/bin
 	cp -pR ./bin/$(EXE_FILE) $(1)/usr/bin/vhusbd
+	chmod 755 $(1)/usr/bin/vhusbd          # 添加执行权限
+	chmod 755 $(1)/etc/init.d/vhusbd       # 添加执行权限
 endef
 
 
