@@ -21,4 +21,9 @@ switch.rmempty = false
 Access = s:option(Flag, "ExtAccess", translate("外网访问"))
 Access.rmempty = false
 
+-- 保存配置后自动重载服务
+function m.on_after_commit(self)
+    luci.sys.call("/etc/init.d/vhusbd reload >/dev/null 2>&1")
+end
+
 return m
