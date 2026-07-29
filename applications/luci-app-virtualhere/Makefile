@@ -48,10 +48,10 @@ endif
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci
 	cp -pR ./luasrc/* $(1)/usr/lib/lua/luci
-	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) ./root/etc/init.d/vhusbd $(1)/etc/init.d/vhusbd
+	$(INSTALL_DIR) $(1)/
+	cp -pR ./root/* $(1)/
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) ./bin/$(EXE_FILE) $(1)/usr/bin/vhusbd
+	cp -pR ./bin/$(EXE_FILE) $(1)/usr/bin/vhusbd
 endef
 
 
