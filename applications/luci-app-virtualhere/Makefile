@@ -48,8 +48,14 @@ endif
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci
 	cp -pR ./luasrc/* $(1)/usr/lib/lua/luci
-	$(INSTALL_DIR) $(1)/
-	cp -pR ./root/* $(1)/
+
+	# 单独安装启动脚本（确保权限 0755）
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_BIN) ./root/etc/init.d/vhusbd $(1)/etc/init.d/vhusbd
+
+	# 其他 root 下的文件（如需要）也可类似处理
+	# cp -pR ./root/... $(1)/... （但不要重复复制整个 root）
+
 	$(INSTALL_DIR) $(1)/usr/bin
 	cp -pR ./bin/$(EXE_FILE) $(1)/usr/bin/vhusbd
 endef
