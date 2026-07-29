@@ -1,0 +1,40 @@
+#!/bin/sh /etc/rc.common
+
+USE_PROCD=1
+START=99
+STOP=10
+
+# 引入 procd 函数库
+. /lib/functions/procd.sh
+
+start_service() {
+    # 从UCI读取配置
+    config_load 'vhusbd'
+    config_get_bool enabled 'vhusbd' 'enabled' '0'
+    config_get_bool ExtAccess 'vhusbd' 'ExtAccess' '0'
+
+    [ "$enabled" -eq 0 ] && return 1
+
+    # 开启一个 procd 实例
+    procd_open_instance
+    # 设置启动命令和参数
+    procd_set_param command /usr/bin/vhusbd -b -c /etc/config/vhusbdconfig -r /tmp/vhusbd.log
+    # 设置进程崩溃后自动重启
+    procd_set_param respawn
+    # 将标准输出和错误交给 logd 处理
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    # 关闭实例定义
+    procd_close_instance
+
+    # 处理防火墙规则
+    if [ "$ExtAccess" -eq 1 ]; then
+        iptables -I INPUT -p tcp --dport 7575 -j ACCEPT -m comment --comment 'virtualhere port'
+    fi
+}
+
+stop_service() {
+    # 清理防火墙规则
+    iptables -D INPUT -p tcp --dport 7575 -j ACCEPT -m comment --comment 'virtualhere port' 2>/dev/null
+    # procd 会自动处理进程终止，这里通常无需额外操作
+}
