@@ -23,6 +23,11 @@ define Package/$(PKG_NAME)/conffiles
 /etc/config/luci-app-ipsec-server
 endef
 
+define Package/$(PKG_NAME)/install
+	chmod 755 $(1)/etc/init.d/luci-app-ipsec-server       # 添加执行权限
+endef
+
+
 include $(TOPDIR)/feeds/luci/luci.mk
 
 # call BuildPackage - OpenWrt buildroot signature
