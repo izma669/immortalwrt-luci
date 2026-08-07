@@ -14,6 +14,10 @@ PKG_NAME:=luci-app-music-remote-center
 PKG_VERSION:=1
 PKG_RELEASE:=6
 
+define Package/$(PKG_NAME)/install
+	chmod 755 $(1)/etc/init.d/owntone       # 添加执行权限
+endef
+
 include $(TOPDIR)/feeds/luci/luci.mk
 
 # call BuildPackage - OpenWrt buildroot signature
