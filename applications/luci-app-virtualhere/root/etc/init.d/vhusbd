@@ -25,6 +25,7 @@ start_service() {
     procd_append_param command -c "$CONFIG_FILE"
     # 如果程序支持日志参数，可以去掉 -r，改用 procd 的 stdout 日志
     # 若必须保留 -r，请追加：procd_append_param command -r /tmp/vhusbd.log
+    procd_append_param command -i   # 监听IPV6端口
     procd_set_param respawn 3600 5 0   # 进程守护：每3600秒检查，失败5次后等待0秒
     procd_set_param stdout 1           # 输出到系统日志（可用 logread 查看）
     procd_set_param stderr 1
@@ -38,12 +39,20 @@ start_service() {
         if ! iptables -C INPUT -p tcp --dport "$PORT" -j ACCEPT -m comment --comment 'virtualhere port' 2>/dev/null; then
             iptables -I INPUT -p tcp --dport "$PORT" -j ACCEPT -m comment --comment 'virtualhere port'
         fi
+        if command -v ip6tables >/dev/null 2>&1; then
+            if ! ip6tables -C INPUT -p tcp --dport "$PORT" -j ACCEPT -m comment --comment 'virtualhere port' 2>/dev/null; then
+                ip6tables -I INPUT -p tcp --dport "$PORT" -j ACCEPT -m comment --comment 'virtualhere port'
+            fi
+        fi
     fi
 }
 
 stop_service() {
     # 移除防火墙规则（忽略不存在的错误）
     iptables -D INPUT -p tcp --dport "$PORT" -j ACCEPT -m comment --comment 'virtualhere port' 2>/dev/null
+    if command -v ip6tables >/dev/null 2>&1; then
+        ip6tables -D INPUT -p tcp --dport "$PORT" -j ACCEPT -m comment --comment 'virtualhere port' 2>/dev/null
+    fi
 }
 
 # 关联 UCI 配置变更，当用户点击“保存&应用”时自动重启服务
