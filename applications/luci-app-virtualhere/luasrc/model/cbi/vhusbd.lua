@@ -6,7 +6,7 @@ local fs = require "nixio.fs"
 
 
 m = Map("vhusbd", translate("VirtualHere USB Server"), translatef(
-            "<br /> VirtuslHere USB Server用途：<br />可实现通过网络挂载USB设备。<br /><br />使用方法：<br />1.将需要挂载的USB设备插在路由器的USB口并启用服务器。<br />2.客户端主机从<a href='http://www.virtualhere.com/usb_client_software' target='_blank'>官网</a>下载对应的客户端程序运行即可。<br /><br />注册方法：<br />以WINDOWS为例, 从运行后的VirtuslHere Client 程序中获取设备的12位许可码.<br /> 输入许可代码注册，格式：xxxxxxxxxxxx,999,MCACDkn0jww6R5WOIjFqU/apAg4Um+mDkU2TBcC7fA1FrA==<br />12位序列号,授权能同时挂载的最多USB数量,服务端特征码 <br /> <br />注意: 如不注册就只能连接一个设备<br /><br />"))
+            "<br /> VirtuslHere USB Server用途：<br />可实现通过网络挂载USB设备。<br /><br />使用方法：<br />1.将需要挂载的USB设备插在路由器的USB口并启用服务器。<br />2.客户端主机从<a href='http://www.virtualhere.com/usb_client_software' target='_blank'>官网</a>下载对应的客户端程序运行即可。<br /><br />注册方法：<br />以WINDOWS为例, 从运行后的VirtuslHere Client 程序中获取设备的12位许可码.<br /> 输入许可代码注册<br />格式：xxxxxxxxxxxx,999,MCACDkn0jww6R5WOIjFqU/apAg4Um+mDkU2TBcC7fA1FrA==<br /> 待替换的12位许可码,授权能同时挂载的最多USB数量,服务端特征码 <br /> <br />注意: 如不注册就只能连接一个设备<br /><br />"))
 
 -- Basic config
 m:section(SimpleSection).template = "vhusbd/status"
