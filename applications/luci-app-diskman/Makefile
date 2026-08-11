@@ -6,12 +6,12 @@ PKG_RELEASE:=2
 
 PKG_MAINTAINER:=lisaac <lisaac.cn@gmail.com>
 PKG_LICENSE:=AGPL-3.0
-
 LUCI_TITLE:=Disk Manager interface for LuCI
-LUCI_DEPENDS:=+blkid +e2fsprogs +parted +smartmontools \
+LUCI_DEPENDS:= \
+	+luci-compat +blkid +e2fsprogs +parted +smartmontools \
 	+kmod-fs-ext4 +kmod-fs-exfat +exfat-mkfs +exfat-fsck \
 	+kmod-nls-cp932 +kmod-nls-cp936 +kmod-nls-cp950 \
-	+PACKAGE_$(PKG_NAME)_INCLUDE_blockd-automonut:blockd-automonut \
+	+PACKAGE_$(PKG_NAME)_INCLUDE_blockd:blockd \
 	+PACKAGE_$(PKG_NAME)_INCLUDE_btrfs_progs:btrfs-progs \
 	+PACKAGE_$(PKG_NAME)_INCLUDE_lsblk:lsblk \
 	+PACKAGE_$(PKG_NAME)_INCLUDE_mdadm:mdadm \
@@ -19,8 +19,6 @@ LUCI_DEPENDS:=+blkid +e2fsprogs +parted +smartmontools \
 	+PACKAGE_$(PKG_NAME)_INCLUDE_kmod_md_raid456:kmod-md-raid456 \
 	+PACKAGE_$(PKG_NAME)_INCLUDE_kmod_md_linears:mdadm \
 	+PACKAGE_$(PKG_NAME)_INCLUDE_kmod_md_linears:kmod-md-linear
-
-include $(INCLUDE_DIR)/package.mk
 
 define Package/luci-app-diskman/config
 config PACKAGE_$(PKG_NAME)_INCLUDE_blockd
