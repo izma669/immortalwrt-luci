@@ -11,7 +11,7 @@ LUCI_TITLE:=Disk Manager interface for LuCI
 LUCI_DEPENDS:=+blkid +e2fsprogs +parted +smartmontools \
 	+kmod-fs-ext4 +kmod-fs-exfat +exfat-mkfs +exfat-fsck \
 	+kmod-nls-cp932 +kmod-nls-cp936 +kmod-nls-cp950 \
-	+PACKAGE_$(PKG_NAME)_INCLUDE_blockd:blockd \
+	+PACKAGE_$(PKG_NAME)_INCLUDE_blockd-automonut:blockd-automonut \
 	+PACKAGE_$(PKG_NAME)_INCLUDE_btrfs_progs:btrfs-progs \
 	+PACKAGE_$(PKG_NAME)_INCLUDE_lsblk:lsblk \
 	+PACKAGE_$(PKG_NAME)_INCLUDE_mdadm:mdadm \
