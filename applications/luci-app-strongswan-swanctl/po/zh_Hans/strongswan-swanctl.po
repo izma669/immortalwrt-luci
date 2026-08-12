@@ -278,3 +278,47 @@ msgstr "标记为 * 的算法被视为不安全"
 msgid "PRF Algorithm must be configured when using an Authenticated Encryption Algorithm"
 msgstr "使用认证加密算法时必须配置 PRF 算法"
 
+msgid "Local Certificate"
+msgstr "本地证书"
+
+msgid "CA Certificate"
+msgstr "CA 证书"
+
+msgid "CA certificate that need to lie in remote peer's certificate's path of trust"
+msgstr "需要位于远程对端证书信任路径中的 CA 证书"
+
+msgid "Please create a Proposal first"
+msgstr "请先创建提案"
+
+msgid "Please create a Tunnel first"
+msgstr "请先创建隧道"
+
+msgid "accept"
+msgstr "接受"
+
+msgid "force"
+msgstr "强制"
+
+msgid "yes"
+msgstr "是"
+
+msgid "no"
+msgstr "否"
+
+msgid "XFRM Interface ID"
+msgstr "XFRM 接口 ID"
+
+msgid "trap"
+msgstr "触发"
+
+msgid "start"
+msgstr "启动"
+
+msgid "none"
+msgstr "无"
+
+msgid "clear"
+msgstr "清除"
+
+msgid "auto"
+msgstr "自动"
