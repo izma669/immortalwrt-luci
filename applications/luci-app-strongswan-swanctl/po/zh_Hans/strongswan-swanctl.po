@@ -1,0 +1,81 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "strongSwan Configuration"
+msgstr "strongSwan 配置"
+
+msgid "Configure strongSwan for secure VPN connections."
+msgstr "配置 strongSwan 以实现安全的 VPN 连接."
+
+msgid "Zone"
+msgstr "区域"
+
+msgid "Listening Interfaces"
+msgstr "监听接口"
+
+msgid "Debug Level"
+msgstr "调试级别"
+
+msgid "Trace level: 0 is least verbose, 4 is most"
+msgstr "跟踪等级: 0表示最不冗长，4表示最冗长"
+
+msgid "Remote Configuration"
+msgstr "远程配置"
+
+msgid "Interfaces that accept VPN traffic"
+msgstr "接受VPN流量的接口"
+
+msgid "Firewall zone that has to match the defined firewall zone"
+msgstr "必须与定义的防火墙区域匹配的防火墙区域"
+
+msgid "Remote Configuration"
+msgstr "远程配置"
+
+msgid "Define Remote IKE Configurations."
+msgstr "定义远程IKE配置"
+
+msgid "Gateway (Remote Endpoint)"
+msgstr "网关（远程端点）"
+
+msgid "	Crypto Proposal"
+msgstr "加密货币提案"
+
+msgid "Tunnel"
+msgstr "隧道"
+
+msgid "Tunnel Configuration"
+msgstr "隧道配置"
+
+msgid "Define Connection Children to be used as Tunnels in Remote Configurations."
+msgstr "定义在远程配置中用作隧道的连接子节点。"
+
+msgid "Local Subnet"
+msgstr "本地子网"
+
+msgid "Remote Subnet"
+msgstr "远程子网"
+
+msgid "Crypto Proposal (Phase 2)"
+msgstr "加密货币提案（第2阶段）"
+
+msgid "Encryption Proposals"
+msgstr "加密建议"
+
+msgid "Configure Cipher Suites to define IKE (Phase 1) or ESP (Phase 2) Proposals."
+msgstr "配置密码套件以定义IKE（第1阶段）或ESP（第2阶段）提案。"
+
+msgid "ESP Proposal"
+msgstr "ESP提案"
+
+msgid "Encryption Algorithm"
+msgstr "加密算法"
+
+msgid "Hash Algorithm"
+msgstr "哈希算法"
+
+msgid "Diffie-Hellman Group"
+msgstr "迪菲-赫尔曼集团"
+
+msgid "PRF Algorithm"
+msgstr "PRF算法"
+
