@@ -322,3 +322,7 @@ msgstr "清除"
 
 msgid "auto"
 msgstr "自动"
+
+msgid "Please create an ESP Proposal first"
+msgstr "请先创建ESP提案"
+
