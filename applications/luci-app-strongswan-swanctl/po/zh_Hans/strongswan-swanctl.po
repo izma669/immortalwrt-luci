@@ -1,3 +1,4 @@
+
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8\n"
 
@@ -5,7 +6,7 @@ msgid "strongSwan Configuration"
 msgstr "strongSwan 配置"
 
 msgid "Configure strongSwan for secure VPN connections."
-msgstr "配置 strongSwan 以实现安全的 VPN 连接."
+msgstr "配置 strongSwan 以实现安全的 VPN 连接。"
 
 msgid "Zone"
 msgstr "区域"
@@ -17,28 +18,28 @@ msgid "Debug Level"
 msgstr "调试级别"
 
 msgid "Trace level: 0 is least verbose, 4 is most"
-msgstr "跟踪等级: 0表示最不冗长，4表示最冗长"
+msgstr "跟踪级别：0 为最少信息，4 为最多"
 
 msgid "Remote Configuration"
 msgstr "远程配置"
 
 msgid "Interfaces that accept VPN traffic"
-msgstr "接受VPN流量的接口"
+msgstr "接受 VPN 流量的接口"
 
 msgid "Firewall zone that has to match the defined firewall zone"
-msgstr "必须与定义的防火墙区域匹配的防火墙区域"
+msgstr "必须与已定义的防火墙区域匹配的防火墙区域"
 
 msgid "Remote Configuration"
 msgstr "远程配置"
 
 msgid "Define Remote IKE Configurations."
-msgstr "定义远程IKE配置"
+msgstr "定义远程 IKE 配置。"
 
 msgid "Gateway (Remote Endpoint)"
 msgstr "网关（远程端点）"
 
-msgid "	Crypto Proposal"
-msgstr "加密货币提案"
+msgid "Crypto Proposal"
+msgstr "加密提案"
 
 msgid "Tunnel"
 msgstr "隧道"
@@ -47,7 +48,7 @@ msgid "Tunnel Configuration"
 msgstr "隧道配置"
 
 msgid "Define Connection Children to be used as Tunnels in Remote Configurations."
-msgstr "定义在远程配置中用作隧道的连接子节点。"
+msgstr "定义要在远程配置中用作隧道的连接子项。"
 
 msgid "Local Subnet"
 msgstr "本地子网"
@@ -56,16 +57,16 @@ msgid "Remote Subnet"
 msgstr "远程子网"
 
 msgid "Crypto Proposal (Phase 2)"
-msgstr "加密货币提案（第2阶段）"
+msgstr "加密提案（阶段 2）"
 
 msgid "Encryption Proposals"
-msgstr "加密建议"
+msgstr "加密提案"
 
 msgid "Configure Cipher Suites to define IKE (Phase 1) or ESP (Phase 2) Proposals."
-msgstr "配置密码套件以定义IKE（第1阶段）或ESP（第2阶段）提案。"
+msgstr "配置密码套件以定义 IKE（阶段 1）或 ESP（阶段 2）提案。"
 
 msgid "ESP Proposal"
-msgstr "ESP提案"
+msgstr "ESP 提案"
 
 msgid "Encryption Algorithm"
 msgstr "加密算法"
@@ -74,8 +75,206 @@ msgid "Hash Algorithm"
 msgstr "哈希算法"
 
 msgid "Diffie-Hellman Group"
-msgstr "迪菲-赫尔曼集团"
+msgstr "Diffie-Hellman 组"
 
 msgid "PRF Algorithm"
-msgstr "PRF算法"
+msgstr "PRF 算法"
+
+msgid "Configuration is enabled or not"
+msgstr "配置是否启用"
+
+msgid "General"
+msgstr "常规"
+
+msgid "IP address or FQDN name of the tunnel remote endpoint"
+msgstr "隧道远程端点的 IP 地址或 FQDN 名称"
+
+msgid "Local Gateway"
+msgstr "本地网关"
+
+msgid "IP address or FQDN of the tunnel local endpoint"
+msgstr "隧道本地端点的 IP 地址或 FQDN"
+
+msgid "Local Source IP"
+msgstr "本地源 IP"
+
+msgid "Virtual IP(s) to request in IKEv2 configuration payloads requests"
+msgstr "在 IKEv2 配置载荷请求中请求的虚拟 IP"
+
+msgid "Local IP"
+msgstr "本地 IP"
+
+msgid "Local address(es) to use in IKE negotiation"
+msgstr "IKE 协商中使用的本地地址"
+
+msgid "List of IKE (phase 1) proposals to use for authentication"
+msgstr "用于身份验证的 IKE（阶段 1）提案列表"
+
+msgid "The Tunnel containing the ESP (phase 2) section"
+msgstr "包含 ESP（阶段 2）部分的隧道"
+
+msgid "Authentication Method"
+msgstr "身份验证方法"
+
+msgid "IKE authentication (phase 1)"
+msgstr "IKE 身份验证（阶段 1）"
+
+msgid "Local Identifier"
+msgstr "本地标识符"
+
+msgid "Local identifier for IKE (phase 1)"
+msgstr "IKE（阶段 1）的本地标识符"
+
+msgid "Remote Identifier"
+msgstr "远程标识符"
+
+msgid "Remote identifier for IKE (phase 1)"
+msgstr "IKE（阶段 1）的远程标识符"
+
+msgid "Pre-Shared Key"
+msgstr "预共享密钥"
+
+msgid "The pre-shared key for the tunnel"
+msgstr "隧道的预共享密钥"
+
+msgid "Local Key"
+msgstr "本地密钥"
+
+msgid "Private key pathname to use with above certificate"
+msgstr "与上述证书配合使用的私钥路径名"
+
+msgid "MOBIKE"
+msgstr "MOBIKE"
+
+msgid "MOBIKE (IKEv2 Mobility and Multihoming Protocol)"
+msgstr "MOBIKE（IKEv2 移动性和多宿协议）"
+
+msgid "IKE Fragmentation"
+msgstr "IKE 分片"
+
+msgid "Use IKE fragmentation"
+msgstr "使用 IKE 分片"
+
+msgid "Keying Retries"
+msgstr "密钥重试次数"
+
+msgid "Number of retransmissions attempts during initial negotiation"
+msgstr "初始协商期间的重传尝试次数"
+
+msgid "DPD Delay"
+msgstr "DPD 延迟"
+
+msgid "Interval to check liveness of a peer"
+msgstr "检查对端存活状态的间隔"
+
+msgid "Inactivity"
+msgstr "不活动超时"
+
+msgid "Interval before closing an inactive CHILD_SA"
+msgstr "关闭不活跃的 CHILD_SA 之前的间隔"
+
+msgid "Rekey Time"
+msgstr "重密钥时间"
+
+msgid "IKEv2 interval to refresh keying material; also used to compute lifetime"
+msgstr "IKEv2 刷新密钥材料的间隔；也用于计算生命周期"
+
+msgid "Overtime"
+msgstr "超时时间"
+
+msgid "Limit on time to complete rekeying/reauthentication"
+msgstr "完成重密钥/重新认证的时间限制"
+
+msgid "Keyexchange"
+msgstr "密钥交换"
+
+msgid "Version of IKE for negotiation"
+msgstr "协商使用的 IKE 版本"
+
+msgid "Local network(s)"
+msgstr "本地网络"
+
+msgid "Remote network(s)"
+msgstr "远程网络"
+
+msgid "Local NAT"
+msgstr "本地 NAT"
+
+msgid "NAT range for tunnels with overlapping IP addresses"
+msgstr "用于具有重叠 IP 地址的隧道的 NAT 范围"
+
+msgid "XFRM Interface ID"
+msgstr "XFRM 接口 ID"
+
+msgid "XFRM interface ID set on input and output interfaces"
+msgstr "在输入和输出接口上设置的 XFRM 接口 ID"
+
+msgid "Start Action"
+msgstr "启动操作"
+
+msgid "Action on initial configuration load"
+msgstr "初始配置加载时的操作"
+
+msgid "Close Action"
+msgstr "关闭操作"
+
+msgid "Action when CHILD_SA is closed"
+msgstr "CHILD_SA 关闭时的操作"
+
+msgid "List of ESP (phase two) proposals. Only Proposals with checked ESP flag are selectable"
+msgstr "ESP（阶段二）提案列表。只有勾选了 ESP 标志的提案才可选择。"
+
+msgid "Up/Down Script Path"
+msgstr "启动/关闭脚本路径"
+
+msgid "Path to script to run on CHILD_SA up/down events"
+msgstr "在 CHILD_SA 启动/关闭事件时运行的脚本路径"
+
+msgid "Lifetime"
+msgstr "生命周期"
+
+msgid "Maximum duration of the CHILD_SA before closing"
+msgstr "CHILD_SA 关闭前的最大持续时间"
+
+msgid "DPD Action"
+msgstr "DPD 操作"
+
+msgid "Action when DPD timeout occurs"
+msgstr "DPD 超时发生时的操作"
+
+msgid "Rekey Time"
+msgstr "重密钥时间"
+
+msgid "Duration of the CHILD_SA before rekeying"
+msgstr "CHILD_SA 在重密钥前的持续时间"
+
+msgid "IPComp"
+msgstr "IPComp"
+
+msgid "Enable ipcomp compression"
+msgstr "启用 ipcomp 压缩"
+
+msgid "H/W Offload"
+msgstr "硬件卸载"
+
+msgid "Enable Hardware offload"
+msgstr "启用硬件卸载"
+
+msgid "Priority of the CHILD_SA"
+msgstr "CHILD_SA 的优先级"
+
+msgid "Replay Window"
+msgstr "重放窗口"
+
+msgid "Replay Window of the CHILD_SA; Values larger than 32 are supported by the Netlink backend only"
+msgstr "CHILD_SA 的重放窗口；大于 32 的值仅受 Netlink 后端支持"
+
+msgid "Whether this is an ESP (phase 2) proposal or not"
+msgstr "这是否为 ESP（阶段二）提案"
+
+msgid "Algorithms marked with * are considered insecure"
+msgstr "标记为 * 的算法被视为不安全"
+
+msgid "PRF Algorithm must be configured when using an Authenticated Encryption Algorithm"
+msgstr "使用认证加密算法时必须配置 PRF 算法"
 
