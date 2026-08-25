@@ -1,6 +1,6 @@
 #!/bin/sh /etc/rc.common
 
-START=99
+START=98
 
 CONFIG="luci-app-ipsec-server"
 IPSEC_SECRETS_FILE=/etc/ipsec.secrets
