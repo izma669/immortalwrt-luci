@@ -905,11 +905,11 @@ msgstr "白名单..."
 #: applications/luci-app-banip/luasrc/controller/banip.lua:6
 #: applications/luci-app-banip/root/usr/share/luci/menu.d/luci-app-banip.json:3
 msgid "banIP"
-msgstr "banIP"
+msgstr "封禁IP"
 
 #: applications/luci-app-banip/htdocs/luci-static/resources/view/banip/overview.js:41
 msgid "banIP action"
-msgstr "banIP 操作"
+msgstr "封禁IP 操作"
 
 msgid "Changes on this tab needs a full banIP service restart to take effect."
 msgstr "此选项卡上的更改需要完全重启 banIP 服务才能生效。"
