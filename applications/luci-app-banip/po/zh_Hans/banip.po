@@ -910,3 +910,27 @@ msgstr "banIP"
 #: applications/luci-app-banip/htdocs/luci-static/resources/view/banip/overview.js:41
 msgid "banIP action"
 msgstr "banIP 操作"
+
+msgid "Changes on this tab needs a full banIP service restart to take effect."
+msgstr "此选项卡上的更改需要完全重启 banIP 服务才能生效。"
+
+msgid "Individual IPSet Settings"
+msgstr "独立 IPSet 设置"
+
+msgid "IPv4 Chains"
+msgstr "IPv4 链"
+
+msgid "IPv6 Chains"
+msgstr "IPv6 链"
+
+msgid "List of supported and fully pre-configured banIP sources."
+msgstr "受支持且完全预配置的 banIP 源列表。"
+
+msgid "Country Selection"
+msgstr "国家/地区选择"
+
+msgid "ASN Selection"
+msgstr "ASN 选择"
+
+msgid "Local Sources"
+msgstr "本地源"
