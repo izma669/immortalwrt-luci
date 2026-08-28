@@ -113,6 +113,30 @@ msgstr "1 分钟负载："
 msgid "15 Minute Load:"
 msgstr "15 分钟负载："
 
+msgid "Ethernet Information"
+msgstr "以太网接口信息"
+
+msgid "Ethernet Name"
+msgstr "网口名称"
+
+msgid "Link Status"
+msgstr "连接状态"
+
+msgid "Link Up"
+msgstr "已连接"
+
+msgid "Link Down"
+msgstr "连接速度"
+
+msgid "Duplex"
+msgstr "双工模式"
+
+msgid "Half Duplex"
+msgstr "半双工"
+
+msgid "Full Duplex"
+msgstr "全双工"
+
 #: protocols/luci-proto-sstp/htdocs/luci-static/resources/protocol/sstp.js:57
 msgctxt "sstp log level value"
 msgid "2"
