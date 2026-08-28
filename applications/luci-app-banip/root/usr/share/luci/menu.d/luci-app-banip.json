@@ -1,10 +1,10 @@
 {
-	"admin/services/banip": {
+	"admin/control/banip": {
 		"title": "banIP",
 		"order": "60",
 		"action": {
 			"type": "alias",
-			"path": "admin/services/banip/overview"
+			"path": "admin/control/banip/overview"
 		},
 		"depends": {
 			"acl": [ "luci-app-banip" ],
@@ -15,7 +15,7 @@
 			"uci": { "banip": true }
 		}
 	},
-	"admin/services/banip/overview": {
+	"admin/control/banip/overview": {
 		"title": "Overview",
 		"order": 10,
 		"action": {
@@ -23,7 +23,7 @@
 			"path": "banip/overview"
 		}
 	},
-	"admin/services/banip/ipsetreport": {
+	"admin/control/banip/ipsetreport": {
 		"title": "IPSet Report",
 		"order": 20,
 		"action": {
@@ -31,7 +31,7 @@
 			"path": "banip/ipsetreport"
 		}
 	},
-	"admin/services/banip/blacklist": {
+	"admin/control/banip/blacklist": {
 		"title": "Edit Blacklist",
 		"order": 30,
 		"action": {
@@ -39,7 +39,7 @@
 			"path": "banip/blacklist"
 		}
 	},
-	"admin/services/banip/whitelist": {
+	"admin/control/banip/whitelist": {
 		"title": "Edit Whitelist",
 		"order": 40,
 		"action": {
@@ -47,7 +47,7 @@
 			"path": "banip/whitelist"
 		}
 	},
-	"admin/services/banip/maclist": {
+	"admin/control/banip/maclist": {
 		"title": "Edit Maclist",
 		"order": 50,
 		"action": {
@@ -55,7 +55,7 @@
 			"path": "banip/maclist"
 		}
 	},
-	"admin/services/banip/logread": {
+	"admin/control/banip/logread": {
 		"title": "Log View",
 		"order": 60,
 		"action": {
