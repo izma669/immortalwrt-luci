@@ -1712,6 +1712,15 @@ msgstr "DSL 线路模式"
 msgid "DTIM Interval"
 msgstr "DTIM 间隔"
 
+msgid "Multi To Unicast"
+msgstr "多播(组播)转单播"
+
+msgid "Short Preamble"
+msgstr "短前导码"
+
+msgid "ARP, IPv4 and IPv6 (even 802.1Q) with multicast destination MACs are unicast to the STA MAC address. Note: This is not Directed Multicast Service (DMS) in 802.11v. Note: might break receiver STA multicast expectations."
+msgstr "对于目的 MAC 地址为组播（多播）地址的 ARP、IPv4 和 IPv6 帧（甚至包括带有 802.1Q 标签的帧），将转换为单播帧并发送给该 STA（无线终端）的 MAC 地址。注意：此功能并非 802.11v 标准中定义的“定向组播服务（DMS）”。开启后可能会破坏接收端 STA 对组播报文的正常接收预期（即可能导致某些依赖组播的应用程序异常）。"
+
 #: modules/luci-mod-network/htdocs/luci-static/resources/view/network/dhcp.js:58
 #: modules/luci-mod-status/htdocs/luci-static/resources/view/status/include/40_dhcp.js:136
 msgid "DUID"
