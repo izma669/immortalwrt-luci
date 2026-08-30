@@ -25,6 +25,7 @@ include $(TOPDIR)/feeds/luci/luci.mk
 define Package/$(PKG_NAME)/install
     $(INSTALL_DIR) $(1)/etc/init.d
     $(INSTALL_BIN) /root/etc/init.d/luci-app-ipsec-server $(1)/etc/init.d/
+	chmod 755 $(1)/etc/init.d/luci-app-ipsec-server      # 添加执行权限
 endef
 # =============================
 
