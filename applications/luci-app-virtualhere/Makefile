@@ -18,7 +18,7 @@ define Package/$(PKG_NAME)
 	CATEGORY:=LuCI
 	SUBMENU:=3. Applications
 	TITLE:=VirtualHere USB Service for LuCI
-	DEPENDS:=@(i386||x86_64||arm||mipsel)
+	DEPENDS:=@(i386||x86_64||arm||mipsel||aarch64)
 	PKGARCH:=all
 endef
 
@@ -36,13 +36,16 @@ ifeq ($(ARCH),x86_64)
 	EXE_FILE:=vhusbdx86
 endif
 ifeq ($(ARCH),i386)
-	EXE_FILE:=vhusbdx86
+	EXE_FILE:=vhusbdi386
 endif
 ifeq ($(ARCH),mipsel)
 	EXE_FILE:=vhusbdmipsel
 endif
 ifeq ($(ARCH),arm)
 	EXE_FILE:=vhusbdarm
+endif
+ifeq ($(ARCH),aarch64)   
+	EXE_FILE:=vhusbdarm64
 endif
 
 define Package/$(PKG_NAME)/install
