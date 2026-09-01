@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-virtualhere
 LUCI_PKGARCH:=all
-PKG_VERSION:=4.8.7
+PKG_VERSION:=4.8.5
 PKG_RELEASE:=20210917
 
 include $(INCLUDE_DIR)/package.mk
