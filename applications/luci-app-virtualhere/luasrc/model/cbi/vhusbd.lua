@@ -18,7 +18,7 @@ s.anonymous = true
 switch = s:option(Flag, "enabled", translate("Enable"))
 switch.rmempty = false
 
-Access = s:option(Flag, "ExtAccess", translate("外网访问(端口:7575)"))
+Access = s:option(Flag, "ExtAccess", translate("外网访问(默认端口:7575)"))
 Access.rmempty = false
 
 -- 保存配置后自动重载服务
