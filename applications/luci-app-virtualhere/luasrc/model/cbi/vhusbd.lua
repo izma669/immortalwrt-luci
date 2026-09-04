@@ -30,7 +30,7 @@ function m.on_after_commit(self)
 end
 
 -- ===== 在 Settings 区域末尾添加手动重启按钮 =====
-local restart_btn = s:option(Button, "restart_btn", translate("重载服务"))
+local restart_btn = s:option(Button, "restart_btn", translate("Restart Service"))
 restart_btn.inputstyle = "reload"
 function restart_btn.write(self, section)
     luci.sys.call("/etc/init.d/vhusbd restart >/dev/null 2>&1")
