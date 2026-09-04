@@ -61,4 +61,12 @@ if sys.call("command -v xl2tpd > /dev/null") == 0 then
 	end
 end
 
+-- ===== 在 Settings 区域末尾添加手动重启按钮 =====
+local restart_btn = s:option(Button, "restart_btn", translate("重载服务"))
+restart_btn.inputstyle = "reload"
+function restart_btn.write(self, section)
+    luci.sys.call("/etc/init.d/luci-app-ipsec-server restart >/dev/null 2>&1")
+end
+
 return m
+
