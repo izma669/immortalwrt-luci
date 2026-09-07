@@ -62,7 +62,7 @@
 		document.addEventListener('DOMContentLoaded', function() {
 			var errorDiv = document.createElement('div');
 			errorDiv.style.cssText = 'padding: 20px; text-align: center;';
-			var backUrl = '<%=url("admin/services/oaf/users/list")%>';
+			var backUrl = '<%=url("admin/control/oaf/users/list")%>';
 			errorDiv.innerHTML = '<h3><%:Missing MAC parameter%></h3><p><a href="' + backUrl + '"><%:Back to User List%></a></p>';
 			document.body.appendChild(errorDiv);
 		});
@@ -99,7 +99,7 @@
 	
 	function loadUserBasicInfo() {
 		if (!mac) return;
-		new XHR().get("<%=url('admin/services/oaf/api/get_user_basic_info')%>/" + mac, null,
+		new XHR().get("<%=url('admin/control/oaf/api/get_user_basic_info')%>/" + mac, null,
 			function (x, data) {
 				if (data && data.mac) {
 					render_user_basic_info(data);
@@ -355,7 +355,7 @@
 
 		nickname_submitting = true;
 		nickname_log('submit request', { mac: mac, nickname: nickname });
-		new XHR().post("<%=url('admin/services/oaf/api/set_nickname')%>",
+		new XHR().post("<%=url('admin/control/oaf/api/set_nickname')%>",
 		{ mac: mac, nickname: nickname },
 		function(x, data) {
 			var ok = !!(x && x.status >= 200 && x.status < 300);
@@ -391,7 +391,7 @@
 		if (!isVisible) {
 			return;
 		}
-		new XHR().get("<%=url('admin/services/oaf/api/dev_visit_time')%>/" + mac, null,
+		new XHR().get("<%=url('admin/control/oaf/api/dev_visit_time')%>/" + mac, null,
 			function (x, st) {
 				visit_time_data = st;
 				display_app_visit_view(visit_time_data);
@@ -422,7 +422,7 @@
 	function loadOnlineOfflineRecords() {
 		if (!mac) return;
 		
-		new XHR().get("<%=url('admin/services/oaf/api/get_online_offline_records')%>?mac=" + encodeURIComponent(mac), null,
+		new XHR().get("<%=url('admin/control/oaf/api/get_online_offline_records')%>?mac=" + encodeURIComponent(mac), null,
 			function (x, st) {
 				if (st && st.records) {
 					renderOnlineOfflineRecords(st.records);
@@ -489,7 +489,7 @@
 		if (!isVisible) {
 			return;
 		}
-		new XHR().get("<%=url('admin/services/oaf/api/get_hourly_stats')%>/" + mac, null,
+		new XHR().get("<%=url('admin/control/oaf/api/get_hourly_stats')%>/" + mac, null,
 			function (x, st) {
 				if (st && st.hourly_stats) {
 					hourlyStatsData = st.hourly_stats;
@@ -700,7 +700,7 @@
 
 	function loadVisitListData(page) {
 		if (!mac) return;
-		var url = "<%=url('admin/services/oaf/api/dev_visit_list')%>/" + mac + "?page=" + page + "&page_size=" + visit_page_size;
+		var url = "<%=url('admin/control/oaf/api/dev_visit_list')%>/" + mac + "?page=" + page + "&page_size=" + visit_page_size;
 		var cb = arguments.length > 1 ? arguments[1] : null;
 		new XHR().get(url, null,
 			function (x, st) {
@@ -1492,7 +1492,7 @@
 		if (tbody) {
 			tbody.innerHTML = '<tr class="tr"><td class="td" colspan="4" style="text-align:center;"><%:Loading...%></td></tr>';
 		}
-		new XHR().get("<%=url('admin/services/oaf/api/get_user_parental_control_rules')%>", {mac: mac}, function(x, data) {
+		new XHR().get("<%=url('admin/control/oaf/api/get_user_parental_control_rules')%>", {mac: mac}, function(x, data) {
 			var list = (data && Array.isArray(data.list)) ? data.list : [];
 			render_behavior_whitelist_hint(data || {});
 			render_behavior_rule_table(list);
@@ -1585,7 +1585,7 @@
 	<div class="cbi-section">
 		<div style="padding: 20px; border-radius: 5px; background: inherit; color: inherit;">
 			<div class="user-detail-header">
-				<a href="<%=url("admin/services/oaf/users/list")%>" class="detail-back-link" title="<%:Back%>">
+				<a href="<%=url("admin/control/oaf/users/list")%>" class="detail-back-link" title="<%:Back%>">
 					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5.5 9 12l6.5 6.5-1.4 1.4L6.2 12l7.9-7.9 1.4 1.4z"></path></svg>
 					<span><%:Back%></span>
 				</a>

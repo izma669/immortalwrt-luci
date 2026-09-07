@@ -936,7 +936,7 @@ $(document).ready(function() {
     }
     
     function loadAllUsers() {
-        $.get('<%=url('admin/services/oaf/api/get_all_users')%>', {flag: 2, page: 0}, function(data) {
+        $.get('<%=url('admin/control/oaf/api/get_all_users')%>', {flag: 2, page: 0}, function(data) {
             if (data && data.data && Array.isArray(data.data.list)) {
                 allUsers = data.data.list;
                 console.log('Loaded users:', allUsers.length);
@@ -947,7 +947,7 @@ $(document).ready(function() {
     }
     
     function loadRules() {
-        $.get('<%=url('admin/services/oaf/api/mac_filter/get_mac_filter_rules')%>', function(data) {
+        $.get('<%=url('admin/control/oaf/api/mac_filter/get_mac_filter_rules')%>', function(data) {
             if (data && data.code === 0 && Array.isArray(data.data)) {
                 rules = data.data;
                 rules = rules.map(function(rule) {
@@ -1513,7 +1513,7 @@ $(document).ready(function() {
         
         ruleId = parseInt(ruleId);
         
-        $.post('<%=url('admin/services/oaf/api/mac_filter/delete_mac_filter_rule')%>', {rule_id: ruleId}, function(data) {
+        $.post('<%=url('admin/control/oaf/api/mac_filter/delete_mac_filter_rule')%>', {rule_id: ruleId}, function(data) {
             if (data && data.code === 0) {
                 rules = rules.filter(function(r) { return r.id !== ruleId; });
                 renderRulesList();
@@ -1884,7 +1884,7 @@ $(document).ready(function() {
             console.log('saveRule - STEP 4: NOT in edit mode, will create new rule');
         }
         
-        var url = isEditMode ? '<%=url('admin/services/oaf/api/mac_filter/update_mac_filter_rule')%>' : '<%=url('admin/services/oaf/api/mac_filter/add_mac_filter_rule')%>';
+        var url = isEditMode ? '<%=url('admin/control/oaf/api/mac_filter/update_mac_filter_rule')%>' : '<%=url('admin/control/oaf/api/mac_filter/add_mac_filter_rule')%>';
         
         console.log('saveRule - STEP 5: Final decision - editingId:', editingId, 'isEditMode:', isEditMode, 'url:', url);
         console.log('saveRule - STEP 6: ruleData:', JSON.stringify(ruleData, null, 2));

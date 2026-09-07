@@ -19,9 +19,9 @@ local function write_empty_list(page, page_size)
 end
 
 function index()
-    entry({"admin", "services", "oaf", "app_record"}, template("oaf/app_record"), _("App Record"), 70).leaf = true
-    entry({"admin", "services", "oaf", "api", "app_record", "get_active_app_records"}, call("get_active_app_records")).leaf = true
-    entry({"admin", "services", "oaf", "api", "app_record", "get_app_history_records"}, call("get_app_history_records")).leaf = true
+    entry({"admin", "control", "oaf", "app_record"}, template("oaf/app_record"), _("App Record"), 70).leaf = true
+    entry({"admin", "control", "oaf", "api", "app_record", "get_active_app_records"}, call("get_active_app_records")).leaf = true
+    entry({"admin", "control", "oaf", "api", "app_record", "get_app_history_records"}, call("get_app_history_records")).leaf = true
 end
 
 function get_active_app_records()

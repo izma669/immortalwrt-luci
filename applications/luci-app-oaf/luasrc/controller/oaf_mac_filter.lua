@@ -7,31 +7,31 @@ function index()
 		return
 	end
 
-	entry({"admin", "services", "oaf", "mac_filter"}, alias("admin", "services", "oaf", "mac_filter", "rules"), _("Access Control"), 40).dependent = true
-	entry({"admin", "services", "oaf", "mac_filter", "rules"}, cbi("oaf/mac_filter/rules", {hideapplybtn=true, hidesavebtn=true, hideresetbtn=true}), _("Filter Rules"), 10).leaf=true
+	entry({"admin", "control", "oaf", "mac_filter"}, alias("admin", "control", "oaf", "mac_filter", "rules"), _("Access Control"), 40).dependent = true
+	entry({"admin", "control", "oaf", "mac_filter", "rules"}, cbi("oaf/mac_filter/rules", {hideapplybtn=true, hidesavebtn=true, hideresetbtn=true}), _("Filter Rules"), 10).leaf=true
 
-	entry({"admin", "services", "oaf", "api", "mac_filter", "get_mac_filter_base"}, call("get_mac_filter_base"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "set_mac_filter_base"}, call("set_mac_filter_base"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "set_mac_filter_time"}, call("set_mac_filter_time"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "get_mac_filter_time"}, call("get_mac_filter_time"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "get_mac_filter_user"}, call("get_mac_filter_user"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "set_mac_filter_user"}, call("set_mac_filter_user"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "del_mac_filter_user"}, call("del_mac_filter_user"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "add_mac_filter_user"}, call("add_mac_filter_user"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "get_mf_status"}, call("get_mf_status"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "get_mac_filter_whitelist"}, call("get_mac_filter_whitelist"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "del_mac_filter_whitelist"}, call("del_mac_filter_whitelist"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "add_mac_filter_whitelist"}, call("add_mac_filter_whitelist"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "get_mac_filter_base"}, call("get_mac_filter_base"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "set_mac_filter_base"}, call("set_mac_filter_base"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "set_mac_filter_time"}, call("set_mac_filter_time"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "get_mac_filter_time"}, call("get_mac_filter_time"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "get_mac_filter_user"}, call("get_mac_filter_user"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "set_mac_filter_user"}, call("set_mac_filter_user"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "del_mac_filter_user"}, call("del_mac_filter_user"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "add_mac_filter_user"}, call("add_mac_filter_user"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "get_mf_status"}, call("get_mf_status"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "get_mac_filter_whitelist"}, call("get_mac_filter_whitelist"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "del_mac_filter_whitelist"}, call("del_mac_filter_whitelist"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "add_mac_filter_whitelist"}, call("add_mac_filter_whitelist"), nil).leaf = true
 	
 	
-	entry({"admin", "services", "oaf", "api", "mac_filter", "get_mac_filter_rules"}, call("get_mac_filter_rules"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "add_mac_filter_rule"}, call("add_mac_filter_rule"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "update_mac_filter_rule"}, call("update_mac_filter_rule"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "delete_mac_filter_rule"}, call("delete_mac_filter_rule"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "get_mac_filter_rules"}, call("get_mac_filter_rules"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "add_mac_filter_rule"}, call("add_mac_filter_rule"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "update_mac_filter_rule"}, call("update_mac_filter_rule"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "delete_mac_filter_rule"}, call("delete_mac_filter_rule"), nil).leaf = true
 	
 	
-	entry({"admin", "services", "oaf", "api", "mac_filter", "get_mac_filter_adv"}, call("get_mac_filter_adv"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "mac_filter", "set_mac_filter_adv"}, call("set_mac_filter_adv"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "get_mac_filter_adv"}, call("get_mac_filter_adv"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "mac_filter", "set_mac_filter_adv"}, call("set_mac_filter_adv"), nil).leaf = true
 end
 
 function get_mf_status()

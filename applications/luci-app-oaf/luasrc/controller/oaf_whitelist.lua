@@ -38,12 +38,12 @@ function index()
 		return
 	end
 
-	entry({"admin", "services", "oaf", "whitelist"}, cbi("oaf/whitelist", {hideapplybtn=true, hidesavebtn=true, hideresetbtn=true}), _("Whitelist"), 50).leaf = true
-	entry({"admin", "services", "oaf", "api", "record_whitelist", "get_record_whitelist"}, call("get_record_whitelist"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "record_whitelist", "get_record_whitelist_all"}, call("get_record_whitelist_all"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "record_whitelist", "add_record_whitelist"}, call("add_record_whitelist"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "record_whitelist", "del_record_whitelist"}, call("del_record_whitelist"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "record_whitelist", "get_all_users"}, call("get_all_users"), nil).leaf = true
+	entry({"admin", "control", "oaf", "whitelist"}, cbi("oaf/whitelist", {hideapplybtn=true, hidesavebtn=true, hideresetbtn=true}), _("Whitelist"), 50).leaf = true
+	entry({"admin", "control", "oaf", "api", "record_whitelist", "get_record_whitelist"}, call("get_record_whitelist"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "record_whitelist", "get_record_whitelist_all"}, call("get_record_whitelist_all"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "record_whitelist", "add_record_whitelist"}, call("add_record_whitelist"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "record_whitelist", "del_record_whitelist"}, call("del_record_whitelist"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "record_whitelist", "get_all_users"}, call("get_all_users"), nil).leaf = true
 end
 
 function get_record_whitelist()

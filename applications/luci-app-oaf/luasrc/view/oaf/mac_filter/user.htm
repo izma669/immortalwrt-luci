@@ -101,7 +101,7 @@
 
 
     function getAllUsersData() {
-        new XHR().get('<%=url('admin/services/oaf/api/get_all_users')%>', {flag: 2, page: 0},
+        new XHR().get('<%=url('admin/control/oaf/api/get_all_users')%>', {flag: 2, page: 0},
             function (x, data) {
  				if (Array.isArray(data.data.list))  
                 	allUsers = data.data.list;
@@ -112,7 +112,7 @@
 
 
     function getAppFilterUserData() {
-        new XHR().get('<%=url('admin/services/oaf/api/mac_filter/get_mac_filter_user')%>', null,
+        new XHR().get('<%=url('admin/control/oaf/api/mac_filter/get_mac_filter_user')%>', null,
             function (x, data) {
 
                 userData = data.data;
@@ -210,7 +210,7 @@
 
     function removeUser(index) {
         const userToRemove = userData.list[index];
-        new XHR().post('<%=url('admin/services/oaf/api/mac_filter/del_mac_filter_user')%>', 
+        new XHR().post('<%=url('admin/control/oaf/api/mac_filter/del_mac_filter_user')%>', 
             { mac: userToRemove.mac },
             function(x, data) {
                 getAppFilterUserData();
@@ -262,7 +262,7 @@
         var data_str = JSON.stringify(data);
 
         console.log(selectedMacs);
-        new XHR().post('<%=url('admin/services/oaf/api/mac_filter/add_mac_filter_user')%>', 
+        new XHR().post('<%=url('admin/control/oaf/api/mac_filter/add_mac_filter_user')%>', 
             { data: data_str },
             function(x, data) {
                 getAppFilterUserData();
@@ -293,7 +293,7 @@
         renderUserData();
         render_mode_description(newMode);
 
-        new XHR().post('<%=url('admin/services/oaf/api/mac_filter/set_mac_filter_user')%>', 
+        new XHR().post('<%=url('admin/control/oaf/api/mac_filter/set_mac_filter_user')%>', 
         { mode: newMode },
         function(x, data) {
             console.log('Mode updated successfully');
@@ -306,7 +306,7 @@
     };
 
     function getWhitelistData() {
-        new XHR().get('<%=url('admin/services/oaf/api/mac_filter/get_mac_filter_whitelist')%>', null,
+        new XHR().get('<%=url('admin/control/oaf/api/mac_filter/get_mac_filter_whitelist')%>', null,
             function (x, data) {
                 whitelistData = data.data;
                 if (!Array.isArray(whitelistData.list))                                  
@@ -377,7 +377,7 @@
             mac_list: selectedMacs
         };
         
-        new XHR().post('<%=url('admin/services/oaf/api/mac_filter/add_mac_filter_whitelist')%>', 
+        new XHR().post('<%=url('admin/control/oaf/api/mac_filter/add_mac_filter_whitelist')%>', 
             { data: JSON.stringify(data) },
             function(x, res) {
                 closeWhitelistModal();
@@ -389,7 +389,7 @@
 
     function removeWhitelistUser(index) {
         const userToRemove = whitelistData.list[index];
-        new XHR().post('<%=url('admin/services/oaf/api/mac_filter/del_mac_filter_whitelist')%>', 
+        new XHR().post('<%=url('admin/control/oaf/api/mac_filter/del_mac_filter_whitelist')%>', 
             { mac: userToRemove.mac },
             function(x, data) {
                 getWhitelistData();
@@ -403,7 +403,7 @@
             mac_list: [mac]
         };
         
-        new XHR().post('<%=url('admin/services/oaf/api/mac_filter/add_mac_filter_whitelist')%>', 
+        new XHR().post('<%=url('admin/control/oaf/api/mac_filter/add_mac_filter_whitelist')%>', 
             { data: JSON.stringify(data) },
             function(x, res) {
                 getWhitelistData();

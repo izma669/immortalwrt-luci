@@ -179,16 +179,16 @@
 
 <script>
 (function($){
-	var apiClassList='<%=url("admin/services/oaf/feature/class_list")%>';
-	var apiInfo='<%=url("admin/services/oaf/feature/info")%>';
-	var apiOnlineConfig='<%=url("admin/services/oaf/feature/online_config")%>';
-	var apiOnlineSave='<%=url("admin/services/oaf/feature/online_save")%>';
-	var apiOnlineList='<%=url("admin/services/oaf/feature/online_list")%>';
-	var apiOnlineStart='<%=url("admin/services/oaf/feature/online_start")%>';
-	var apiOnlineStatus='<%=url("admin/services/oaf/feature/online_status")%>';
-	var apiCustomList='<%=url("admin/services/oaf/feature/custom_list")%>';
-	var apiCustomClasses='<%=url("admin/services/oaf/feature/custom_class_list")%>';
-	var apiCustomSave='<%=url("admin/services/oaf/feature/custom_save")%>';
+	var apiClassList='<%=url("admin/control/oaf/feature/class_list")%>';
+	var apiInfo='<%=url("admin/control/oaf/feature/info")%>';
+	var apiOnlineConfig='<%=url("admin/control/oaf/feature/online_config")%>';
+	var apiOnlineSave='<%=url("admin/control/oaf/feature/online_save")%>';
+	var apiOnlineList='<%=url("admin/control/oaf/feature/online_list")%>';
+	var apiOnlineStart='<%=url("admin/control/oaf/feature/online_start")%>';
+	var apiOnlineStatus='<%=url("admin/control/oaf/feature/online_status")%>';
+	var apiCustomList='<%=url("admin/control/oaf/feature/custom_list")%>';
+	var apiCustomClasses='<%=url("admin/control/oaf/feature/custom_class_list")%>';
+	var apiCustomSave='<%=url("admin/control/oaf/feature/custom_save")%>';
 	var txt={loadFailed:'<%:Load failed%>',saveFailed:'<%:Save failed%>',saved:'<%:Saved successfully%>',loading:'<%:Loading...%>',noData:'<%:No data%>',noApps:'<%:No apps%>',unknown:'<%:Unknown%>',add:'<%:Add Application%>',edit:'<%:Edit Application%>',feature:'<%:Feature%>',position:'<%:Position%>',value:'<%:Value%>',deleteConfirm:'<%:Are you sure you want to delete this application?%>',invalidName:'<%:Invalid application name%>',invalidClass:'<%:Please select a category%>',invalidPort:'<%:Destination port must be a single port or port range between 1 and 65535%>',invalidDomain:'<%:Invalid domain%>',invalidUri:'<%:Invalid URI%>',invalidPayload:'<%:Invalid payload match format%>',invalidPosition:'<%:Payload position must be a signed integer%>',emptyFeature:'<%:At least one match field must be configured for each feature%>',maxApps:'<%:A maximum of 64 custom applications is allowed%>',maxFeatures:'<%:A maximum of 16 features is allowed%>',maxPayloads:'<%:A maximum of 15 payload matches is allowed%>'};
 	var onlineTxt={useVersion:'<%:Switch%>',confirm:'<%:Use this feature library version now?%>',confirmAction:'<%:Confirm%>',cancel:'<%:Cancel%>',success:'<%:Feature library updated successfully%>',failed:'<%:Feature library update failed%>',timeout:'<%:Feature library update timeout%>',invalidToken:'<%:Invalid subscription key%>',vipRequired:'<%:A valid subscription is required%>',rateLimited:'<%:Too many requests. Please try again later.%>',deviceLimited:'<%:The subscription device limit has been reached%>',serviceUnavailable:'<%:Subscription service is unavailable%>',formatError:'<%:Feature library format error. Please use the feature library for this version.%>',fileTooLarge:'<%:The downloaded file is too large%>',checksumError:'<%:Feature library checksum verification failed%>',updating:'<%:Updating, please wait...%>',updatingList:'<%:Updating list, please wait...%>',tokenSaved:'<%:Saved successfully%>',updated:'<%:Updated successfully%>',switchSuccess:'<%:Switched successfully%>',show:'<%:Show%>',hide:'<%:Hide%>',downloading:'<%:Downloading%>',extracting:'<%:Extracting%>',validating:'<%:Validating%>',applying:'<%:Applying%>',lite:'<%:Lite%>',plus:'<%:Plus%>',applicationCount:'<%:Application Count%>',chinese:'<%:Chinese%>',english:'<%:English%>',currentVersion:'<%:Current Version%>',updateListHint:'<%:Click Update List to get the latest feature libraries%>',freeVersion:'<%:Free%>',premiumVersion:'<%:Premium%>',keyRequired:'<%:Please enter a valid Key. You can apply for a Key on the official website.%>',keyRequiredVersion:'<%:Enter the Key to use this feature library version%>',invalidKeyPermission:'<%:Invalid Key. Please get the correct Key from the official website and enable the advanced feature library permission.%>'};
 	var customApps=[];

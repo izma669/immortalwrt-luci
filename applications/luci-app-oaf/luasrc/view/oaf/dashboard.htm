@@ -994,7 +994,7 @@
         display: flex;
         flex-direction: row;
         align-items: center;
-        padding: 1px 0;
+        padding: 10px 0;
     }
     .active-url-item::after {
         content: "";
@@ -1686,7 +1686,7 @@
     }
 
     function fetchDashboardCommon(){
-        new XHR().get('<%=url("admin/services/oaf/api/dashboard/get_dashboard_common")%>', null, function(x, data){
+        new XHR().get('<%=url("admin/control/oaf/api/dashboard/get_dashboard_common")%>', null, function(x, data){
             if(data){
                 try {
                     var json = typeof data === 'string' ? JSON.parse(data) : data;
@@ -1700,30 +1700,30 @@
 
     function dismissAccelerationWarning(){
         $('#acceleration-warning').hide();
-        new XHR().post('<%=url("admin/services/oaf/api/dashboard/set_notice_status")%>', {}, function() {});
+        new XHR().post('<%=url("admin/control/oaf/api/dashboard/set_notice_status")%>', {}, function() {});
     }
 
     function bindTopStatNav(){
         $('#app-count').closest('.mini').on('click', function(){
-            location.href = '<%=url("admin/services/oaf/app_record")%>';
+            location.href = '<%=url("admin/control/oaf/app_record")%>';
         });
         $('#mini-online').closest('.mini').on('click', function(){
-            location.href = '<%=url("admin/services/oaf/users/list")%>';
+            location.href = '<%=url("admin/control/oaf/users/list")%>';
         });
         $('#mini-rule-count').closest('.mini').on('click', function(){
             var afCount = window._afRuleCount || 0;
             var mfCount = window._mfRuleCount || 0;
             if (afCount > 0 || mfCount === 0) {
-                location.href = '<%=url("admin/services/oaf/app_filter/rules")%>';
+                location.href = '<%=url("admin/control/oaf/app_filter/rules")%>';
             } else {
-                location.href = '<%=url("admin/services/oaf/mac_filter/rules")%>';
+                location.href = '<%=url("admin/control/oaf/mac_filter/rules")%>';
             }
         });
         $('#oaf-feature-version').on('click', function(){
-            location.href = '<%=url("admin/services/oaf/feature")%>';
+            location.href = '<%=url("admin/control/oaf/feature")%>';
         });
         $('#oaf-app-record-count').on('click', function(){
-            location.href = '<%=url("admin/services/oaf/app_record")%>?tab=history';
+            location.href = '<%=url("admin/control/oaf/app_record")%>?tab=history';
         });
         $('.top-stats .mini').on('mousemove', function(e) {
             var $tip = $(this).find('.tooltip');
@@ -1752,7 +1752,7 @@
             return;
         }
         initStatusFetched = true;
-        new XHR().get('<%=url("admin/services/oaf/api/dashboard/get_init_status")%>', null, function(x, data){
+        new XHR().get('<%=url("admin/control/oaf/api/dashboard/get_init_status")%>', null, function(x, data){
             if(!data){
                 return;
             }
@@ -1771,7 +1771,7 @@
             return;
         }
 
-        new XHR().get('<%=url("admin/services/oaf/api/dashboard/get_daily_top_users")%>', null, function(x, data){
+        new XHR().get('<%=url("admin/control/oaf/api/dashboard/get_daily_top_users")%>', null, function(x, data){
             if(data){
                 try {
                     var json = typeof data === 'string' ? JSON.parse(data) : data;
@@ -1782,7 +1782,7 @@
             }
         });
 
-        new XHR().get('<%=url("admin/services/oaf/api/dashboard/get_active_users")%>?count=8', null, function(x, data){
+        new XHR().get('<%=url("admin/control/oaf/api/dashboard/get_active_users")%>?count=8', null, function(x, data){
             if(data){
                 try {
                     var json = typeof data === 'string' ? JSON.parse(data) : data;
@@ -1809,8 +1809,8 @@
     function fetchHistoryTrafficData(type){
         type = type || currentTrafficStatsType || 'today';
         var url = type === 'days30' ?
-            '<%=url("admin/services/oaf/api/dashboard/get_history_traffic_stats")%>?days=30' :
-            '<%=url("admin/services/oaf/api/dashboard/get_global_traffic_stats")%>';
+            '<%=url("admin/control/oaf/api/dashboard/get_history_traffic_stats")%>?days=30' :
+            '<%=url("admin/control/oaf/api/dashboard/get_global_traffic_stats")%>';
 
         new XHR().get(url, null, function(x, data){
             if(data){
@@ -2064,7 +2064,7 @@
             return;
         }
         initStatusSetting = true;
-        new XHR().post('<%=url("admin/services/oaf/api/dashboard/set_init_status")%>', {}, function() {
+        new XHR().post('<%=url("admin/control/oaf/api/dashboard/set_init_status")%>', {}, function() {
             initStatusSetting = false;
         });
     }
@@ -2514,7 +2514,7 @@
             return;
         }
 
-        var url = '<%=url("admin/services/oaf/api/dashboard/get_app_type_stats")%>?type=' + type;
+        var url = '<%=url("admin/control/oaf/api/dashboard/get_app_type_stats")%>?type=' + type;
         new XHR().get(url, null, function(x, data) {
             if (data) {
                 try {
@@ -2532,7 +2532,7 @@
 
     function fetchAllAppTypeStats() {
         ['hourly', 'daily'].forEach(function(type) {
-            var url = '<%=url("admin/services/oaf/api/dashboard/get_app_type_stats")%>?type=' + type;
+            var url = '<%=url("admin/control/oaf/api/dashboard/get_app_type_stats")%>?type=' + type;
             new XHR().get(url, null, function(x, data) {
                 if (data) {
                     try {
@@ -3512,7 +3512,7 @@
     }
 
     var cachedHostKeys = [];  
-    var MAX_DISPLAY_HOSTS = 20;  
+    var MAX_DISPLAY_HOSTS = 10;  
     var pendingHostQueue = [];  
     var isRenderingHosts = false; 
     var hostRenderInterval = null; 

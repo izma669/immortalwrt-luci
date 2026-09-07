@@ -1,9 +1,9 @@
 module("luci.controller.oaf_internet_audit", package.seeall)
 
 function index()
-	entry({"admin", "services", "oaf", "api", "internet_audit", "get_record_base"}, call("get_record_base"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "internet_audit", "set_record_base"}, call("set_record_base"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "internet_audit", "record_action"}, call("record_action"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "internet_audit", "get_record_base"}, call("get_record_base"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "internet_audit", "set_record_base"}, call("set_record_base"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "internet_audit", "record_action"}, call("record_action"), nil).leaf = true
 end
 
 function ensure_record_section(cur)

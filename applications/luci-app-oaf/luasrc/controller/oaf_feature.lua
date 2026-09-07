@@ -1,19 +1,19 @@
 module("luci.controller.oaf_feature", package.seeall)
 
 function index()
-	entry({"admin", "services", "oaf", "feature"},
+	entry({"admin", "control", "oaf", "feature"},
 		template("oaf/feature"),
 		_("Feature Library"), 80).dependent = true
-	entry({"admin", "services", "oaf", "feature", "info"}, call("get_feature_info"), nil).leaf = true
-	entry({"admin", "services", "oaf", "feature", "class_list"}, call("get_feature_class_list"), nil).leaf = true
-	entry({"admin", "services", "oaf", "feature", "online_config"}, call("get_feature_online_config"), nil).leaf = true
-	entry({"admin", "services", "oaf", "feature", "online_save"}, call("set_feature_online_config"), nil).leaf = true
-	entry({"admin", "services", "oaf", "feature", "online_list"}, call("get_feature_online_list"), nil).leaf = true
-	entry({"admin", "services", "oaf", "feature", "online_start"}, call("start_feature_online_update"), nil).leaf = true
-	entry({"admin", "services", "oaf", "feature", "online_status"}, call("get_feature_online_update_status"), nil).leaf = true
-	entry({"admin", "services", "oaf", "feature", "custom_list"}, call("get_custom_feature_list"), nil).leaf = true
-	entry({"admin", "services", "oaf", "feature", "custom_class_list"}, call("get_custom_feature_class_list"), nil).leaf = true
-	entry({"admin", "services", "oaf", "feature", "custom_save"}, call("set_custom_feature_list"), nil).leaf = true
+	entry({"admin", "control", "oaf", "feature", "info"}, call("get_feature_info"), nil).leaf = true
+	entry({"admin", "control", "oaf", "feature", "class_list"}, call("get_feature_class_list"), nil).leaf = true
+	entry({"admin", "control", "oaf", "feature", "online_config"}, call("get_feature_online_config"), nil).leaf = true
+	entry({"admin", "control", "oaf", "feature", "online_save"}, call("set_feature_online_config"), nil).leaf = true
+	entry({"admin", "control", "oaf", "feature", "online_list"}, call("get_feature_online_list"), nil).leaf = true
+	entry({"admin", "control", "oaf", "feature", "online_start"}, call("start_feature_online_update"), nil).leaf = true
+	entry({"admin", "control", "oaf", "feature", "online_status"}, call("get_feature_online_update_status"), nil).leaf = true
+	entry({"admin", "control", "oaf", "feature", "custom_list"}, call("get_custom_feature_list"), nil).leaf = true
+	entry({"admin", "control", "oaf", "feature", "custom_class_list"}, call("get_custom_feature_class_list"), nil).leaf = true
+	entry({"admin", "control", "oaf", "feature", "custom_save"}, call("set_custom_feature_list"), nil).leaf = true
 end
 
 function get_feature_info()

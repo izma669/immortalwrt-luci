@@ -6,19 +6,19 @@ function index()
 	if not fs.access("/etc/config/appfilter") then
 		return
 	end
-	entry({"admin", "services", "oaf", "app_filter"}, alias("admin", "services", "oaf", "app_filter", "rules"), _("App Filter"), 30).dependent = true
-	entry({"admin", "services", "oaf", "app_filter", "rules"}, cbi("oaf/app_filter/rules", {hideapplybtn=true, hidesavebtn=true, hideresetbtn=true}), _("Filter Rules"), 10).leaf=true
-	entry({"admin", "services", "oaf", "api", "app_filter", "class_list"}, call("get_class_list"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "app_filter", "get_all_users"}, call("get_all_users"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "app_filter", "get_filter_rules"}, call("get_filter_rules"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "app_filter", "add_filter_rule"}, call("add_filter_rule"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "app_filter", "update_filter_rule"}, call("update_filter_rule"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "app_filter", "delete_filter_rule"}, call("delete_filter_rule"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "app_filter", "get_appfilter_whitelist"}, call("get_appfilter_whitelist"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "app_filter", "add_appfilter_whitelist"}, call("add_appfilter_whitelist"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "app_filter", "del_appfilter_whitelist"}, call("del_appfilter_whitelist"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "app_filter", "get_app_filter_adv"}, call("get_app_filter_adv"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "app_filter", "set_app_filter_adv"}, call("set_app_filter_adv"), nil).leaf = true
+	entry({"admin", "control", "oaf", "app_filter"}, alias("admin", "control", "oaf", "app_filter", "rules"), _("App Filter"), 30).dependent = true
+	entry({"admin", "control", "oaf", "app_filter", "rules"}, cbi("oaf/app_filter/rules", {hideapplybtn=true, hidesavebtn=true, hideresetbtn=true}), _("Filter Rules"), 10).leaf=true
+	entry({"admin", "control", "oaf", "api", "app_filter", "class_list"}, call("get_class_list"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "app_filter", "get_all_users"}, call("get_all_users"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "app_filter", "get_filter_rules"}, call("get_filter_rules"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "app_filter", "add_filter_rule"}, call("add_filter_rule"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "app_filter", "update_filter_rule"}, call("update_filter_rule"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "app_filter", "delete_filter_rule"}, call("delete_filter_rule"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "app_filter", "get_appfilter_whitelist"}, call("get_appfilter_whitelist"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "app_filter", "add_appfilter_whitelist"}, call("add_appfilter_whitelist"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "app_filter", "del_appfilter_whitelist"}, call("del_appfilter_whitelist"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "app_filter", "get_app_filter_adv"}, call("get_app_filter_adv"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "app_filter", "set_app_filter_adv"}, call("set_app_filter_adv"), nil).leaf = true
 end
 
 

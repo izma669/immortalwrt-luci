@@ -3,15 +3,15 @@ module("luci.controller.oaf_advanced", package.seeall)
 local util = require "luci.util"
 
 function index()
-	entry({"admin", "services", "oaf", "advanced"}, template("oaf/advanced"), _("Settings"), 90).leaf = true
-	entry({"admin", "services", "oaf", "api", "system", "get_system_info"}, call("get_system_info"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "system", "set_system_info"}, call("set_system_info"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "system", "get_work_mode"}, call("get_work_mode"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "system", "set_work_mode"}, call("set_work_mode"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "system", "get_tcp_rst"}, call("get_tcp_rst"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "system", "set_tcp_rst"}, call("set_tcp_rst"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "system", "get_advanced_settings"}, call("get_advanced_settings"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "system", "set_advanced_settings"}, call("set_advanced_settings"), nil).leaf = true
+	entry({"admin", "control", "oaf", "advanced"}, template("oaf/advanced"), _("Settings"), 90).leaf = true
+	entry({"admin", "control", "oaf", "api", "system", "get_system_info"}, call("get_system_info"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "system", "set_system_info"}, call("set_system_info"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "system", "get_work_mode"}, call("get_work_mode"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "system", "set_work_mode"}, call("set_work_mode"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "system", "get_tcp_rst"}, call("get_tcp_rst"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "system", "set_tcp_rst"}, call("set_tcp_rst"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "system", "get_advanced_settings"}, call("get_advanced_settings"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "system", "set_advanced_settings"}, call("set_advanced_settings"), nil).leaf = true
 end
 
 local function ubus_call(api, payload)

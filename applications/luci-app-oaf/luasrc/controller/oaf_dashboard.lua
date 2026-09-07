@@ -1,18 +1,18 @@
 module("luci.controller.oaf_dashboard", package.seeall)
 
 function index()
-	entry({"admin", "services", "oaf", "dashboard"}, cbi("oaf/dashboard", {hideapplybtn=true, hidesavebtn=true, hideresetbtn=true}),
+	entry({"admin", "control", "oaf", "dashboard"}, cbi("oaf/dashboard", {hideapplybtn=true, hidesavebtn=true, hideresetbtn=true}),
 	 _("Dashboard"), 10).leaf = true
 	
-	entry({"admin", "services", "oaf", "api", "dashboard", "get_dashboard_common"}, call("get_dashboard_common")).leaf = true
-	entry({"admin", "services", "oaf", "api", "dashboard", "get_init_status"}, call("get_init_status")).leaf = true
-	entry({"admin", "services", "oaf", "api", "dashboard", "set_init_status"}, call("set_init_status")).leaf = true
-	entry({"admin", "services", "oaf", "api", "dashboard", "set_notice_status"}, call("set_notice_status")).leaf = true
-	entry({"admin", "services", "oaf", "api", "dashboard", "get_daily_top_users"}, call("get_daily_top_users")).leaf = true
-	entry({"admin", "services", "oaf", "api", "dashboard", "get_history_traffic_stats"}, call("get_history_traffic_stats")).leaf = true
-	entry({"admin", "services", "oaf", "api", "dashboard", "get_global_traffic_stats"}, call("get_global_traffic_stats")).leaf = true
-	entry({"admin", "services", "oaf", "api", "dashboard", "get_active_users"}, call("get_active_users")).leaf = true
-	entry({"admin", "services", "oaf", "api", "dashboard", "get_app_type_stats"}, call("get_app_type_stats")).leaf = true
+	entry({"admin", "control", "oaf", "api", "dashboard", "get_dashboard_common"}, call("get_dashboard_common")).leaf = true
+	entry({"admin", "control", "oaf", "api", "dashboard", "get_init_status"}, call("get_init_status")).leaf = true
+	entry({"admin", "control", "oaf", "api", "dashboard", "set_init_status"}, call("set_init_status")).leaf = true
+	entry({"admin", "control", "oaf", "api", "dashboard", "set_notice_status"}, call("set_notice_status")).leaf = true
+	entry({"admin", "control", "oaf", "api", "dashboard", "get_daily_top_users"}, call("get_daily_top_users")).leaf = true
+	entry({"admin", "control", "oaf", "api", "dashboard", "get_history_traffic_stats"}, call("get_history_traffic_stats")).leaf = true
+	entry({"admin", "control", "oaf", "api", "dashboard", "get_global_traffic_stats"}, call("get_global_traffic_stats")).leaf = true
+	entry({"admin", "control", "oaf", "api", "dashboard", "get_active_users"}, call("get_active_users")).leaf = true
+	entry({"admin", "control", "oaf", "api", "dashboard", "get_app_type_stats"}, call("get_app_type_stats")).leaf = true
 end
 
 function get_dashboard_common()

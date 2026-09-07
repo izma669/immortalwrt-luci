@@ -357,7 +357,7 @@
     }
 
     function load_online_records() {
-        new XHR().get("<%=url('admin/services/oaf/api/app_record/get_active_app_records')%>", {
+        new XHR().get("<%=url('admin/control/oaf/api/app_record/get_active_app_records')%>", {
             page: online_state.page,
             page_size: online_state.page_size
         }, function(x, data) {
@@ -375,7 +375,7 @@
     }
 
     function load_history_records() {
-        new XHR().get("<%=url('admin/services/oaf/api/app_record/get_app_history_records')%>", {
+        new XHR().get("<%=url('admin/control/oaf/api/app_record/get_app_history_records')%>", {
             mac: $("#q-history-mac").val() || "",
             start_time: get_ts_from_input("#q-history-start"),
             end_time: get_ts_from_input("#q-history-end"),

@@ -210,21 +210,21 @@ local has_access_control = nfs.access("/etc/config/macfilter")
         cleanFailed: '<%:Clean failed%>'
     };
     var api = {
-        workModeGet: '<%=url("admin/services/oaf/api/system/get_work_mode")%>',
-        workModeSet: '<%=url("admin/services/oaf/api/system/set_work_mode")%>',
-        systemGet: '<%=url("admin/services/oaf/api/system/get_system_info")%>',
-        systemSet: '<%=url("admin/services/oaf/api/system/set_system_info")%>',
-        tcpRstGet: '<%=url("admin/services/oaf/api/system/get_tcp_rst")%>',
-        tcpRstSet: '<%=url("admin/services/oaf/api/system/set_tcp_rst")%>',
-        appFilterGet: '<%=url("admin/services/oaf/api/app_filter/get_app_filter_adv")%>',
-        appFilterSet: '<%=url("admin/services/oaf/api/app_filter/set_app_filter_adv")%>',
-        accessControlGet: '<%=url("admin/services/oaf/api/mac_filter/get_mac_filter_adv")%>',
-        accessControlSet: '<%=url("admin/services/oaf/api/mac_filter/set_mac_filter_adv")%>',
-        advancedGet: '<%=url("admin/services/oaf/api/system/get_advanced_settings")%>',
-        advancedSet: '<%=url("admin/services/oaf/api/system/set_advanced_settings")%>',
-        recordGet: '<%=url("admin/services/oaf/api/internet_audit/get_record_base")%>',
-        recordSet: '<%=url("admin/services/oaf/api/internet_audit/set_record_base")%>',
-        recordAction: '<%=url("admin/services/oaf/api/internet_audit/record_action")%>'
+        workModeGet: '<%=url("admin/control/oaf/api/system/get_work_mode")%>',
+        workModeSet: '<%=url("admin/control/oaf/api/system/set_work_mode")%>',
+        systemGet: '<%=url("admin/control/oaf/api/system/get_system_info")%>',
+        systemSet: '<%=url("admin/control/oaf/api/system/set_system_info")%>',
+        tcpRstGet: '<%=url("admin/control/oaf/api/system/get_tcp_rst")%>',
+        tcpRstSet: '<%=url("admin/control/oaf/api/system/set_tcp_rst")%>',
+        appFilterGet: '<%=url("admin/control/oaf/api/app_filter/get_app_filter_adv")%>',
+        appFilterSet: '<%=url("admin/control/oaf/api/app_filter/set_app_filter_adv")%>',
+        accessControlGet: '<%=url("admin/control/oaf/api/mac_filter/get_mac_filter_adv")%>',
+        accessControlSet: '<%=url("admin/control/oaf/api/mac_filter/set_mac_filter_adv")%>',
+        advancedGet: '<%=url("admin/control/oaf/api/system/get_advanced_settings")%>',
+        advancedSet: '<%=url("admin/control/oaf/api/system/set_advanced_settings")%>',
+        recordGet: '<%=url("admin/control/oaf/api/internet_audit/get_record_base")%>',
+        recordSet: '<%=url("admin/control/oaf/api/internet_audit/set_record_base")%>',
+        recordAction: '<%=url("admin/control/oaf/api/internet_audit/record_action")%>'
     };
     var currentThemeMode = 0;
     var settingsLoaded = false;

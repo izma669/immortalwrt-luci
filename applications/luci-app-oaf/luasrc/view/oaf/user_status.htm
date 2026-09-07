@@ -109,7 +109,7 @@
 		}
 
 		function loadSystemBaseInfo(callback) {
-			new XHR().get("<%=url('admin/services/oaf/api/get_system_base_info')%>", {}, function(x, data) {
+			new XHR().get("<%=url('admin/control/oaf/api/get_system_base_info')%>", {}, function(x, data) {
 				user_session_enable = !!(data && parseInt(data.user_session_enable, 10) === 1);
 				user_rssi_enable = !!(data && Object.prototype.hasOwnProperty.call(data, 'wireless_support'));
 				applyCapabilityColumnVisibility();
@@ -122,7 +122,7 @@
 				if (callback) callback();
 				return;
 			}
-			new XHR().get("<%=url('admin/services/oaf/api/get_class_list')%>", {}, function(x, data) {
+			new XHR().get("<%=url('admin/control/oaf/api/get_class_list')%>", {}, function(x, data) {
 				var classMap = {};
 				var classPayload = data || {};
 				if (!Array.isArray(classPayload.class_list) && classPayload.data && Array.isArray(classPayload.data.class_list)) {
@@ -157,7 +157,7 @@
 		}
 
 		function getAllUsersData(page) {
-			new XHR().get("<%=url('admin/services/oaf/api/get_all_users')%>", {flag: 3, page: page, page_size: page_size},
+			new XHR().get("<%=url('admin/control/oaf/api/get_all_users')%>", {flag: 3, page: page, page_size: page_size},
 				function (x, data) {
 					user_list_data = data.data;
 					total_num = data.data.total_num || 0;
@@ -199,7 +199,7 @@
 			if (!inBlacklist && !confirm('<%:Are you sure you want to join the blacklist? After joining, this terminal will be disconnected from the Internet.%>')) {
 				return;
 			}
-			var apiUrl = inBlacklist ? "<%=url('admin/services/oaf/api/del_mac_blacklist')%>" : "<%=url('admin/services/oaf/api/add_mac_blacklist')%>";
+			var apiUrl = inBlacklist ? "<%=url('admin/control/oaf/api/del_mac_blacklist')%>" : "<%=url('admin/control/oaf/api/add_mac_blacklist')%>";
 			new XHR().post(apiUrl, {mac: mac}, function(x, data) {
 				if (data && data.code === 0) {
 					showSuccessMessage(inBlacklist ? '<%:Removed from blacklist%>' : '<%:Added to blacklist%>');
@@ -595,7 +595,7 @@
             }
 
 			function showParentalControlDetail(mac) {
-				new XHR().get("<%=url('admin/services/oaf/api/get_parental_control_detail')%>", {mac: mac}, function(x, data) {
+				new XHR().get("<%=url('admin/control/oaf/api/get_parental_control_detail')%>", {mac: mac}, function(x, data) {
 					var detail = data || {};
 					loadAppClassNameMap(function() {
 						var matched = pickOneMatchedRule(detail);
@@ -709,7 +709,7 @@
 					var blacklistClass = inBlacklist ? 'cbi-button cbi-button-add user-unblock-btn' : 'cbi-button cbi-button-remove user-block-btn';
 					$tr.append(`
 						<td class="td user-col-actions">
-							<button type="button" class="cbi-button cbi-button-add" onclick="window.location.href='<%=url("admin/services/oaf/users/detail")%>?mac=' + encodeURIComponent('${user_list[i].mac}')" style="margin-right: 5px;"><%:Detail%></button>
+							<button type="button" class="cbi-button cbi-button-add" onclick="window.location.href='<%=url("admin/control/oaf/users/detail")%>?mac=' + encodeURIComponent('${user_list[i].mac}')" style="margin-right: 5px;"><%:Detail%></button>
 							<button type="button" class="${blacklistClass}" onclick="toggleBlacklist('${user_list[i].mac}', ${inBlacklist ? 1 : 0})">${blacklistText}</button>
 						</td>
 					`);
@@ -758,7 +758,7 @@
 								<div class="user-card-line"><span class="user-card-label"><%:Internet Permission%></span><span class="user-card-value">${pcStatusHtml}</span></div>
 							</div>
 							<div class="user-card-actions">
-								<button type="button" class="cbi-button cbi-button-add" onclick="window.location.href='<%=url("admin/services/oaf/users/detail")%>?mac=' + encodeURIComponent('${user_list[i].mac}')"><%:Detail%></button>
+								<button type="button" class="cbi-button cbi-button-add" onclick="window.location.href='<%=url("admin/control/oaf/users/detail")%>?mac=' + encodeURIComponent('${user_list[i].mac}')"><%:Detail%></button>
 								<button type="button" class="${blacklistClass}" onclick="toggleBlacklist('${user_list[i].mac}', ${inBlacklist ? 1 : 0})">${blacklistText}</button>
 							</div>
 						</div>
@@ -932,7 +932,7 @@
 			var $modal = $('#detailsModal');
 			$modal.css('display', 'flex');
 
-			new XHR().get("<%=url('admin/services/oaf/api/dev_visit_time')%>/" + mac, null,
+			new XHR().get("<%=url('admin/control/oaf/api/dev_visit_time')%>/" + mac, null,
 				function (x, st) {
 					visit_time_data = st;
 					console.log("visit_time_data = " + visit_time_data);
@@ -940,7 +940,7 @@
 				}
 			);
 
-			new XHR().get("<%=url('admin/services/oaf/api/dev_visit_list')%>/" + mac, null,
+			new XHR().get("<%=url('admin/control/oaf/api/dev_visit_list')%>/" + mac, null,
 				function (x, st) {
 					visit_list_data = st;
 					console.log("visit_list_data = " + visit_list_data);
@@ -971,7 +971,7 @@
 				return;
 			}
 
-			new XHR().post("<%=url('admin/services/oaf/api/set_nickname')%>", 
+			new XHR().post("<%=url('admin/control/oaf/api/set_nickname')%>", 
 			{ mac: mac, nickname: nickname },
 			function(x, data) {
 				console.log('Nickname updated successfully');

@@ -3,27 +3,27 @@ local utl = require "luci.util"
 
 function index()
 	local page
-	entry({"admin", "services", "oaf", "users"}, alias("admin", "services", "oaf", "users", "list"), _("User List"), 20).dependent = true
-	entry({"admin", "services", "oaf", "users", "list"}, cbi("oaf/user_list", {hideapplybtn=true, hidesavebtn=true, hideresetbtn=true}),
+	entry({"admin", "control", "oaf", "users"}, alias("admin", "control", "oaf", "users", "list"), _("User List"), 20).dependent = true
+	entry({"admin", "control", "oaf", "users", "list"}, cbi("oaf/user_list", {hideapplybtn=true, hidesavebtn=true, hideresetbtn=true}),
 	 nil).leaf = true
 	
-	entry({"admin", "services", "oaf", "users", "detail"}, cbi("oaf/user_detail", {hideapplybtn=true, hidesavebtn=true, hideresetbtn=true}), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "user_status"}, call("user_status"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "dev_visit_list"}, call("get_dev_visit_list"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "dev_visit_time"}, call("get_dev_visit_time"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "app_class_visit_time"}, call("get_app_class_visit_time"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "get_class_list"}, call("get_class_list"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "get_all_users"}, call("get_all_users"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "get_system_base_info"}, call("get_system_base_info"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "get_mac_blacklist"}, call("get_mac_blacklist"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "add_mac_blacklist"}, call("add_mac_blacklist"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "del_mac_blacklist"}, call("del_mac_blacklist"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "get_parental_control_detail"}, call("get_parental_control_detail"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "set_nickname"}, call("set_nickname"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "get_hourly_stats"}, call("get_hourly_stats"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "get_user_basic_info"}, call("get_user_basic_info"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "get_online_offline_records"}, call("get_online_offline_records"), nil).leaf = true
-	entry({"admin", "services", "oaf", "api", "get_user_parental_control_rules"}, call("get_user_parental_control_rules"), nil).leaf = true
+	entry({"admin", "control", "oaf", "users", "detail"}, cbi("oaf/user_detail", {hideapplybtn=true, hidesavebtn=true, hideresetbtn=true}), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "user_status"}, call("user_status"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "dev_visit_list"}, call("get_dev_visit_list"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "dev_visit_time"}, call("get_dev_visit_time"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "app_class_visit_time"}, call("get_app_class_visit_time"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "get_class_list"}, call("get_class_list"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "get_all_users"}, call("get_all_users"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "get_system_base_info"}, call("get_system_base_info"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "get_mac_blacklist"}, call("get_mac_blacklist"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "add_mac_blacklist"}, call("add_mac_blacklist"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "del_mac_blacklist"}, call("del_mac_blacklist"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "get_parental_control_detail"}, call("get_parental_control_detail"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "set_nickname"}, call("set_nickname"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "get_hourly_stats"}, call("get_hourly_stats"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "get_user_basic_info"}, call("get_user_basic_info"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "get_online_offline_records"}, call("get_online_offline_records"), nil).leaf = true
+	entry({"admin", "control", "oaf", "api", "get_user_parental_control_rules"}, call("get_user_parental_control_rules"), nil).leaf = true
 end
 
 function get_hostname_by_mac(dst_mac)
