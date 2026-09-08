@@ -37,7 +37,7 @@ function restart_btn.write(self, section)
     luci.sys.call("/etc/init.d/owntone restart >/dev/null 2>&1")
 end
 
--- ===== 新增：重载USB声卡内核模块按钮 =====
+-- ===== 重载USB声卡内核模块按钮 =====
 local reload_usb_btn = s:option(Button, "reload_usb_btn", translate("Reload USB Sound Loadable Kernel Module"))
 reload_usb_btn.inputstyle = "reload"
 function reload_usb_btn.write(self, section)
@@ -45,6 +45,11 @@ function reload_usb_btn.write(self, section)
     luci.sys.call("rmmod snd_usb_audio >/dev/null 2>&1; modprobe snd_usb_audio >/dev/null 2>&1")
 end
 
-
+-- ===== 初始化所有声卡按钮 (alsactl init) =====
+local alsa_init_btn = s:option(Button, "alsa_init_btn", translate("Initialize All Sound Cards"))
+alsa_init_btn.inputstyle = "reload"
+function alsa_init_btn.write(self, section)
+    luci.sys.call("alsactl init >/dev/null 2>&1")
+end
 
 return m
