@@ -30,11 +30,21 @@ directories.rmempty = false
 readme = s:option(DummyValue, "readme", translate("Readme"))
 readme.description = translate("About iOS Remote Pairing: <br />1. Open the web interface <br /> 2. Start iPhone Remote APP, go to Settings, Add Library<br />3. Enter the pair code in the web interface")
 
--- ===== 在 Settings 区域末尾添加手动重启按钮 =====
+-- ===== 重启服务按钮 =====
 local restart_btn = s:option(Button, "restart_btn", translate("Restart Service"))
 restart_btn.inputstyle = "reload"
 function restart_btn.write(self, section)
     luci.sys.call("/etc/init.d/owntone restart >/dev/null 2>&1")
 end
+
+-- ===== 新增：重载USB声卡内核模块按钮 =====
+local reload_usb_btn = s:option(Button, "reload_usb_btn", translate("Reload USB Sound Loadable Kernel Module"))
+reload_usb_btn.inputstyle = "reload"
+function reload_usb_btn.write(self, section)
+    -- 先卸载，再加载USB声卡内核模块
+    luci.sys.call("rmmod snd_usb_audio >/dev/null 2>&1; modprobe snd_usb_audio >/dev/null 2>&1")
+end
+
+
 
 return m
