@@ -37,3 +37,12 @@ msgstr "关于 iOS 设备匹配: <br />1. 先打开 Web 管理界面，在 Setti
 
 msgid "Reload USB Sound Loadable Kernel Module"
 msgstr "重载USB声音内核模块"
+
+msgid "status:"
+msgstr "状态码:"
+
+msgid "Request failed"
+msgstr "请求失败"
+
+msgid "Bad Request"
+msgstr "错误请求"
