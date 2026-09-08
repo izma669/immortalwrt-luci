@@ -46,3 +46,6 @@ msgstr "请求失败"
 
 msgid "Bad Request"
 msgstr "错误请求"
+
+msgid "Initialize All Sound Cards"
+msgstr "初始化所有声卡"
