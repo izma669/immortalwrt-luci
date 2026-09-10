@@ -33,7 +33,7 @@ readme = s:option(DummyValue, "readme", translate("Readme"))
 readme.description = translate("About iOS Remote Pairing: <br />1. Open the web interface <br /> 2. Start iPhone Remote APP, go to Settings, Add Library<br />3. Enter the pair code in the web interface")
 
 -- ===== 重启服务按钮 =====
-local restart_btn = s:option(Button, "restart_btn", translate("Owntone""Restart Service"))
+local restart_btn = s:option(Button, "restart_btn", translate("重启Owntone服务器"))
 restart_btn.inputstyle = "reload"
 function restart_btn.write(self, section)
     luci.sys.call("/etc/init.d/owntone restart >/dev/null 2>&1")
