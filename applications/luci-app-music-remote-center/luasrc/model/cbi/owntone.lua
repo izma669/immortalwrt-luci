@@ -33,10 +33,24 @@ readme = s:option(DummyValue, "readme", translate("Readme"))
 readme.description = translate("About iOS Remote Pairing: <br />1. Open the web interface <br /> 2. Start iPhone Remote APP, go to Settings, Add Library<br />3. Enter the pair code in the web interface")
 
 -- ===== 重启服务按钮 =====
-local restart_btn = s:option(Button, "restart_btn", translate("Restart Service"))
+local restart_btn = s:option(Button, "restart_btn", translate("Owntone""Restart Service"))
 restart_btn.inputstyle = "reload"
 function restart_btn.write(self, section)
     luci.sys.call("/etc/init.d/owntone restart >/dev/null 2>&1")
+end
+
+-- ===== 重载USB声卡内核模块按钮 =====
+local reload_usb_btn = s:option(Button, "reload_usb_btn", translate("Reload USB Sound Loadable Kernel Module"))
+reload_usb_btn.inputstyle = "reload"
+function reload_usb_btn.write(self, section)
+    luci.sys.call("rmmod snd_usb_audio >/dev/null 2>&1; modprobe snd_usb_audio >/dev/null 2>&1")
+end
+
+-- ===== 初始化所有声卡按钮 (alsactl init) =====
+local alsa_init_btn = s:option(Button, "alsa_init_btn", translate("Initialize All Sound Cards"))
+alsa_init_btn.inputstyle = "reload"
+function alsa_init_btn.write(self, section)
+    luci.sys.call("alsactl init >/dev/null 2>&1")
 end
 
 ------------------------------------------------------------
@@ -97,22 +111,6 @@ status.cfgvalue = function(self, section)
         return "<span style='color:#c00'>未探测到混音器。请确认已安装 <code>alsa-utils</code>，且 USB 声卡已插入。</span>"
     end
     return string.format("<span style='color:#080'>检测到 %d 个混音器控制。</span>", mixer_count)
-end
-
-
-
--- ===== 重载USB声卡内核模块按钮 =====
-local reload_usb_btn = s:option(Button, "reload_usb_btn", translate("Reload USB Sound Loadable Kernel Module"))
-reload_usb_btn.inputstyle = "reload"
-function reload_usb_btn.write(self, section)
-    luci.sys.call("rmmod snd_usb_audio >/dev/null 2>&1; modprobe snd_usb_audio >/dev/null 2>&1")
-end
-
--- ===== 初始化所有声卡按钮 (alsactl init) =====
-local alsa_init_btn = s:option(Button, "alsa_init_btn", translate("Initialize All Sound Cards"))
-alsa_init_btn.inputstyle = "reload"
-function alsa_init_btn.write(self, section)
-    luci.sys.call("alsactl init >/dev/null 2>&1")
 end
 
 return m
