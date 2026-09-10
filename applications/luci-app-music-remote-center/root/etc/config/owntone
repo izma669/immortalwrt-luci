@@ -4,6 +4,3 @@ config owntone
 	option enabled '1'
 	option db_path '/mnt/mmcblk0p1/config/songs.db'
 	option directories '/mnt/mmcblk0p1/media/music'
-	option card 'plughw:0'
-	option mixer 'Cyberdrive Audio Driver Output Playback Vol'
-	option mixer_device 'hw:0'
