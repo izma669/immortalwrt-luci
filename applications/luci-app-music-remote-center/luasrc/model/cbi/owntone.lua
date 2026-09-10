@@ -29,6 +29,16 @@ directories = s:option(Value, "directories", translate("Music Directorie Path"))
 directories.default = "/opt/music"
 directories.rmempty = false
 
+readme = s:option(DummyValue, "readme", translate("Readme"))
+readme.description = translate("About iOS Remote Pairing: <br />1. Open the web interface <br /> 2. Start iPhone Remote APP, go to Settings, Add Library<br />3. Enter the pair code in the web interface")
+
+-- ===== 重启服务按钮 =====
+local restart_btn = s:option(Button, "restart_btn", translate("Restart Service"))
+restart_btn.inputstyle = "reload"
+function restart_btn.write(self, section)
+    luci.sys.call("/etc/init.d/owntone restart >/dev/null 2>&1")
+end
+
 ------------------------------------------------------------
 -- ★ 声卡设备
 ------------------------------------------------------------
@@ -89,15 +99,7 @@ status.cfgvalue = function(self, section)
     return string.format("<span style='color:#080'>检测到 %d 个混音器控制。</span>", mixer_count)
 end
 
-readme = s:option(DummyValue, "readme", translate("Readme"))
-readme.description = translate("About iOS Remote Pairing: <br />1. Open the web interface <br /> 2. Start iPhone Remote APP, go to Settings, Add Library<br />3. Enter the pair code in the web interface")
 
--- ===== 重启服务按钮 =====
-local restart_btn = s:option(Button, "restart_btn", translate("Restart Service"))
-restart_btn.inputstyle = "reload"
-function restart_btn.write(self, section)
-    luci.sys.call("/etc/init.d/owntone restart >/dev/null 2>&1")
-end
 
 -- ===== 重载USB声卡内核模块按钮 =====
 local reload_usb_btn = s:option(Button, "reload_usb_btn", translate("Reload USB Sound Loadable Kernel Module"))
