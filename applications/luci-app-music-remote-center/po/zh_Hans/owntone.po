@@ -49,3 +49,15 @@ msgstr "错误请求"
 
 msgid "Initialize All Sound Cards"
 msgstr "初始化所有声卡"
+
+msgid "Detection Status"
+msgstr "检测状态"
+
+msgid "Mixer Control"
+msgstr "混音控制"
+
+msgid "Mixer Device"
+msgstr "混音设备"
+
+msgid "Audio Card"
+msgstr "声卡"
