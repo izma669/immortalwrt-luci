@@ -99,7 +99,7 @@ for name, _ in pairs(mixers) do
     mixer:value(name, name)
 end
 mixer.default = ""
-mixer.rmempty = false
+mixer.rmempty = true
 
 ------------------------------------------------------------
 -- ★ 探测状态提示
