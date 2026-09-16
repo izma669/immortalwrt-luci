@@ -36,21 +36,21 @@ readme.description = translate("About iOS Remote Pairing: <br />1. Open the web 
 local restart_btn = s:option(Button, "restart_btn", translate("重启Owntone服务器"))
 restart_btn.inputstyle = "reload"
 function restart_btn.write(self, section)
-    luci.sys.call("/etc/init.d/owntone restart >/dev/null 2>&1")
+    sys.call("/etc/init.d/owntone restart >/dev/null 2>&1")
 end
 
 -- ===== 重载USB声卡内核模块按钮 =====
 local reload_usb_btn = s:option(Button, "reload_usb_btn", translate("Reload USB Sound Loadable Kernel Module"))
 reload_usb_btn.inputstyle = "reload"
 function reload_usb_btn.write(self, section)
-    luci.sys.call("rmmod snd_usb_audio >/dev/null 2>&1; modprobe snd_usb_audio >/dev/null 2>&1")
+    sys.call("rmmod snd_usb_audio >/dev/null 2>&1; modprobe snd_usb_audio >/dev/null 2>&1")
 end
 
 -- ===== 初始化所有声卡按钮 (alsactl init) =====
 local alsa_init_btn = s:option(Button, "alsa_init_btn", translate("Initialize All Sound Cards"))
 alsa_init_btn.inputstyle = "reload"
 function alsa_init_btn.write(self, section)
-    luci.sys.call("alsactl init >/dev/null 2>&1")
+    sys.call("alsactl init >/dev/null 2>&1")
 end
 
 ------------------------------------------------------------
@@ -111,6 +111,112 @@ status.cfgvalue = function(self, section)
         return "<span style='color:#c00'>未探测到混音器。请确认已安装 <code>alsa-utils</code>，且 USB 声卡已插入。</span>"
     end
     return string.format("<span style='color:#080'>检测到 %d 个混音器控制。</span>", mixer_count)
+end
+
+------------------------------------------------------------
+-- ★ 定时音量调整（新增 4 个时间点）
+------------------------------------------------------------
+for i = 1, 4 do
+    local time_opt = s:option(Value, "time" .. i, translate("时间点 " .. i .. " (HH:MM)"))
+    time_opt.default = ""
+    time_opt.rmempty = true
+    time_opt.placeholder = "07:00"
+    time_opt.datatype = "string"
+    time_opt.validate = function(self, value)
+        if value and value ~= "" then
+            if not value:match("^%d%d:%d%d$") then
+                return nil, translate("时间格式必须为 HH:MM")
+            end
+            local h, m = value:match("^(%d%d):(%d%d)$")
+            h, m = tonumber(h), tonumber(m)
+            if h < 0 or h > 23 or m < 0 or m > 59 then
+                return nil, translate("时间无效")
+            end
+        end
+        return value
+    end
+
+    local vol_opt = s:option(Value, "volume" .. i, translate("音量 " .. i .. " (%)"))
+    vol_opt.default = ""
+    vol_opt.rmempty = true
+    vol_opt.datatype = "range(0,100)"
+    vol_opt.placeholder = "50"
+end
+
+-- ===== 应用定时音量设置按钮（纯 Lua 内联）=====
+local apply_btn = s:option(Button, "apply_volume_schedule", translate("应用定时音量设置"))
+apply_btn.inputstyle = "apply"
+function apply_btn.write(self, section)
+    local uci = self.map.uci
+    local cfg = self.map.config
+
+    -- 关键：先把内存里的表单值 commit 到磁盘
+    uci:commit(cfg)
+
+    local card_idx   = uci:get(cfg, section, "card") or "plughw:0"
+    local mixer_dev  = uci:get(cfg, section, "mixer_device") or "hw:0"
+    local mixer_ctrl = uci:get(cfg, section, "mixer") or ""
+
+    -- 调试日志
+    local log = io.open("/tmp/owntone_btn.log", "a")
+    if log then
+        log:write(string.format("%s apply: card=%s dev=%s mixer=%s\n",
+            os.date("%Y-%m-%d %H:%M:%S"),
+            tostring(card_idx), tostring(mixer_dev), tostring(mixer_ctrl)))
+    end
+
+    if mixer_ctrl == "" then
+        if log then log:write("  mixer 为空，放弃\n"); log:close() end
+        return
+    end
+
+    local card_num = tostring(card_idx):match(":(%d+)") or "0"
+
+    -- 收集新 cron 行
+    local new_lines = {}
+    for i = 1, 4 do
+        local t = uci:get(cfg, section, "time" .. i) or ""
+        local v = uci:get(cfg, section, "volume" .. i) or ""
+        if log then log:write(string.format("  #%d time=%s vol=%s\n", i, t, v)) end
+        if t ~= "" and v ~= "" then
+            local hh, mm = t:match("^(%d?%d):(%d%d)$")
+            if hh and mm then
+                table.insert(new_lines, string.format(
+                    "%d %d * * * amixer -c %s -D %s sset '%s' %s%% >/dev/null 2>&1",
+                    tonumber(mm), tonumber(hh),
+                    card_num, mixer_dev, mixer_ctrl, v))
+            end
+        end
+    end
+
+    -- 读写 crontab
+    local crontab = "/etc/crontabs/root"
+    local kept = {}
+    local f = io.open(crontab, "r")
+    if f then
+        for line in f:lines() do
+            if not line:match("amixer%s+%-c%s+%d+") then
+                table.insert(kept, line)
+            end
+        end
+        f:close()
+    end
+    for _, l in ipairs(new_lines) do
+        table.insert(kept, l)
+    end
+
+    f = io.open(crontab, "w")
+    if f then
+        f:write(table.concat(kept, "\n") .. "\n")
+        f:close()
+        if log then log:write("  写入 " .. #new_lines .. " 条 cron\n") end
+    elseif log then
+        log:write("  错误：无法写 crontab\n")
+    end
+    if log then log:close() end
+
+    -- 重启 cron
+    sys.call("/etc/init.d/cron restart >/dev/null 2>&1")
 end
 
 return m
