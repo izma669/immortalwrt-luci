@@ -17,6 +17,21 @@ enable = s:option(Flag, "enabled", translate("Enabled"))
 enable.default = "0"
 enable.rmempty = false
 
+autoplay = s:option(Flag, "autoplay", translate("自动播放音乐库"))
+autoplay.default = "0"
+autoplay.rmempty = false
+autoplay.description = translate("Owntone 启动后自动把整个音乐库加入队列并开始播放。")
+
+autoplay_random = s:option(Flag, "autoplay_random", translate("随机选曲"))
+autoplay.default = "0"
+autoplay_random.rmempty = false
+autoplay_random:depends("autoplay", "1")
+
+autoplay_repeat = s:option(Flag, "autoplay_repeat", translate("列表循环"))
+autoplay_repeat.default = "0"
+autoplay_repeat.rmempty = false
+autoplay_repeat:depends("autoplay", "1")
+
 port = s:option(Value, "port", translate("Port"))
 port.rmempty = false
 port.datatype = "port"
