@@ -17,6 +17,7 @@ s.anonymous = true
 s:tab("basic", translate("基本设置"))
 s:tab("playback", translate("播放控制选项"))
 s:tab("advanced", translate("高级设置"))
+s:tab("logs",     translate("日志查看"))
 
 -- ==================== 基本设置 ====================
 enable = s:taboption("basic", Flag, "enabled", translate("Enabled"))
@@ -239,6 +240,47 @@ status.cfgvalue = function(self, section)
         return "<span style='color:#c00'>未探测到混音器。请确认已安装 <code>alsa-utils</code>，且 USB 声卡已插入。</span>"
     end
     return string.format("<span style='color:#080'>检测到 %d 个混音器控制。</span>", mixer_count)
+end
+
+-- ==================== 日志查看 ====================
+-- 刷新按钮（纯 JS，不写回 UCI）
+refresh_btn = s:taboption("logs", DummyValue, "_refresh_btn")
+refresh_btn.rawhtml = true
+refresh_btn.default = [[
+<div style="margin-bottom:8px;">
+  <button type="button" class="cbi-button cbi-button-action"
+          onclick="location.reload();">刷新日志</button>
+  <span style="margin-left:10px;color:#888;">
+    共显示最近 200 行，切换子面板或点击按钮即可刷新
+  </span>
+</div>
+]]
+
+log_view = s:taboption("logs", TextValue, "_log_view", translate("Owntone 运行日志"))
+log_view.rows     = 30
+log_view.wrap     = "off"
+log_view.readonly = true
+
+function log_view.cfgvalue(self, section)
+    local data
+
+    -- 1) 优先从 syslog (logd) 抓取
+    data = sys.exec("logread -e owntone -e forked-daapd 2>/dev/null | tail -n 200")
+
+    -- 2) 回退到常见日志文件（用 shell test 判断，避免依赖 fs）
+    if not data or data == "" then
+        data = sys.exec("[ -f /var/log/owntone.log ] && tail -n 200 /var/log/owntone.log 2>/dev/null")
+    end
+    if not data or data == "" then
+        data = sys.exec("[ -f /tmp/log/owntone.log ] && tail -n 200 /tmp/log/owntone.log 2>/dev/null")
+    end
+
+    -- 3) 兜底
+    if not data or data == "" then
+        data = translate("(暂无日志输出，请确认 Owntone 已启动)") .. "\n"
+    end
+
+    return data
 end
 
 return m
