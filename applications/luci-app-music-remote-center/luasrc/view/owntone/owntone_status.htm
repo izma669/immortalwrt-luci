@@ -6,8 +6,36 @@ XHR.poll(3, '<%=url([[admin]], [[nas]], [[owntone]], [[status]])%>', null,
 			if (data.running) {
 				var links = "<em><b><font color=green>Music Remote Center <%:RUNNING%></font></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type=button value='<%:Open Web Interface%>' onclick=window.open('http://'+window.location.hostname+':3689') /></em>";
 				tb.innerHTML = links;
+
+				// ===== 动态显示当前播放歌曲 =====
+				var np = document.getElementById('owntone_now_playing');
+				if (np) {
+					if (data.title && data.title.length > 0) {
+						np.innerHTML = '&#x5F53;&#x524D;&#x64AD;&#x653E;&#xFF1A;<b>' + data.title + '</b>'
+							+ (data.artist ? ' - ' + data.artist : '')
+							+ (data.album ? ' <span style="color:#888">[' + data.album + ']</span>' : '');
+						np.style.color = '#080';
+					} else if (data.state === 'play') {
+						np.innerHTML = '&#x64AD;&#x653E;&#x4E2D;...';
+						np.style.color = '#080';
+					} else if (data.state === 'pause') {
+						np.innerHTML = '&#x5DF2;&#x6682;&#x505C;';
+						np.style.color = '#c80';
+					} else if (data.state === 'stop') {
+						np.innerHTML = '&#x5DF2;&#x505C;&#x6B62;';
+						np.style.color = '#666';
+					} else {
+						np.innerHTML = '&#x6B63;&#x5728;&#x7F13;&#x51B2;...';
+						np.style.color = '#888';
+					}
+				}
 			} else {
 				tb.innerHTML = '<em><b><font color=red>Music Remote Center <%:NOT RUNNING%></font></b></em>';
+				var np = document.getElementById('owntone_now_playing');
+				if (np) {
+					np.innerHTML = '';
+					np.style.color = '';
+				}
 			}
 		}
 	}
@@ -18,5 +46,8 @@ XHR.poll(3, '<%=url([[admin]], [[nas]], [[owntone]], [[status]])%>', null,
 <fieldset class="cbi-section">
 	<p id="owntone_status">
 		<em><%:Collecting data...%></em>
+	</p>
+	<p id="owntone_now_playing" style="margin-top: 8px;">
+		<em></em>
 	</p>
 </fieldset>
