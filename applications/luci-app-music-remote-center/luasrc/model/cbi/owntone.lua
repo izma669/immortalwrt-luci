@@ -186,7 +186,7 @@ end
 -- ★ 声卡设备
 ------------------------------------------------------------
 card = s:taboption("advanced", ListValue, "card", translate("Audio Card"),
-                translate("ALSA 混音器 :  plug插件会转换采样率/格式，dmix多路混音，hw是声卡硬件，"))
+                translate("ALSA 混音器 :  plug会自动转换采样率/格式，dmix能将多路音频混合，hw是声卡硬件，"))
 card:value("plughw:0", "plug->hw:0")
 card:value("hw:0",     "hw:0")
 card:value("default",  "plug->dmix->hw:0")
