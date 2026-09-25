@@ -1,7 +1,43 @@
 #!/bin/sh
 
-# ���� LuCI �˵���
-uci set gmediarender.main.enabled='0'
-uci commit gmediarender
+# ============================================
+# 1. 初始化 UCI 默认配置（如果尚未存在）
+# ============================================
+if ! uci -q get gmediarender.main >/dev/null 2>&1; then
+    uci set gmediarender.main=service
+    uci set gmediarender.main.enabled='0'
+    uci set gmediarender.main.friendly_name='OpenWrt-Speaker'
+    uci set gmediarender.main.interface='br-lan'
+    uci set gmediarender.main.port='49152'
+    uci set gmediarender.main.enable_log='1'
+    uci set gmediarender.main.logfile='/var/log/gmediarender.log'
+    uci commit gmediarender
+fi
+
+# ============================================
+# 2. 添加日志清理 cron（幂等，不会重复添加）
+# ============================================
+LOG_PATH="/var/log/gmediarender.log"
+LOG_SIZE_LIMIT=5242880          # 5MB
+CRON_MARK="luci-gmediarender-logcleanup"
+CRON_LINE="*/30 * * * * [ -f $LOG_PATH ] && [ \"\$(stat -c %s $LOG_PATH 2>/dev/null || echo 0)\" -gt $LOG_SIZE_LIMIT ] && truncate -s 0 $LOG_PATH # $CRON_MARK"
+
+# 只在 /etc/init.d/cron 存在时才添加（极简固件可能没有 cron）
+if [ -x /etc/init.d/cron ]; then
+    # 检查是否已经存在（按 mark 判断），避免重复安装时叠加
+    if ! crontab -l 2>/dev/null | grep -qF "$CRON_MARK"; then
+        # 追加而不是覆盖
+        ( crontab -l 2>/dev/null; echo "$CRON_LINE" ) | sort -u | crontab -
+    fi
+
+    # 确保 cron 服务开机自启并立即加载
+    /etc/init.d/cron enable 2>/dev/null
+    /etc/init.d/cron restart 2>/dev/null
+fi
+
+# ============================================
+# 3. 检查日志目录是否存在
+# ============================================
+mkdir -p "$(dirname "$LOG_PATH")"
 
 exit 0
