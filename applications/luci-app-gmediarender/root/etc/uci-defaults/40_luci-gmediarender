@@ -3,4 +3,16 @@
 uci set gmediarender.main.enabled='0'
 uci commit gmediarender
 
+CRON_MARK="luci-gmediarender-logcleanup"
+CRON_LINE="*/30 * * * * /usr/bin/gmr-logcleanup.sh # $CRON_MARK"
+
+if [ -x /etc/init.d/cron ]; then
+    if ! crontab -l 2>/dev/null | grep -qF "$CRON_MARK"; then
+        ( crontab -l 2>/dev/null; echo "$CRON_LINE" ) | sort -u | crontab -
+    fi
+    /etc/init.d/cron enable 2>/dev/null
+    /etc/init.d/cron restart 2>/dev/null
+fi
+
+
 exit 0 
