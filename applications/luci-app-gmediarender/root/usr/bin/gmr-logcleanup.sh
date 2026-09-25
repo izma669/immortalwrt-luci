@@ -1,5 +1,5 @@
 #!/bin/sh
-# 日志清理脚本：从 UCI 读取开关、阈值，超过就 truncate
+
 . /lib/functions.sh
 
 config_load gmediarender
