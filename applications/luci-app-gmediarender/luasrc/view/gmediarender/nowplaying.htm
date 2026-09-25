@@ -1,0 +1,101 @@
+<script type="text/javascript">
+    XHR.poll(3, '<%=url("admin/services/gmediarender/nowplaying")%>', null,
+        function(x, data) {
+            var elArt    = document.getElementById('gmr-np-art');
+            var elNoArt  = document.getElementById('gmr-np-noart');
+            var elTitle  = document.getElementById('gmr-np-title');
+            var elArtist = document.getElementById('gmr-np-artist');
+            var elAlbum  = document.getElementById('gmr-np-album');
+            var elState  = document.getElementById('gmr-np-state');
+            var elPos    = document.getElementById('gmr-np-pos');
+            var elDbg    = document.getElementById('gmr-np-debug-body');
+            if (!elTitle) return;
+
+            if (!data || (!data.title && !data.artist)) {
+                elState.innerHTML  = '<span style="color:#c98b00;">空闲</span>';
+                elTitle.innerHTML  = '<span style="color:#999; font-style:italic;">暂无播放</span>';
+                elArtist.innerHTML = '-';
+                elAlbum.innerHTML  = '-';
+                elPos.innerHTML    = '-';
+                if (elArt)   elArt.style.display = 'none';
+                if (elNoArt) elNoArt.style.display = 'flex';
+            } else {
+                elState.innerHTML  = data.playing
+                    ? '<span style="color:green; font-weight:bold;">播放中</span>'
+                    : '<span style="color:#c98b00;">暂停</span>';
+                elTitle.innerHTML  = data.title  || '-';
+                elArtist.innerHTML = data.artist || '-';
+                elAlbum.innerHTML  = data.album  || '-';
+                elPos.innerHTML    = (data.position || '0:00:00') +
+                                     ' / ' + (data.duration || '-');
+
+                // 处理封面
+                if (data.albumart && data.albumart.length > 5) {
+                    if (elArt.src !== data.albumart) {
+                        elArt.src = data.albumart;
+                    }
+                    elArt.style.display = 'block';
+                    elNoArt.style.display = 'none';
+                } else {
+                    elArt.style.display = 'none';
+                    elNoArt.style.display = 'flex';
+                }
+            }
+            if (elDbg) elDbg.textContent = data.debug || '';
+        }
+    );
+
+    // 封面加载失败时回退到占位符
+    function gmrArtError() {
+        var elArt    = document.getElementById('gmr-np-art');
+        var elNoArt  = document.getElementById('gmr-np-noart');
+        if (elArt && elNoArt) {
+            elArt.style.display = 'none';
+            elNoArt.style.display = 'flex';
+        }
+    }
+</script>
+
+<div class="cbi-section" style="display: flex; align-items: flex-start; gap: 16px;">
+    <!-- 封面区域 -->
+    <div style="flex-shrink: 0; width: 120px;">
+        <img id="gmr-np-art" src="" onerror="gmrArtError()"
+             style="width: 120px; height: 120px; border-radius: 6px; object-fit: cover; display: none; background: #f0f0f0;" alt="封面" />
+        <div id="gmr-np-noart"
+             style="width: 120px; height: 120px; border-radius: 6px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 12px;">
+            暂无封面
+        </div>
+    </div>
+
+    <!-- 信息区域 -->
+    <div style="flex-grow: 1;">
+        <table class="table">
+            <tr>
+                <td width="20%" style="color:#666;">状态</td>
+                <td id="gmr-np-state">-</td>
+            </tr>
+            <tr>
+                <td style="color:#666;">歌曲</td>
+                <td id="gmr-np-title">-</td>
+            </tr>
+            <tr>
+                <td style="color:#666;">艺术家</td>
+                <td id="gmr-np-artist">-</td>
+            </tr>
+            <tr>
+                <td style="color:#666;">专辑</td>
+                <td id="gmr-np-album">-</td>
+            </tr>
+            <tr>
+                <td style="color:#666;">进度</td>
+                <td id="gmr-np-pos">-</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<div style="clear: both;"></div>
+<details style="margin-top:10px;">
+    <summary style="cursor:pointer; color:#999; font-size:12px; user-select:none;">调试信息</summary>
+    <pre id="gmr-np-debug-body" style="font-size:11px; color:#888; background:#f8f8f8; padding:8px; border-radius:4px; margin-top:6px; white-space:pre-wrap; word-break:break-all;"></pre>
+</details>
