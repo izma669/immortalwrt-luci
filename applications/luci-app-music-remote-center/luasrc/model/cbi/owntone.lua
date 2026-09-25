@@ -242,6 +242,33 @@ status.cfgvalue = function(self, section)
     return string.format("<span style='color:#080'>检测到 %d 个混音器控制。</span>", mixer_count)
 end
 
+------------------------------------------------------------
+-- ★ DummyValue 显示原始命令输出
+------------------------------------------------------------
+local diag = s:taboption("advanced", DummyValue, "_alsa_diag", translate("ALSA 诊断"))
+diag.rawhtml = true
+diag.cfgvalue = function(self, section)
+    local cards = sys.exec("cat /proc/asound/cards 2>/dev/null") or ""
+    local ctrls = sys.exec("amixer -c 0 scontrols 2>&1") or ""
+    local asound = sys.exec("[ -f /etc/asound.conf ] && cat /etc/asound.conf || echo '(无 asound.conf)'") or ""
+
+    local function esc(s)
+        return (s:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"))
+    end
+
+    return string.format([[
+<details>
+<summary style="cursor:pointer;color:#06c;">点击展开原始输出</summary>
+<b>/proc/asound/cards</b>
+<pre style="background:#f7f7f7;padding:6px;border:1px solid #ddd;">%s</pre>
+<b>amixer -c 0 scontrols</b>
+<pre style="background:#f7f7f7;padding:6px;border:1px solid #ddd;">%s</pre>
+<b>/etc/asound.conf</b>
+<pre style="background:#f7f7f7;padding:6px;border:1px solid #ddd;">%s</pre>
+</details>
+]], esc(cards), esc(ctrls), esc(asound))
+end
+
 -- ==================== 日志查看 ====================
 -- 刷新按钮（纯 JS，不写回 UCI）
 refresh_btn = s:taboption("logs", DummyValue, "_refresh_btn")
