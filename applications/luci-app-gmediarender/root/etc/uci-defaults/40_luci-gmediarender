@@ -1,7 +1,6 @@
 #!/bin/sh
 
-    uci set gmediarender.main.enabled='0'
-    uci commit gmediarender
+uci set gmediarender.main.enabled='0'
+uci commit gmediarender
 
-
-exit 0
+exit 0  原来的数据
