@@ -4,6 +4,18 @@ m = Map("gmediarender", translate("GMediaRender"),
     translate("GMediaRender is a UPnP/DLNA audio renderer. " ..
         "It allows you to push audio from your phone or computer to this device."))
 
+-- ==========================================
+-- 1. 状态模块（移到最上方）
+-- ==========================================
+s = m:section(NamedSection, "main", "gmediarender", translate("Status"))
+s.anonymous = true
+
+o = s:option(DummyValue, "_status", translate("Service Status"))
+o.template = "gmediarender/status"
+
+-- ==========================================
+-- 2. 基本设置模块（移到下方）
+-- ==========================================
 s = m:section(NamedSection, "main", "gmediarender", translate("Basic Settings"))
 s.anonymous = true
 s.addremove = false
@@ -33,11 +45,5 @@ o = s:option(Value, "logfile", translate("Log File"),
     translate("Path to log file (leave empty to disable logging)"))
 o.default = "/var/log/gmediarender.log"
 o.rmempty = true
-
-s = m:section(NamedSection, "main", "gmediarender", translate("Status"))
-s.anonymous = true
-
-o = s:option(DummyValue, "_status", translate("Service Status"))
-o.template = "gmediarender/status"
 
 return m
