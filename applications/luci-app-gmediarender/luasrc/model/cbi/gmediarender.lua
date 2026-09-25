@@ -1,29 +1,49 @@
-<script type="text/javascript">
-    XHR.poll(3, '<%=url("admin/services/gmediarender/status")%>', null,
-        function(x, data) {
-            var running = document.getElementById('gmr-running');
-            var enabled = document.getElementById('gmr-enabled');
-            if (running && enabled) {
-                running.innerHTML = data.running
-                    ? '<span style="color:green"><%:Running%></span>'
-                    : '<span style="color:red"><%:Stopped%></span>';
-                enabled.innerHTML = data.enabled
-                    ? '<span style="color:green"><%:Enabled%></span>'
-                    : '<span style="color:orange"><%:Disabled%></span>';
-            }
-        }
-    );
-</script>
+local m, s, o
 
-<div class="cbi-section">
-    <table class="table">
-        <tr>
-            <td width="33%"><%:Service Status%></td>
-            <td id="gmr-running">-</td>
-        </tr>
-        <tr>
-            <td><%:Enabled%></td>
-            <td id="gmr-enabled">-</td>
-        </tr>
-    </table>
-</div>
+m = Map("gmediarender", translate("GMediaRender"),
+    translate("GMediaRender is a UPnP/DLNA audio renderer. " ..
+        "It allows you to push audio from your phone or computer to this device."))
+
+-- ==========================================
+-- 1. 状态模块
+-- ==========================================
+s = m:section(NamedSection, "main", "gmediarender", translate("Status"))
+s.anonymous = true
+
+o = s:option(DummyValue, "_status", translate("Service Status"))
+o.template = "gmediarender/status"
+
+-- ==========================================
+-- 2. 基本设置模块
+-- ==========================================
+s = m:section(NamedSection, "main", "gmediarender", translate("Basic Settings"))
+s.anonymous = true
+s.addremove = false
+
+o = s:option(Flag, "enabled", translate("Enable"),
+    translate("Enable GMediaRender service"))
+o.default = "0"
+o.rmempty = false
+
+o = s:option(Value, "friendly_name", translate("Friendly Name"),
+    translate("The name that appears on DLNA controllers"))
+o.default = "OpenWrt-Speaker"
+o.rmempty = false
+
+o = s:option(Value, "interface", translate("Listen Interface"),
+    translate("IP address or interface name to bind (e.g. br-lan or 192.168.1.1)"))
+o.default = "br-lan"
+o.rmempty = false
+
+o = s:option(Value, "port", translate("Port"),
+    translate("UPnP event port (default 49152)"))
+o.datatype = "port"
+o.default = "49152"
+o.rmempty = false
+
+o = s:option(Value, "logfile", translate("Log File"),
+    translate("Path to log file (leave empty to disable logging)"))
+o.default = "/var/log/gmediarender.log"
+o.rmempty = true
+
+return m
