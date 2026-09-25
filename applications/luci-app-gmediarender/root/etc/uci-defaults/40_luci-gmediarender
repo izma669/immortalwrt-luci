@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# ÆôÓÃ LuCI ²Ëµ¥Ïî
+uci set gmediarender.main.enabled='0'
+uci commit gmediarender
+
+exit 0
