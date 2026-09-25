@@ -57,3 +57,6 @@ msgstr "重载GMediaRender"
 
 msgid "Now Playing"
 msgstr "正在播放"
+
+msgid "Write playback log to file. Required for the Now Playing display."
+msgstr "把日志写入文件后解析播放数据，这是“正在播放”显示功能所必需的."
