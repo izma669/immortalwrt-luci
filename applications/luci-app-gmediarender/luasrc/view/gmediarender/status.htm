@@ -5,11 +5,11 @@
             var enabled = document.getElementById('gmr-enabled');
             if (running && enabled) {
                 running.innerHTML = data.running
-                    ? '<span style="color:green"><%:Running%></span>'
-                    : '<span style="color:red"><%:Stopped%></span>';
+                    ? '<span style="color:green">运行中</span>'
+                    : '<span style="color:red">已停止</span>';
                 enabled.innerHTML = data.enabled
-                    ? '<span style="color:green"><%:Enabled%></span>'
-                    : '<span style="color:orange"><%:Disabled%></span>';
+                    ? '<span style="color:green">已启用</span>'
+                    : '<span style="color:orange">已禁用</span>';
             }
         }
     );
@@ -18,11 +18,11 @@
 <div class="cbi-section">
     <table class="table">
         <tr>
-            <td width="33%"><%:Service Status%></td>
+            <td width="33%">服务状态</td>
             <td id="gmr-running">-</td>
         </tr>
         <tr>
-            <td><%:Enabled%></td>
+            <td>启用</td>
             <td id="gmr-enabled">-</td>
         </tr>
     </table>
