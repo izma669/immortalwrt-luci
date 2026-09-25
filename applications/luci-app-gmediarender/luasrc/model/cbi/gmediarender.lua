@@ -62,6 +62,18 @@ o = s:option(Value, "logfile", translate("Log File"),
 o.default = "/var/log/gmediarender.log"
 o.rmempty = true
 
+o = s:option(Flag, "log_cleanup", "启用日志自动清理",
+    "日志超过阈值时自动清空")
+o.default = "1"
+o.rmempty = false
+
+o = s:option(Value, "log_limit_mb", "日志大小阈值 (MB)",
+    "超过此大小将自动清空日志文件")
+o.datatype = "uinteger"
+o.default = "5"
+o.rmempty = false
+o:depends("log_cleanup", "1")
+
 -- ==========================================
 -- 4. 服务控制模块
 -- ==========================================
