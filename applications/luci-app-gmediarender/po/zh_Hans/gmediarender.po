@@ -48,3 +48,12 @@ msgstr "服务状态"
 
 msgid "Enabled"
 msgstr "已启用"
+
+msgid "Service Control"
+msgstr "服务控制"
+
+msgid "Reload GMediaRender"
+msgstr "重载GMediaRender"
+
+msgid "Now Playing"
+msgstr "正在播放"
