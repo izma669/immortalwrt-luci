@@ -14,7 +14,16 @@ o = s:option(DummyValue, "_status", translate("Service Status"))
 o.template = "gmediarender/status"
 
 -- ==========================================
--- 2. 基本设置模块
+-- 2. Now Playing 模块
+-- ==========================================
+s = m:section(NamedSection, "main", "gmediarender", translate("Now Playing"))
+s.anonymous = true
+
+o = s:option(DummyValue, "_nowplaying", translate("Current Track"))
+o.template = "gmediarender/nowplaying"
+
+-- ==========================================
+-- 3. 基本设置模块
 -- ==========================================
 s = m:section(NamedSection, "main", "gmediarender", translate("Basic Settings"))
 s.anonymous = true
@@ -41,9 +50,30 @@ o.datatype = "port"
 o.default = "49152"
 o.rmempty = false
 
+-- 日志总开关
+o = s:option(Flag, "enable_log", translate("Enable Logging"),
+    translate("Write playback log to file. Required for the Now Playing display."))
+o.default = "1"
+o.rmempty = false
+
+-- 日志文件路径
 o = s:option(Value, "logfile", translate("Log File"),
     translate("Path to log file (leave empty to disable logging)"))
 o.default = "/var/log/gmediarender.log"
 o.rmempty = true
+
+-- ==========================================
+-- 4. 服务控制模块
+-- ==========================================
+s = m:section(NamedSection, "main", "gmediarender", translate("Service Control"))
+s.anonymous = true
+s.addremove = false
+
+o = s:option(Button, "_reload", translate("Reload GMediaRender"))
+o.inputtitle = translate("Reload Service")
+o.inputstyle = "apply"
+o.write = function()
+    luci.sys.call("/etc/init.d/gmediarender restart >/dev/null 2>&1")
+end
 
 return m
