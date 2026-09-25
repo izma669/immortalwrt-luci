@@ -3,4 +3,4 @@
 uci set gmediarender.main.enabled='0'
 uci commit gmediarender
 
-exit 0  原来的数据
+exit 0 
