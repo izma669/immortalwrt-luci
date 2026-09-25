@@ -2,7 +2,7 @@ msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8\n"
 
 msgid "GMediaRender"
-msgstr "GMediaRenderDLNA接收器"
+msgstr "GR_DLNA音频接收器"
 
 msgid "GMediaRender is a UPnP/DLNA audio renderer. It allows you to push audio from your phone or computer to this device."
 msgstr "GMediaRender 是一个 UPnP/DLNA 音频渲染器。你可以将手机或电脑上的音频推送到此设备播放。"
