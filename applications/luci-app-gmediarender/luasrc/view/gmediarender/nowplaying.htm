@@ -29,7 +29,6 @@
                 elPos.innerHTML    = (data.position || '0:00:00') +
                                      ' / ' + (data.duration || '-');
 
-                // 处理封面
                 if (data.albumart && data.albumart.length > 5) {
                     if (elArt.src !== data.albumart) {
                         elArt.src = data.albumart;
@@ -45,7 +44,6 @@
         }
     );
 
-    // 封面加载失败时回退到占位符
     function gmrArtError() {
         var elArt    = document.getElementById('gmr-np-art');
         var elNoArt  = document.getElementById('gmr-np-noart');
@@ -56,45 +54,53 @@
     }
 </script>
 
-<div class="cbi-section" style="display: flex; align-items: flex-start; gap: 16px;">
+<div class="cbi-section" style="
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 20px;
+    background: linear-gradient(135deg, #f8f9fb 0%, #eef1f6 100%);
+    border: 1px solid #d8dde5;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+">
     <!-- 封面区域 -->
-    <div style="flex-shrink: 0; width: 120px;">
+    <div style="flex-shrink: 0;">
         <img id="gmr-np-art" src="" onerror="gmrArtError()"
-             style="width: 120px; height: 120px; border-radius: 6px; object-fit: cover; display: none; background: #f0f0f0;" alt="封面" />
+             style="width: 200px; height: 200px; border-radius: 8px; object-fit: cover; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" alt="封面" />
         <div id="gmr-np-noart"
-             style="width: 120px; height: 120px; border-radius: 6px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 12px;">
+             style="width: 200px; height: 200px; border-radius: 8px; background: #e4e8ee; display: flex; align-items: center; justify-content: center; color: #a0a6b0; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
             暂无封面
         </div>
     </div>
 
     <!-- 信息区域 -->
-    <div style="flex-grow: 1;">
-        <table class="table">
+    <div style="flex-grow: 1; min-width: 0;">
+        <table class="table" style="margin: 0;">
             <tr>
-                <td width="20%" style="color:#666;">状态</td>
-                <td id="gmr-np-state">-</td>
+                <td width="18%" style="color:#666; padding: 6px 0;">状态</td>
+                <td id="gmr-np-state" style="padding: 6px 0;">-</td>
             </tr>
             <tr>
-                <td style="color:#666;">歌曲</td>
-                <td id="gmr-np-title">-</td>
+                <td style="color:#666; padding: 6px 0;">歌曲</td>
+                <td id="gmr-np-title" style="padding: 6px 0; font-weight: 600; color: #222; word-break: break-word;">-</td>
             </tr>
             <tr>
-                <td style="color:#666;">艺术家</td>
-                <td id="gmr-np-artist">-</td>
+                <td style="color:#666; padding: 6px 0;">艺术家</td>
+                <td id="gmr-np-artist" style="padding: 6px 0; word-break: break-word;">-</td>
             </tr>
             <tr>
-                <td style="color:#666;">专辑</td>
-                <td id="gmr-np-album">-</td>
+                <td style="color:#666; padding: 6px 0;">专辑</td>
+                <td id="gmr-np-album" style="padding: 6px 0; word-break: break-word;">-</td>
             </tr>
             <tr>
-                <td style="color:#666;">进度</td>
-                <td id="gmr-np-pos">-</td>
+                <td style="color:#666; padding: 6px 0;">进度</td>
+                <td id="gmr-np-pos" style="padding: 6px 0; font-family: monospace;">-</td>
             </tr>
         </table>
     </div>
 </div>
 
-<div style="clear: both;"></div>
 <details style="margin-top:10px;">
     <summary style="cursor:pointer; color:#999; font-size:12px; user-select:none;">调试信息</summary>
     <pre id="gmr-np-debug-body" style="font-size:11px; color:#888; background:#f8f8f8; padding:8px; border-radius:4px; margin-top:6px; white-space:pre-wrap; word-break:break-all;"></pre>
