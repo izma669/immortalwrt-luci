@@ -10,12 +10,11 @@ local state = {
     lyric = "",
     volume = 0, playing = false,
     cover_ts = 0,
-    snam = "", acre = "", clip = "",
+    snam = "", clip = "",
     soundcard = "",
     raw_minm = "", raw_asar = ""
 }
 
--- ========== base64 解码 ==========
 local b64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 local b64dec = {}
 for i = 1, 64 do b64dec[b64chars:sub(i,i)] = i - 1 end
@@ -52,34 +51,28 @@ local function json_escape(s)
     return s:gsub("\\", "\\\\"):gsub('"', '\\"'):gsub("\n", "\\n"):gsub("\r", ""):gsub("\t", " ")
 end
 
--- ========== 拆分 title 和 artist ==========
--- 优先从 asar 里按 " — " 或 " - " 分离；否则 asar 就是艺术家，minm 就是歌名
 local function parse_title_artist()
     local minm = state.raw_minm or ""
     local asar = state.raw_asar or ""
 
     if asar ~= "" then
-        -- em dash
         local name, artist = asar:match("^(.-)%s+—%s+(.+)$")
         if not name then
-            -- 全角破折号或者连字符
             name, artist = asar:match("^(.-)%s+%-%s+(.+)$")
         end
         if name and artist and name ~= "" and artist ~= "" then
             state.title = name
             state.artist = artist
-            state.lyric = minm    -- minm 作为歌词
+            state.lyric = minm
             return
         end
     end
 
-    -- asar 没有分隔符，就按标准语义：minm=歌名，asar=艺术家
     state.title = minm
     state.artist = asar
     state.lyric = ""
 end
 
--- ========== 找客户端 IP ==========
 local function find_client_ip()
     local f = io.open("/proc/net/tcp", "r")
     if not f then return "" end
@@ -118,7 +111,6 @@ local function find_hostname(ip)
     return name
 end
 
--- ========== 找输出声卡 ==========
 local function find_soundcard()
     local device = ""
     local f = io.open("/var/etc/shairport-sync-shairport_sync.conf", "r")
@@ -175,11 +167,11 @@ local function write_json()
     f:write(string.format(
         '{"title":"%s","artist":"%s","album":"%s","lyric":"%s",' ..
         '"volume":%d,"playing":%s,"has_cover":%s,"cover_ts":%d,' ..
-        '"snam":"%s","acre":"%s","clip":"%s","soundcard":"%s"}',
+        '"snam":"%s","clip":"%s","soundcard":"%s"}',
         json_escape(state.title), json_escape(state.artist), json_escape(state.album),
         json_escape(state.lyric),
         state.volume, state.playing and "true" or "false", cover_flag, state.cover_ts,
-        json_escape(state.snam), json_escape(state.acre), json_escape(state.clip),
+        json_escape(state.snam), json_escape(state.clip),
         json_escape(state.soundcard)
     ))
     f:close()
@@ -204,14 +196,19 @@ local function handle_item(item)
         state.album = raw
     elseif code_str == "snam" then
         state.snam = raw
-    elseif code_str == "acre" then
-        state.acre = raw
     elseif code_str == "clip" then
         state.clip = raw
+    -- acre 字段是垃圾数据，忽略；AirPlay 格式固定，前端硬编码
     elseif code_str == "PICT" then
         if #raw > 500 then
-            local f = io.open(COVER, "wb")
-            if f then f:write(raw); f:close(); state.cover_ts = os.time() end
+            local tmpf = COVER .. ".tmp"
+            local f = io.open(tmpf, "wb")
+            if f then
+                f:write(raw)
+                f:close()
+                os.rename(tmpf, COVER)
+                state.cover_ts = os.time()
+            end
         end
     elseif code_str == "pvol" then
         local first = raw:match("^([%-%d%.]+)")
@@ -230,15 +227,13 @@ local function handle_item(item)
     write_json()
 end
 
--- ========== 初始化 ==========
 os.remove(COVER)
+os.remove(COVER .. ".tmp")
 state.clip = find_client_ip()
 state.snam = find_hostname(state.clip)
-state.acre = "ALAC 44.1kHz/16bit/立体声"
 state.soundcard = find_soundcard()
 write_json()
 
--- ========== 主循环 ==========
 local buffer = ""
 local counter = 0
 while true do
