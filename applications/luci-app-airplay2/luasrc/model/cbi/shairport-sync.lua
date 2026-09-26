@@ -66,18 +66,18 @@ allow_session_interruption:value("yes", translate("Allow"))
 session_timeout = s:option(Value, "sesctl_session_timeout", translate("Session timeout"))
 session_timeout.default = "120"
 
--- ===== 重启服务按钮 =====
+-- ===== 閲嶅惎鏈嶅姟鎸夐挳 =====
 local restart_btn = s:option(Button, "restart_btn", translate("Restart Service"))
 restart_btn.inputstyle = "reload"
 function restart_btn.write(self, section)
     luci.sys.call("/etc/init.d/shairport-sync restart >/dev/null 2>&1")
 end
 
--- ===== 新增：重载USB声卡内核模块按钮 =====
+-- ===== 鏂板锛氶噸杞経SB澹板崱鍐呮牳妯″潡鎸夐挳 =====
 local reload_usb_btn = s:option(Button, "reload_usb_btn", translate("Reload USB Sound Loadable Kernel Module"))
 reload_usb_btn.inputstyle = "reload"
 function reload_usb_btn.write(self, section)
-    -- 先卸载，再加载USB声卡内核模块
+    -- 鍏堝嵏杞斤紝鍐嶅姞杞経SB澹板崱鍐呮牳妯″潡
     luci.sys.call("rmmod snd_usb_audio >/dev/null 2>&1; modprobe snd_usb_audio >/dev/null 2>&1")
 end
 
