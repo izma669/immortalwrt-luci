@@ -1,4 +1,4 @@
--- Copyright 2014 Álvaro Fernández Rojas <noltari@gmail.com>
+-- Copyright 2014 脕lvaro Fern谩ndez Rojas <noltari@gmail.com>
 -- Licensed to the public under the Apache License 2.0.
 
 module("luci.controller.shairport-sync", package.seeall)
