@@ -1,6 +1,57 @@
+<style>
+    #gmr-np-artwrap {
+        position: relative;
+        width: 260px;
+        height: 260px;
+        flex-shrink: 0;
+    }
+    #gmr-np-art {
+        width: 260px;
+        height: 260px;
+        border-radius: 50%;
+        object-fit: cover;
+        display: none;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+        background: #ddd;
+        animation: gmr-spin 24s linear infinite;
+        animation-play-state: paused;
+    }
+    #gmr-np-noart {
+        width: 260px;
+        height: 260px;
+        border-radius: 50%;
+        background: #e4e8ee;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #a0a6b0;
+        font-size: 15px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    /* 中心的小圆孔，模拟唱片 */
+    #gmr-np-artwrap::after {
+        content: "";
+        position: absolute;
+        top: 50%; left: 50%;
+        width: 34px; height: 34px;
+        margin: -17px 0 0 -17px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #f8f9fb 40%, #ddd 42%, #bbb 70%, #999 72%);
+        box-shadow: inset 0 0 4px rgba(0,0,0,0.35);
+        pointer-events: none;
+        display: none;
+    }
+    #gmr-np-artwrap.has-art::after { display: block; }
+    @keyframes gmr-spin {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+    }
+</style>
+
 <script type="text/javascript">
     XHR.poll(3, '<%=url("admin/services/gmediarender/nowplaying")%>', null,
         function(x, data) {
+            var wrap     = document.getElementById('gmr-np-artwrap');
             var elArt    = document.getElementById('gmr-np-art');
             var elNoArt  = document.getElementById('gmr-np-noart');
             var elTitle  = document.getElementById('gmr-np-title');
@@ -8,9 +59,10 @@
             var elAlbum  = document.getElementById('gmr-np-album');
             var elState  = document.getElementById('gmr-np-state');
             var elPos    = document.getElementById('gmr-np-pos');
+            var elMedia  = document.getElementById('gmr-np-media');
+            var elAudio  = document.getElementById('gmr-np-audio');
             var elUrl    = document.getElementById('gmr-np-url');
             var elDl     = document.getElementById('gmr-np-dlbtn');
-            var elDbg    = document.getElementById('gmr-np-debug-body');
             if (!elTitle) return;
 
             if (!data || (!data.title && !data.artist)) {
@@ -19,8 +71,11 @@
                 elArtist.innerHTML = '-';
                 elAlbum.innerHTML  = '-';
                 elPos.innerHTML    = '-';
+                elMedia.innerHTML  = '-';
+                elAudio.innerHTML  = '-';
                 if (elUrl) elUrl.textContent = '-';
                 if (elDl)  elDl.setAttribute('href', '#');
+                if (wrap)  wrap.classList.remove('has-art');
                 if (elArt)   elArt.style.display = 'none';
                 if (elNoArt) elNoArt.style.display = 'flex';
             } else {
@@ -32,6 +87,20 @@
                 elAlbum.innerHTML  = data.album  || '-';
                 elPos.innerHTML    = (data.position || '0:00:00') +
                                      ' / ' + (data.duration || '-');
+
+                // 媒体信息：类型 · 格式 · 音质 （码率为估值，去掉不显示）
+                var mb = [];
+                if (data.mediatype) mb.push(data.mediatype);
+                if (data.format)    mb.push(data.format);
+                if (data.quality)   mb.push(data.quality);
+                elMedia.innerHTML = mb.length ? mb.join(' · ') : '-';
+
+                // 音频：音量 · 模式
+                var ab = [];
+                if (data.volume)   ab.push('音量 ' + data.volume + '%');
+                if (data.playmode) ab.push(data.playmode);
+                elAudio.innerHTML = ab.length ? ab.join(' · ') : '-';
+
                 if (elUrl) elUrl.textContent = data.streamurl || '-';
                 if (elDl && data.streamurl) {
                     elDl.setAttribute('href', data.streamurl);
@@ -40,27 +109,32 @@
                 }
 
                 if (data.albumart && data.albumart.length > 5) {
-                    if (elArt.src !== data.albumart) {
-                        elArt.src = data.albumart;
-                    }
+                    if (elArt.src !== data.albumart) elArt.src = data.albumart;
                     elArt.style.display = 'block';
                     elNoArt.style.display = 'none';
+                    if (wrap) wrap.classList.add('has-art');
+
+                    // 播放中才旋转，暂停/停止则停转
+                    elArt.style.animationPlayState =
+                        (data.playing ? 'running' : 'paused');
                 } else {
                     elArt.style.display = 'none';
                     elNoArt.style.display = 'flex';
+                    if (wrap) wrap.classList.remove('has-art');
                 }
             }
-            if (elDbg) elDbg.textContent = data.debug || '';
         }
     );
 
     function gmrArtError() {
+        var wrap     = document.getElementById('gmr-np-artwrap');
         var elArt    = document.getElementById('gmr-np-art');
         var elNoArt  = document.getElementById('gmr-np-noart');
         if (elArt && elNoArt) {
             elArt.style.display = 'none';
             elNoArt.style.display = 'flex';
         }
+        if (wrap) wrap.classList.remove('has-art');
     }
 
     function gmrCopyUrl() {
@@ -78,25 +152,52 @@
             setTimeout(function(){ btn.textContent = '复制'; }, 1500);
         }
     }
+
+    function gmrCollapseBasicSettings() {
+        var sections = document.querySelectorAll('.cbi-section');
+        for (var i = 0; i < sections.length; i++) {
+            var s = sections[i];
+            if (s.dataset.gmrCollapsed) continue;
+            var titleEl = s.querySelector('h3, legend');
+            if (!titleEl) continue;
+            var t = (titleEl.textContent || '').trim();
+            if (t !== '基本设置') continue;
+            s.dataset.gmrCollapsed = '1';
+
+            var det = document.createElement('details');
+            det.style.cssText = 'margin: 12px 0; padding: 8px 14px; background: #fafbfc; border: 1px solid #e4e7ec; border-radius: 8px;';
+            var sum = document.createElement('summary');
+            sum.textContent = t;
+            sum.style.cssText = 'cursor: pointer; font-weight: 600; padding: 6px 0; user-select: none; color: #333; list-style: none;';
+            titleEl.style.display = 'none';
+            s.parentNode.insertBefore(det, s);
+            det.appendChild(sum);
+            det.appendChild(s);
+            det.open = false;
+            break;
+        }
+    }
+
+    if (window.addEventListener) {
+        window.addEventListener('load', function() { setTimeout(gmrCollapseBasicSettings, 100); });
+    } else {
+        window.onload = function() { setTimeout(gmrCollapseBasicSettings, 100); };
+    }
 </script>
 
 <div class="cbi-section" style="
     display: flex;
     align-items: center;
-    gap: 24px;
-    padding: 20px;
+    gap: 28px;
+    padding: 22px;
     background: linear-gradient(135deg, #f8f9fb 0%, #eef1f6 100%);
     border: 1px solid #d8dde5;
     border-radius: 10px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
 ">
-    <div style="flex-shrink: 0;">
-        <img id="gmr-np-art" src="" onerror="gmrArtError()"
-             style="width: 200px; height: 200px; border-radius: 8px; object-fit: cover; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" alt="封面" />
-        <div id="gmr-np-noart"
-             style="width: 200px; height: 200px; border-radius: 8px; background: #e4e8ee; display: flex; align-items: center; justify-content: center; color: #a0a6b0; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-            暂无封面
-        </div>
+    <div id="gmr-np-artwrap">
+        <img id="gmr-np-art" src="" onerror="gmrArtError()" alt="封面" />
+        <div id="gmr-np-noart">暂无封面</div>
     </div>
 
     <div style="flex-grow: 1; min-width: 0;">
@@ -121,11 +222,19 @@
                 <td style="color:#666; padding: 6px 0;">进度</td>
                 <td id="gmr-np-pos" style="padding: 6px 0; font-family: monospace;">-</td>
             </tr>
+            <tr>
+                <td style="color:#666; padding: 6px 0;">媒体信息</td>
+                <td id="gmr-np-media" style="padding: 6px 0; color: #555; font-size: 12px;">-</td>
+            </tr>
+            <tr>
+                <td style="color:#666; padding: 6px 0;">音频</td>
+                <td id="gmr-np-audio" style="padding: 6px 0; color: #555; font-size: 12px;">-</td>
+            </tr>
         </table>
 
-        <details style="margin-top: 10px;">
-            <summary style="cursor:pointer; color:#888; font-size:12px; user-select:none;">音频源地址</summary>
-            <div style="display: flex; gap: 6px; margin-top: 6px; align-items: flex-start;">
+        <div style="margin-top: 10px;">
+            <div style="color:#888; font-size:12px; margin-bottom: 4px;">音频源地址</div>
+            <div style="display: flex; gap: 6px; align-items: flex-start;">
                 <code id="gmr-np-url" style="
                     flex-grow: 1;
                     font-size: 11px;
@@ -136,7 +245,7 @@
                     border: 1px solid #e0e4ea;
                     white-space: pre-wrap;
                     word-break: break-all;
-                    max-height: 80px;
+                    max-height: 120px;
                     overflow: auto;
                 ">-</code>
                 <button id="gmr-np-copybtn" type="button" onclick="gmrCopyUrl()"
@@ -164,11 +273,6 @@
                         line-height: 1.4;
                     ">浏览器打开</a>
             </div>
-        </details>
+        </div>
     </div>
 </div>
-
-<details style="margin-top:10px;">
-    <summary style="cursor:pointer; color:#999; font-size:12px; user-select:none;">调试信息</summary>
-    <pre id="gmr-np-debug-body" style="font-size:11px; color:#888; background:#f8f8f8; padding:8px; border-radius:4px; margin-top:6px; white-space: pre-wrap; word-break: break-all;"></pre>
-</details>
