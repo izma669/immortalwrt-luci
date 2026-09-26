@@ -8,6 +8,7 @@
             var elAlbum  = document.getElementById('gmr-np-album');
             var elState  = document.getElementById('gmr-np-state');
             var elPos    = document.getElementById('gmr-np-pos');
+            var elUrl    = document.getElementById('gmr-np-url');
             var elDbg    = document.getElementById('gmr-np-debug-body');
             if (!elTitle) return;
 
@@ -17,6 +18,7 @@
                 elArtist.innerHTML = '-';
                 elAlbum.innerHTML  = '-';
                 elPos.innerHTML    = '-';
+                if (elUrl)   elUrl.textContent = '-';
                 if (elArt)   elArt.style.display = 'none';
                 if (elNoArt) elNoArt.style.display = 'flex';
             } else {
@@ -28,6 +30,7 @@
                 elAlbum.innerHTML  = data.album  || '-';
                 elPos.innerHTML    = (data.position || '0:00:00') +
                                      ' / ' + (data.duration || '-');
+                if (elUrl) elUrl.textContent = data.streamurl || '-';
 
                 if (data.albumart && data.albumart.length > 5) {
                     if (elArt.src !== data.albumart) {
@@ -50,6 +53,22 @@
         if (elArt && elNoArt) {
             elArt.style.display = 'none';
             elNoArt.style.display = 'flex';
+        }
+    }
+
+    function gmrCopyUrl() {
+        var elUrl = document.getElementById('gmr-np-url');
+        if (!elUrl || !elUrl.textContent || elUrl.textContent === '-') return;
+        var t = document.createElement('textarea');
+        t.value = elUrl.textContent;
+        document.body.appendChild(t);
+        t.select();
+        try { document.execCommand('copy'); } catch(e) {}
+        document.body.removeChild(t);
+        var btn = document.getElementById('gmr-np-copybtn');
+        if (btn) {
+            btn.textContent = '已复制!';
+            setTimeout(function(){ btn.textContent = '复制'; }, 1500);
         }
     }
 </script>
@@ -98,6 +117,36 @@
                 <td id="gmr-np-pos" style="padding: 6px 0; font-family: monospace;">-</td>
             </tr>
         </table>
+
+        <details style="margin-top: 10px;">
+            <summary style="cursor:pointer; color:#888; font-size:12px; user-select:none;">音频源地址</summary>
+            <div style="display: flex; gap: 6px; margin-top: 6px; align-items: flex-start;">
+                <code id="gmr-np-url" style="
+                    flex-grow: 1;
+                    font-size: 11px;
+                    color: #555;
+                    background: #fff;
+                    padding: 6px 8px;
+                    border-radius: 4px;
+                    border: 1px solid #e0e4ea;
+                    white-space: pre-wrap;
+                    word-break: break-all;
+                    max-height: 80px;
+                    overflow: auto;
+                ">-</code>
+                <button id="gmr-np-copybtn" type="button" onclick="gmrCopyUrl()"
+                    style="
+                        flex-shrink: 0;
+                        font-size: 11px;
+                        padding: 4px 10px;
+                        border: 1px solid #c7ccd4;
+                        background: #fff;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        color: #555;
+                    ">复制</button>
+            </div>
+        </details>
     </div>
 </div>
 
