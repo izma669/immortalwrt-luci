@@ -12,15 +12,15 @@ o = s:option(DummyValue, "_status", "服务状态")
 o.template = "gmediarender/status"
 
 -- ==========================================
--- 2. 正在播放模块（不显示标题）
+-- 2. 正在播放模块
 -- ==========================================
 s = m:section(NamedSection, "main", "gmediarender")
 s.anonymous = true
-o = s:option(DummyValue, "_nowplaying", "")
+o = s:option(DummyValue, "_nowplaying", "播放信息")
 o.template = "gmediarender/nowplaying"
 
 -- ==========================================
--- 3. 基本设置模块
+-- 3. 基本设置模块（所有配置项都放这里）
 -- ==========================================
 s = m:section(NamedSection, "main", "gmediarender", "基本设置")
 s.anonymous = true
@@ -47,7 +47,7 @@ o.default = "49152"
 o.rmempty = false
 
 o = s:option(Flag, "enable_log", "启用日志",
-    "将播放日志写入文件")
+    "把日志写入文件后解析播放数据，这是“正在播放”显示功能所必需的")
 o.default = "1"
 o.rmempty = false
 
