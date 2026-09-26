@@ -8,7 +8,7 @@ m:section(SimpleSection).template  = "shairport-sync/shairport-sync_status"
 m:section(SimpleSection).template = "shairport-sync/shairport-sync_nowplaying"
 
 
-s = m:section(TypedSection, "shairport-sync")
+s = m:section(TypedSection, "shairport-sync", "基本设置")
 s.addremove = false
 s.anonymous = true
 
