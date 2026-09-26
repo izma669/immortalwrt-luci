@@ -5,6 +5,8 @@ m = Map("shairport-sync", translate("Apple AirPlay 2 Receiver"))
 m.description = translate("Apple AirPlay 2 Receiver is a simple AirPlay server implementation")
 
 m:section(SimpleSection).template  = "shairport-sync/shairport-sync_status"
+m:section(SimpleSection).template = "shairport-sync/shairport-sync_nowplaying"
+
 
 s = m:section(TypedSection, "shairport-sync")
 s.addremove = false
