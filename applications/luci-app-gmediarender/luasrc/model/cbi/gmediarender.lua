@@ -6,7 +6,7 @@ m = Map("gmediarender", "GR_DLNA音频接收器",
 -- ==========================================
 -- 1. 状态模块
 -- ==========================================
-s = m:section(NamedSection, "main", "gmediarender", "状态")
+s = m:section(NamedSection, "main", "gmediarender")
 s.anonymous = true
 o = s:option(DummyValue, "_status", "服务状态")
 o.template = "gmediarender/status"
