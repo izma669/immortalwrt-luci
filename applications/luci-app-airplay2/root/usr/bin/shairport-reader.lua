@@ -118,7 +118,7 @@ local function find_hostname(ip)
     return name
 end
 
--- ========== 找到输出声卡 ==========
+-- ========== 找输出声卡 ==========
 local function find_soundcard()
     local device = ""
     local f = io.open("/var/etc/shairport-sync-shairport_sync.conf", "r")
