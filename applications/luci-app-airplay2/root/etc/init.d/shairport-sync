@@ -120,7 +120,7 @@ start_instance() {
     procd_close_instance
 
     # ============================================
-    #  启动 shairport-reader（元数据解析）
+    # 附加：启动 shairport-reader（元数据解析）
     # ============================================
     if [ -x /usr/bin/shairport-reader.lua ]; then
         procd_open_instance "reader"
