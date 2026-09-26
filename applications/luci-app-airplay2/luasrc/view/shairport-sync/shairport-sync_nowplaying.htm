@@ -1,0 +1,206 @@
+<style>
+    #sps-artwrap { position: relative; width: 260px; height: 260px; flex-shrink: 0; }
+    #sps-art {
+        width: 260px; height: 260px; border-radius: 50%; object-fit: cover;
+        display: none; box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+        animation: sps-spin 24s linear infinite; animation-play-state: paused;
+    }
+    #sps-noart {
+        width: 260px; height: 260px; border-radius: 50%; background: #e4e8ee;
+        display: flex; align-items: center; justify-content: center;
+        color: #a0a6b0; font-size: 15px; box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    }
+    #sps-artwrap::after {
+        content: ""; position: absolute; top: 50%; left: 50%;
+        width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%;
+        background: radial-gradient(circle, #f8f9fb 40%, #ddd 42%, #bbb 70%, #999 72%);
+        box-shadow: inset 0 0 4px rgba(0,0,0,0.35);
+        pointer-events: none; display: none;
+    }
+    #sps-artwrap.has-art::after { display: block; }
+    @keyframes sps-spin {
+        from { transform: rotate(0deg); } to { transform: rotate(360deg); }
+    }
+
+    #sps-info-table { margin: 0; width: 100%; table-layout: fixed; }
+    #sps-info-table td.sps-label {
+        width: 76px;
+        white-space: nowrap;
+        color: #666;
+        padding: 4px 8px 4px 0;
+        vertical-align: top;
+        font-size: 13px;
+    }
+    #sps-info-table td.sps-value {
+        padding: 4px 0;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        font-size: 13px;
+    }
+
+    /* 歌词框：固定3行高度 */
+    .lyric-box {
+        background: #f5f8fc;
+        border: 1px solid #cfe0f2;
+        border-radius: 8px;
+        padding: 8px 12px;
+        box-shadow: inset 0 0 6px rgba(30,136,229,0.06);
+        margin-top: 12px;
+        height: 86px;                 /* 8+22*3+8 ≈ 86px，固定3行 */
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;    /* 歌词从底部对齐，空行留在上方 */
+    }
+    .lyric-list {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+    }
+    .lyric-line {
+        display: block;
+        height: 22px;
+        line-height: 22px;
+        font-size: 15px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        color: #90caf9;
+    }
+    .lyric-line:nth-child(1) { color: #a3d0f5; }
+    .lyric-line:nth-child(2) { color: #4a9fe0; }
+    .lyric-line:nth-child(3) { color: #1e88e5; font-weight: 600; }
+</style>
+
+<script type="text/javascript">
+    var gmr_lastCoverTs = 0;
+    var gmr_LYRIC_LINES = 3;
+    var gmr_lyric_history = [];
+
+    function gmrUpdateLyric(newLyric) {
+        newLyric = newLyric || "";
+        if (gmr_lyric_history.length > 0 &&
+            gmr_lyric_history[gmr_lyric_history.length - 1] === newLyric) {
+            return;
+        }
+        if (newLyric === "") return;
+        gmr_lyric_history.push(newLyric);
+        if (gmr_lyric_history.length > gmr_LYRIC_LINES) {
+            gmr_lyric_history.shift();
+        }
+        gmrRenderLyric();
+    }
+
+    function gmrRenderLyric() {
+        var container = document.getElementById('sps-lyric-list');
+        if (!container) return;
+        var lines = [];
+        var pad = gmr_LYRIC_LINES - gmr_lyric_history.length;
+        for (var i = 0; i < pad; i++) lines.push("");
+        for (var j = 0; j < gmr_lyric_history.length; j++) lines.push(gmr_lyric_history[j]);
+
+        container.innerHTML = "";
+        for (var k = 0; k < lines.length; k++) {
+            var span = document.createElement('span');
+            span.className = 'lyric-line';
+            span.textContent = lines[k] || '';
+            container.appendChild(span);
+        }
+    }
+
+    function gmrClearLyric() {
+        gmr_lyric_history = [];
+        gmrRenderLyric();
+    }
+
+    XHR.poll(3, '<%=url("admin/services/shairport-sync/nowplaying")%>', null,
+        function(x, data) {
+            var wrap    = document.getElementById('sps-artwrap');
+            var elArt   = document.getElementById('sps-art');
+            var elNoArt = document.getElementById('sps-noart');
+            var elTitle = document.getElementById('sps-title');
+            var elArtist= document.getElementById('sps-artist');
+            var elAlbum = document.getElementById('sps-album');
+            var elState = document.getElementById('sps-state');
+            var elVol   = document.getElementById('sps-vol');
+            var elAcre  = document.getElementById('sps-acre');
+            var elSC    = document.getElementById('sps-soundcard');
+            if (!elTitle) return;
+
+            if (!data || (!data.title && !data.artist)) {
+                elState.innerHTML = '<span style="color:#c98b00;">空闲</span>';
+                elTitle.innerHTML = '<span style="color:#999;font-style:italic;">暂无播放</span>';
+                elArtist.innerHTML = '-';
+                elAlbum.innerHTML  = '-';
+                gmrClearLyric();
+                elVol.innerHTML    = '-';
+                elAcre.innerHTML   = data && data.acre ? data.acre : 'ALAC 44.1kHz/16bit/立体声';
+                if (elSC) elSC.innerHTML = data && data.soundcard ? data.soundcard : '-';
+                if (wrap)  wrap.classList.remove('has-art');
+                if (elArt) elArt.style.display = 'none';
+                if (elNoArt) elNoArt.style.display = 'flex';
+            } else {
+                elState.innerHTML = data.playing
+                    ? '<span style="color:green;font-weight:bold;">播放中</span>'
+                    : '<span style="color:#c98b00;">暂停</span>';
+                elTitle.innerHTML  = data.title  || '-';
+                elArtist.innerHTML = data.artist || '-';
+                elAlbum.innerHTML  = data.album  || '-';
+                gmrUpdateLyric(data.lyric || "");
+                elVol.innerHTML    = (data.volume || 0) + '%';
+                elAcre.innerHTML   = data.acre || 'ALAC 44.1kHz/16bit/立体声';
+                if (elSC) elSC.innerHTML = data.soundcard || '-';
+
+                if (data.has_cover) {
+                    if (data.cover_ts !== gmr_lastCoverTs) {
+                        gmr_lastCoverTs = data.cover_ts;
+                        elArt.src = '<%=url("admin/services/shairport-sync/cover")%>?t=' + data.cover_ts;
+                    }
+                    elArt.style.display = 'block';
+                    elNoArt.style.display = 'none';
+                    if (wrap) wrap.classList.add('has-art');
+                    elArt.style.animationPlayState = data.playing ? 'running' : 'paused';
+                } else {
+                    elArt.style.display = 'none';
+                    elNoArt.style.display = 'flex';
+                    if (wrap) wrap.classList.remove('has-art');
+                }
+            }
+        }
+    );
+</script>
+
+<div class="cbi-section" style="
+    display: flex; align-items: flex-start; gap: 24px; padding: 22px;
+    background: linear-gradient(135deg, #f8f9fb 0%, #eef1f6 100%);
+    border: 1px solid #d8dde5; border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+">
+    <div id="sps-artwrap">
+        <img id="sps-art" src="" alt="封面" />
+        <div id="sps-noart">暂无封面</div>
+    </div>
+
+    <div style="flex: 1 1 auto; min-width: 0;">
+        <table id="sps-info-table" class="table">
+            <tr><td class="sps-label">状态</td>     <td id="sps-state"  class="sps-value">-</td></tr>
+            <tr><td class="sps-label">歌曲名</td>   <td id="sps-title"  class="sps-value" style="font-weight:600;color:#222;">-</td></tr>
+            <tr><td class="sps-label">艺术家</td>   <td id="sps-artist" class="sps-value">-</td></tr>
+            <tr><td class="sps-label">专辑</td>     <td id="sps-album"  class="sps-value">-</td></tr>
+            <tr><td class="sps-label">音量</td>     <td id="sps-vol"    class="sps-value">-</td></tr>
+            <tr><td class="sps-label">音频格式</td> <td id="sps-acre"   class="sps-value" style="color:#666;font-size:12px;">-</td></tr>
+            <tr><td class="sps-label">输出声卡</td> <td id="sps-soundcard" class="sps-value" style="color:#666;font-size:12px;">-</td></tr>
+        </table>
+
+        <div class="lyric-box">
+            <div id="sps-lyric-list" class="lyric-list">
+                <span class="lyric-line"></span>
+                <span class="lyric-line"></span>
+                <span class="lyric-line"></span>
+            </div>
+        </div>
+    </div>
+    
+    
+</div>
