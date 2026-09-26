@@ -31,7 +31,8 @@ function action_nowplaying()
 
     local info = {
         playing = false, position = "", duration = "",
-        title = "", artist = "", album = "", albumart = "", debug = ""
+        title = "", artist = "", album = "", albumart = "",
+        streamurl = "", debug = ""
     }
 
     if not fs.access(logfile) then
@@ -65,10 +66,16 @@ function action_nowplaying()
     info.album    = unescape(last_match("<upnp:album>([^<]+)</upnp:album>"))
     info.albumart = unescape(last_match("<upnp:albumArtURI>([^<]+)</upnp:albumArtURI>"))
 
-    -- 如果封面链接没有 http 前缀（有些客户端只传路径），则补全
     if info.albumart ~= "" and not info.albumart:match("^https?://") then
         info.albumart = ""
     end
+
+    -- 音频流真实地址：优先取 CurrentTrackURI，回退到 AVTransportURI
+    local uri = last_match("CurrentTrackURI:%s*(%S+)")
+    if not uri or uri == "" then
+        uri = last_match("AVTransportURI:%s*(%S+)")
+    end
+    if uri then info.streamurl = uri end
 
     info.position = last_match("RelativeTimePosition:%s*([%d:]+)") or ""
     info.duration = last_match("CurrentTrackDuration:%s*([%d:]+)") or ""
@@ -79,7 +86,6 @@ function action_nowplaying()
 
     local dbg_pos = info.position; if dbg_pos == "" then dbg_pos = "-" end
     local dbg_dur = info.duration; if dbg_dur == "" then dbg_dur = "-" end
-
     info.debug = logfile .. " | pos=" .. dbg_pos .. " | dur=" .. dbg_dur .. " | state=" .. state
 
     luci.http.prepare_content("application/json")
