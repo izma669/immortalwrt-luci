@@ -55,6 +55,7 @@ local function parse_title_artist()
     local minm = state.raw_minm or ""
     local asar = state.raw_asar or ""
 
+    -- 1. QQ音乐/网易云："歌名 — 艺术家" 格式
     if asar ~= "" then
         local name, artist = asar:match("^(.-)%s+—%s+(.+)$")
         if not name then
@@ -68,6 +69,22 @@ local function parse_title_artist()
         end
     end
 
+    -- 2. 酷我："艺术家--歌名"
+    local ar, al = asar:match("^(.-)[-][-](.+)$")
+    if ar and ar ~= "" and al and al ~= "" then
+        state.artist = ar
+        state.title = al
+        if minm:find(al, 1, true) then
+            -- minm 里包含歌名 → minm 是歌名+杂项，不是歌词
+            state.lyric = ""
+        else
+            -- minm 里不包含歌名 → minm 是歌词
+            state.lyric = minm
+        end
+        return
+    end
+
+    -- 3. 兜底
     state.title = minm
     state.artist = asar
     state.lyric = ""
