@@ -4,10 +4,12 @@
 m = Map("shairport-sync", translate("Apple AirPlay 2 Receiver"))
 m.description = translate("Apple AirPlay 2 Receiver is a simple AirPlay server implementation")
 
-m:section(SimpleSection).template  = "shairport-sync/shairport-sync_status"
+m:section(SimpleSection).template = "shairport-sync/shairport-sync_status"
 m:section(SimpleSection).template = "shairport-sync/shairport-sync_nowplaying"
 
-
+-- ==========================================
+-- 基本设置（会被 JS 折叠）
+-- ==========================================
 s = m:section(TypedSection, "shairport-sync", "基本设置")
 s.addremove = false
 s.anonymous = true
@@ -66,21 +68,18 @@ allow_session_interruption:value("yes", translate("Allow"))
 session_timeout = s:option(Value, "sesctl_session_timeout", translate("Session timeout"))
 session_timeout.default = "120"
 
--- ===== 閲嶅惎鏈嶅姟鎸夐挳 =====
-local restart_btn = s:option(Button, "restart_btn", translate("Restart Service"))
-restart_btn.inputstyle = "reload"
+-- ==========================================
+-- 服务控制（独立框，不会被折叠）
+-- ==========================================
+s2 = m:section(TypedSection, "shairport-sync", "服务控制")
+s2.addremove = false
+s2.anonymous = true
+
+local restart_btn = s2:option(Button, "restart_btn", translate("Restart Service"))
+restart_btn.inputtitle = translate("Reload Now")
+restart_btn.inputstyle = "apply"
 function restart_btn.write(self, section)
     luci.sys.call("/etc/init.d/shairport-sync restart >/dev/null 2>&1")
 end
-
--- ===== 鏂板锛氶噸杞経SB澹板崱鍐呮牳妯″潡鎸夐挳 =====
-local reload_usb_btn = s:option(Button, "reload_usb_btn", translate("Reload USB Sound Loadable Kernel Module"))
-reload_usb_btn.inputstyle = "reload"
-function reload_usb_btn.write(self, section)
-    -- 鍏堝嵏杞斤紝鍐嶅姞杞経SB澹板崱鍐呮牳妯″潡
-    luci.sys.call("rmmod snd_usb_audio >/dev/null 2>&1; modprobe snd_usb_audio >/dev/null 2>&1")
-end
-
-
 
 return m
