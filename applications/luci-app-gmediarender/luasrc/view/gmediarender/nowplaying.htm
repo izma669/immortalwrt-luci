@@ -60,7 +60,9 @@
             var elState  = document.getElementById('gmr-np-state');
             var elPos    = document.getElementById('gmr-np-pos');
             var elMedia  = document.getElementById('gmr-np-media');
-            var elAudio  = document.getElementById('gmr-np-audio');
+            // 修改点1：替换原有的 elAudio，改为 elVol 和 elSC
+            var elVol    = document.getElementById('gmr-np-vol');
+            var elSC     = document.getElementById('gmr-np-soundcard');
             var elUrl    = document.getElementById('gmr-np-url');
             var elDl     = document.getElementById('gmr-np-dlbtn');
             if (!elTitle) return;
@@ -72,7 +74,9 @@
                 elAlbum.innerHTML  = '-';
                 elPos.innerHTML    = '-';
                 elMedia.innerHTML  = '-';
-                elAudio.innerHTML  = '-';
+                // 修改点2：空闲状态清空音量和声卡
+                if (elVol) elVol.innerHTML = '-';
+                if (elSC)  elSC.innerHTML  = '-';
                 if (elUrl) elUrl.textContent = '-';
                 if (elDl)  elDl.setAttribute('href', '#');
                 if (wrap)  wrap.classList.remove('has-art');
@@ -95,11 +99,9 @@
                 if (data.quality)   mb.push(data.quality);
                 elMedia.innerHTML = mb.length ? mb.join(' · ') : '-';
 
-                // 音频：音量 · 模式
-                var ab = [];
-                if (data.volume)   ab.push('音量 ' + data.volume + '%');
-                if (data.playmode) ab.push(data.playmode);
-                elAudio.innerHTML = ab.length ? ab.join(' · ') : '-';
+                // 修改点3：参照右侧 AirPlay2，显示音量与输出声卡
+                if (elVol) elVol.innerHTML = (data.volume || 0) + '%';
+                if (elSC)  elSC.innerHTML  = data.soundcard || '-';
 
                 if (elUrl) elUrl.textContent = data.streamurl || '-';
                 if (elDl && data.streamurl) {
@@ -187,6 +189,7 @@
 
 <div class="cbi-section" style="
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 28px;
     padding: 22px;
@@ -200,43 +203,48 @@
         <div id="gmr-np-noart">暂无封面</div>
     </div>
 
-    <div style="flex-grow: 1; min-width: 0;">
-        <table class="table" style="margin: 0;">
+    <div style="flex: 1 1 320px; min-width: 0;">
+        <table class="table" style="margin: 0; table-layout: fixed; width: 100%;">
             <tr>
-                <td width="18%" style="color:#666; padding: 6px 0;">状态</td>
-                <td id="gmr-np-state" style="padding: 6px 0;">-</td>
+                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">状态</td>
+                <td id="gmr-np-state" style="padding: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
             </tr>
             <tr>
-                <td style="color:#666; padding: 6px 0;">歌曲</td>
-                <td id="gmr-np-title" style="padding: 6px 0; font-weight: 600; color: #222; word-break: break-word;">-</td>
+                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">歌曲</td>
+                <td id="gmr-np-title" style="padding: 6px 0; font-weight: 600; color: #222; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
             </tr>
             <tr>
-                <td style="color:#666; padding: 6px 0;">艺术家</td>
-                <td id="gmr-np-artist" style="padding: 6px 0; word-break: break-word;">-</td>
+                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">艺术家</td>
+                <td id="gmr-np-artist" style="padding: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
             </tr>
             <tr>
-                <td style="color:#666; padding: 6px 0;">专辑</td>
-                <td id="gmr-np-album" style="padding: 6px 0; word-break: break-word;">-</td>
+                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">专辑</td>
+                <td id="gmr-np-album" style="padding: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
             </tr>
             <tr>
-                <td style="color:#666; padding: 6px 0;">进度</td>
-                <td id="gmr-np-pos" style="padding: 6px 0; font-family: monospace;">-</td>
+                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">进度</td>
+                <td id="gmr-np-pos" style="padding: 6px 0; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
             </tr>
             <tr>
-                <td style="color:#666; padding: 6px 0;">媒体信息</td>
-                <td id="gmr-np-media" style="padding: 6px 0; color: #555; font-size: 12px;">-</td>
+                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">媒体信息</td>
+                <td id="gmr-np-media" style="padding: 6px 0; color: #555; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
             </tr>
+            <!-- 修改点4：参照右侧 AirPlay 2，将“音频”修改为“音频设备”，并显示音量和输出声卡 -->
             <tr>
-                <td style="color:#666; padding: 6px 0;">音频</td>
-                <td id="gmr-np-audio" style="padding: 6px 0; color: #555; font-size: 12px;">-</td>
+                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">音频设备</td>
+                <td style="padding: 6px 0; color: #555; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    音量：<span id="gmr-np-vol">-</span>
+                    &nbsp;&nbsp;
+                    输出声卡：<span id="gmr-np-soundcard" style="color:#666;font-size:12px;">-</span>
+                </td>
             </tr>
         </table>
 
         <div style="margin-top: 10px;">
             <div style="color:#888; font-size:12px; margin-bottom: 4px;">音频源地址</div>
-            <div style="display: flex; gap: 6px; align-items: flex-start;">
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start;">
                 <code id="gmr-np-url" style="
-                    flex-grow: 1;
+                    flex: 1 1 200px;
                     font-size: 11px;
                     color: #555;
                     background: #fff;
