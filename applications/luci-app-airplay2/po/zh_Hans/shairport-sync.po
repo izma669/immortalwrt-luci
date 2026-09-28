@@ -72,3 +72,6 @@ msgstr "允许"
 
 msgid "Session timeout"
 msgstr "会话超时"
+
+msgid "Reload Now"
+msgstr "立即重载"
