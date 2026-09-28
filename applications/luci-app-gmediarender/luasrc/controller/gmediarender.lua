@@ -27,7 +27,8 @@ function action_nowplaying()
         title="", artist="", album="", albumart="",
         streamurl="", format="", quality="",
         volume="", playmode="", songid="",
-        mediatype="", bitrate="", filesize="", debug=""
+        mediatype="", bitrate="", filesize="", debug="",
+        soundcard="" -- 新增字段
     }
 
     if not fs.access(logfile) then
@@ -153,13 +154,38 @@ function action_nowplaying()
     if state == "PLAYING" then info.playing = true end
     if state == "STOPPED" then info.position = "" end
 
-    info.debug = string.format("%s | state=%s | type=%s | fmt=%s | q=%s | br=%s | vol=%s",
+    -- ============ 输出声卡 (新增) ============
+    local sys = require "luci.sys"
+    local soundcard = uci:get("gmediarender", "main", "soundcard") or uci:get("gmediarender", "main", "output") or uci:get("gmediarender", "main", "device")
+    if not soundcard or soundcard == "" then
+        -- 1. 尝试从运行进程的参数中提取 (-o 或 -d)
+        local ps_out = sys.exec("ps w | grep gmediarender | grep -v grep")
+        local out_arg = ps_out:match("%-o%s+([%w:%,%-]+)") or ps_out:match("%-d%s+([%w:%,%-]+)")
+        if out_arg then
+            soundcard = out_arg
+        else
+            -- 2. 尝试从系统硬件层获取 (/proc/asound/cards)
+            local proc_cards = sys.exec("cat /proc/asound/cards 2>/dev/null")
+            if proc_cards and proc_cards ~= "" then
+                -- 匹配类似 " 0 [Headset ]: USB-Audio - Logitech USB Headset"
+                local card_num, card_name = proc_cards:match("(%d+) %[.-%]:.-%-%s+(.+)")
+                if card_num and card_name then
+                    soundcard = "hw:" .. card_num .. " - " .. card_name
+                end
+            end
+        end
+    end
+    if not soundcard or soundcard == "" then soundcard = "-" end
+    info.soundcard = soundcard
+
+    info.debug = string.format("%s | state=%s | type=%s | fmt=%s | q=%s | br=%s | vol=%s | sc=%s",
         logfile, state,
         info.mediatype ~= "" and info.mediatype or "-",
         info.format ~= "" and info.format or "-",
         info.quality ~= "" and info.quality or "-",
         info.bitrate ~= "" and info.bitrate or "-",
-        info.volume ~= "" and info.volume or "-")
+        info.volume ~= "" and info.volume or "-",
+        info.soundcard)
 
     luci.http.prepare_content("application/json")
     luci.http.write_json(info)
