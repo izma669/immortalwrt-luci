@@ -59,7 +59,7 @@
     /* ===== 信息表：全部不换行 ===== */
     #sps-info-table { margin: 0; width: 100%; table-layout: fixed; }
     #sps-info-table td.sps-label {
-        width: 70px;
+        width: 75px;
         white-space: nowrap;
         color: #666;
         padding: 5px 8px 5px 0;
@@ -227,8 +227,13 @@
     );
 </script>
 
+<!-- 修改点1：外层增加 flex-wrap: wrap; 允许空间不足时自动换行（上下堆叠） -->
 <div class="cbi-section" style="
-    display: flex; align-items: flex-start; gap: 24px; padding: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 24px;
+    padding: 22px;
     background: linear-gradient(135deg, #f8f9fb 0%, #eef1f6 100%);
     border: 1px solid #d8dde5; border-radius: 10px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
@@ -238,7 +243,8 @@
         <div id="sps-noart">暂无封面</div>
     </div>
 
-    <div style="flex: 1 1 auto; min-width: 0;">
+    <!-- 修改点2：右侧容器增加 flex 基础宽度 320px -->
+    <div style="flex: 1 1 320px; min-width: 0;">
         <table id="sps-info-table" class="table">
             <tr><td class="sps-label">状态</td>     <td id="sps-state"  class="sps-value">-</td></tr>
             <tr><td class="sps-label">歌曲名</td>   <td id="sps-title"  class="sps-value" style="font-weight:600;color:#222;">-</td></tr>
