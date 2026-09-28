@@ -244,9 +244,15 @@
             <tr><td class="sps-label">歌曲名</td>   <td id="sps-title"  class="sps-value" style="font-weight:600;color:#222;">-</td></tr>
             <tr><td class="sps-label">艺术家</td>   <td id="sps-artist" class="sps-value">-</td></tr>
             <tr><td class="sps-label">专辑</td>     <td id="sps-album"  class="sps-value">-</td></tr>
-            <tr><td class="sps-label">音量</td>     <td id="sps-vol"    class="sps-value">-</td></tr>
+            <tr>
+                <td class="sps-label">音频设备</td>
+                <td class="sps-value">
+                    音量：<span id="sps-vol">-</span>
+                    &nbsp;&nbsp;
+                    输出声卡：<span id="sps-soundcard" style="color:#666;font-size:12px;">-</span>
+                </td>
+            </tr>
             <tr><td class="sps-label">音频格式</td> <td id="sps-acre"   class="sps-value" style="color:#666;font-size:12px;">-</td></tr>
-            <tr><td class="sps-label">输出声卡</td> <td id="sps-soundcard" class="sps-value" style="color:#666;font-size:12px;">-</td></tr>
         </table>
 
         <div class="lyric-box">
@@ -258,3 +264,49 @@
         </div>
     </div>
 </div>
+
+<script type="text/javascript">
+//<![CDATA[
+(function(){
+    function bindCollapse(){
+        // 取页面第一个 h3 或 legend 标题（就是"基本设置"）
+        var titles = document.querySelectorAll('h3, legend');
+        if (titles.length === 0) return;
+
+        var t = titles[0];
+        if (t.getAttribute('data-sps-bound')) return;
+
+        var content = t.nextElementSibling;
+        if (!content) return;
+
+        t.setAttribute('data-sps-bound', '1');
+        t.style.cursor = 'pointer';
+        t.style.userSelect = 'none';
+
+        var arrow = document.createElement('span');
+        arrow.style.cssText = 'display:inline-block;margin-right:6px;font-weight:bold;font-family:monospace;';
+        arrow.textContent = '[+]';
+        t.insertBefore(arrow, t.firstChild);
+
+        // 默认折叠
+        var collapsed = true;
+        content.style.display = 'none';
+
+        t.addEventListener('click', function(e){
+            e.preventDefault();
+            collapsed = !collapsed;
+            content.style.display = collapsed ? 'none' : '';
+            arrow.textContent = collapsed ? '[+]' : '[-]';
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindCollapse);
+    } else {
+        bindCollapse();
+    }
+    setTimeout(bindCollapse, 400);
+    setTimeout(bindCollapse, 1200);
+})();
+//]]>
+</script>
