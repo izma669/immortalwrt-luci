@@ -101,14 +101,12 @@ autoplay_repeat:depends("autoplay", "1")
 
 -- ===== 定时音量调整（每个时间点包含：启用开关 + 时间 + 控制目标 + 音量） =====
 for i = 1, 4 do
-    -- 独立启用开关
     local enable_opt = s:taboption("playback", Flag, "enable_time" .. i, 
         translate("启用定时音量 " .. i))
     enable_opt.default = "0"
     enable_opt.rmempty = false
     enable_opt.description = translate("开启后才生效，关闭时下方时间、控制目标和音量输入框会自动折叠隐藏。")
 
-    -- 时间
     local time_opt = s:taboption("playback", Value, "time" .. i, 
         translate("时间点 " .. i .. " (HH:MM)"))
     time_opt.default = ""
@@ -130,7 +128,6 @@ for i = 1, 4 do
         return value
     end
 
-    -- 控制目标
     local target_opt = s:taboption("playback", ListValue, "target" .. i, 
         translate("控制目标 " .. i))
     target_opt:value("softvol", translate("OwnTone 软件音量（只影响本地播放）"))
@@ -139,7 +136,6 @@ for i = 1, 4 do
     target_opt.rmempty = false
     target_opt:depends("enable_time" .. i, "1")
 
-    -- 音量
     local vol_opt = s:taboption("playback", Value, "volume" .. i, 
         translate("音量 " .. i .. " (%)"))
     vol_opt.default = ""
@@ -149,96 +145,80 @@ for i = 1, 4 do
     vol_opt:depends("enable_time" .. i, "1")
 end
 
--- ===== 应用定时音量设置按钮 =====
-local apply_btn = s:taboption("playback", Button, "apply_volume_schedule", translate("应用定时音量设置"))
-apply_btn.inputstyle = "apply"
-function apply_btn.write(self, section)
-    local uci = self.map.uci
-    local cfg = self.map.config
-    uci:commit(cfg)
+-- ===== 应用定时音量设置（HTML 按钮 + AJAX，脱离 CBI 验证） =====
+local apply_btn = s:taboption("playback", DummyValue, "_apply_schedule", translate("应用定时音量设置"))
+apply_btn.rawhtml = true
+apply_btn.default = [[
+<button type="button" class="cbi-button cbi-button-apply" onclick="applySchedule()">应用定时音量设置</button>
+<div id="schedule_status" style="color:#666;font-size:12px;margin-top:6px;"></div>
 
-    local sys = require "luci.sys"
-    local fs = require "nixio.fs"
 
-    -- 动态解析物理声卡编号和控制项，供 hw 目标使用
-    local card_num, control_name = "0", "Headphone"
-    if fs.access("/etc/asound.conf") then
-        local conf = fs.readfile("/etc/asound.conf") or ""
-        local name = conf:match('pcm%s+"hw:([^,]+),')
-        if name then
-            if name:match("^%d+$") then
-                card_num = name
-            else
-                local cards = sys.exec("cat /proc/asound/cards 2>/dev/null")
-                for num, cname in cards:gmatch("(%d+) %[([^%]]+)%]") do
-                    if cname:gsub("%s+$", "") == name then
-                        card_num = num
-                        break
-                    end
-                end
-            end
-        end
-    end
-    local scontrols = sys.exec("amixer -c " .. card_num .. " scontrols 2>/dev/null")
-    if scontrols:match("'Headphone'") then control_name = "Headphone"
-    elseif scontrols:match("'Master'") then control_name = "Master"
-    elseif scontrols:match("'PCM'") then control_name = "PCM"
-    else
-        local first = scontrols:match("'([^']+)'")
-        if first then control_name = first end
-    end
+<script type="text/javascript">
+// 用 indexOf 做模糊匹配，兼容 LuCI 各种 name 前缀
+function getFlagValue(suffix) {
+    var els = document.querySelectorAll('input[type="checkbox"]');
+    for (var k = 0; k < els.length; k++) {
+        if (els[k].name && els[k].name.indexOf(suffix) !== -1) {
+            return els[k].checked ? '1' : '0';
+        }
+    }
+    return '0';
+}
+function getInputValue(suffix) {
+    var inputs = document.querySelectorAll('input, select');
+    for (var k = 0; k < inputs.length; k++) {
+        var el = inputs[k];
+        if (el.name && el.name.indexOf(suffix) !== -1 && el.type !== 'checkbox' && el.type !== 'hidden') {
+            return el.value || '';
+        }
+    }
+    return '';
+}
 
-    local new_lines = {}
-    for i = 1, 4 do
-        local enabled = uci:get(cfg, section, "enable_time" .. i) or "0"
-        if enabled == "1" then
-            local t = uci:get(cfg, section, "time" .. i) or ""
-            local v = uci:get(cfg, section, "volume" .. i) or ""
-            local target = uci:get(cfg, section, "target" .. i) or "softvol"
-            if t ~= "" and v ~= "" then
-                local hh, mm = t:match("^(%d?%d):(%d%d)$")
-                if hh and mm then
-                    if target == "hw" then
-                        -- 控制物理声卡硬件音量
-                        table.insert(new_lines, string.format(
-                            "%d %d * * * amixer -c %s sset '%s' %s%% unmute >/dev/null 2>&1",
-                            tonumber(mm), tonumber(hh), card_num, control_name, v))
-                    else
-                        -- 控制 OwnTone 软件音量
-                        table.insert(new_lines, string.format(
-                            "%d %d * * * curl -s -X PUT 'http://127.0.0.1:3689/api/player/volume?volume=%s' >/dev/null 2>&1",
-                            tonumber(mm), tonumber(hh), v))
-                    end
-                end
-            end
-        end
-    end
+function applySchedule() {
+    var params = {};
+    for (var i = 1; i <= 4; i++) {
+        params['enable_time' + i] = getFlagValue('enable_time' + i);
+        params['time' + i]        = getInputValue('time' + i);
+        params['target' + i]      = getInputValue('target' + i) || 'softvol';
+        params['volume' + i]      = getInputValue('volume' + i);
+    }
 
-    -- 清理旧的音量任务（amixer 或 curl 音量），保留其他 cron 行
-    local crontab = "/etc/crontabs/root"
-    local kept = {}
-    local f = io.open(crontab, "r")
-    if f then
-        for line in f:lines() do
-            if not line:match("amixer%s+%-c%s+%d+") and not line:match("api/player/volume") then
-                table.insert(kept, line)
-            end
-        end
-        f:close()
-    end
-    for _, l in ipairs(new_lines) do
-        table.insert(kept, l)
-    end
-    f = io.open(crontab, "w")
-    if f then
-        f:write(table.concat(kept, "\n") .. "\n")
-        f:close()
-    end
-    sys.call("/etc/init.d/cron restart >/dev/null 2>&1")
-end
+    // 在状态栏里显示抓到的参数，方便一眼看出问题
+    var status = document.getElementById('schedule_status');
+    status.innerHTML = '<span style="color:#666;">提交中... 抓到的参数: ' +
+        'E1=' + params.enable_time1 + ' T1=' + params.time1 + ' V1=' + params.volume1 +
+        ' | E2=' + params.enable_time2 + ' T2=' + params.time2 + ' V2=' + params.volume2 +
+        '</span>';
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/cgi-bin/luci/admin/nas/owntone/apply_schedule', true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                try {
+                    var res = JSON.parse(xhr.responseText);
+                    status.innerHTML = '<span style="color:green;">✓ 已更新 ' + (res.count || 0) + ' 条定时任务</span>';
+                } catch(e) {
+                    status.innerHTML = '<span style="color:green;">✓ 已提交</span>';
+                }
+            } else {
+                status.innerHTML = '<span style="color:red;">✗ 更新失败 (HTTP ' + xhr.status + ')</span>';
+            }
+        }
+    };
+    var body = Object.keys(params).map(function(k) {
+        return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+    }).join('&');
+    xhr.send(body);
+}
+</script>
+
+
+]]
 
 -- ==================== 基本设置 ====================
-
 enable = s:taboption("basic", Flag, "enabled", translate("Enabled"))
 enable.default = "0"
 enable.rmempty = false
@@ -255,13 +235,18 @@ directories = s:taboption("basic", Value, "directories", translate("Music Direct
 directories.default = "/opt/music"
 directories.rmempty = false
 
+-- ===== 自定义播放器名称 =====
+player_name = s:taboption("basic", Value, "player_name", translate("播放器名称"))
+player_name.default = "My Music on OpenWrt"
+player_name.rmempty = false
+player_name.description = translate("在 iTunes / iOS Remote 等客户端中显示的库名称。<br><b style='color:#c00;'>注意：请使用英文、数字或拼音，不要使用中文，以免部分旧版客户端出现乱码或配对失败。</b>")
+
 -- ===== MPD 端口 =====
 mpd_port = s:taboption("basic", Value, "mpd_port", translate("MPD 端口"))
 mpd_port.default = "6600"
 mpd_port.datatype = "port"
 mpd_port.rmempty = true
 mpd_port.description = translate("默认 6600。如果你用 MPD 客户端（如 MPDlux）遥控，可以把它暴露出来，方便修改。设为 0 可禁用 MPD。")
--- ===== MPD 端口 =====
 
 -- ===== 启动时禁用扫描 =====
 local filescan_off = s:taboption("basic", Flag, "filescan_disable",
@@ -269,17 +254,36 @@ local filescan_off = s:taboption("basic", Flag, "filescan_disable",
     translate("如果你音乐库很大，想加快 Owntone 启动速度，可以开启此项。注意：关闭后，新增或删除的音乐文件不会在启动时自动更新到数据库，需要手动触发重扫描。"))
 filescan_off.default = "0"
 filescan_off.rmempty = false
--- ===== 启动时禁用扫描 =====
 
 readme = s:taboption("basic", DummyValue, "readme", translate("Readme"))
 readme.description = translate("About iOS Remote Pairing: <br />1. Open the web interface <br /> 2. Start iPhone Remote APP, go to Settings, Add Library<br />3. Enter the pair code in the web interface")
 
--- ===== 重启服务按钮 =====
-local restart_btn = s:taboption("basic", Button, "restart_btn", translate("重启Owntone服务器"))
-restart_btn.inputstyle = "reload"
-function restart_btn.write(self, section)
-    sys.call("/etc/init.d/owntone restart >/dev/null 2>&1")
-end
+-- ===== 重启服务按钮（HTML + AJAX，独立提交） =====
+local restart_btn = s:taboption("basic", DummyValue, "_restart_btn", translate("重启Owntone服务器"))
+restart_btn.rawhtml = true
+restart_btn.default = [[
+<button type="button" class="cbi-button cbi-button-action" onclick="restartOwntone()">重启 Owntone 服务器</button>
+<span id="restart_status" style="margin-left:10px;color:#666;font-size:12px;"></span>
+<script type="text/javascript">
+function restartOwntone() {
+    var status = document.getElementById('restart_status');
+    status.innerHTML = '正在重启...';
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/cgi-bin/luci/admin/nas/owntone/restart_service', true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                status.innerHTML = '<span style="color:green;">✓ 已重启</span>';
+            } else {
+                status.innerHTML = '<span style="color:red;">✗ 失败</span>';
+            }
+        }
+    };
+    xhr.send();
+}
+</script>
+]]
 
 -- ==================== 高级设置 ====================
 -- ===== 刷新并自动配置声卡 =====
