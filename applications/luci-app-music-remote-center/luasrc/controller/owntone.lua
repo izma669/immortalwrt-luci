@@ -11,6 +11,7 @@ function index()
     entry({"admin", "nas", "owntone", "set_volume"}, call("action_set_volume")).leaf = true
     entry({"admin", "nas", "owntone", "get_soundcard_info"}, call("action_get_soundcard_info")).leaf = true
     entry({"admin", "nas", "owntone", "refresh_soundcard"}, call("action_refresh_soundcard")).leaf = true
+	entry({"admin", "nas", "owntone", "write_asound"}, call("action_write_asound")).leaf = true
 end
 
 function act_status()
@@ -171,4 +172,70 @@ pcm.softvol {
     
     luci.http.prepare_content("application/json")
     luci.http.write_json({ success = true, card = card_num, name = card_name, control = control_name })
+end
+
+
+-- 将 softvol 配置写入 /etc/asound.conf
+function action_write_asound()
+    local fs = require "nixio.fs"
+    local sys = require "luci.sys"
+    local http = require "luci.http"
+
+    -- 读取检测到的声卡信息
+    local card_num, card_name = "0", "Headset"
+    local cards = sys.exec("cat /proc/asound/cards 2>/dev/null")
+    local num, name = cards:match("(%d+) %[([^%]]+)%]")
+    if num then
+        card_num = num
+        card_name = name:gsub("%s+$", "")
+    end
+
+    local new_conf = string.format([[
+defaults.pcm.dmix.rate 44100
+defaults.pcm.dmix.format S16_LE
+
+pcm.!default {
+    type plug
+    slave.pcm "dmixer"
+}
+
+pcm.dmixer {
+    type dmix
+    ipc_key 1024
+    ipc_perm 0666
+    slave {
+        pcm "hw:%s,0"
+        period_time 0
+        period_size 1024
+        buffer_size 8192
+        rate 44100
+        format S16_LE
+    }
+    bindings { 0 0 1 1 }
+}
+ctl.dmixer {
+    type hw
+    card %s
+}
+
+pcm.softvol {
+    type softvol
+    slave.pcm "plug:dmixer"
+    control {
+        name "Softvol"
+        card %s
+    }
+}
+]], card_name, card_name, card_name)
+
+    fs.writefile("/etc/asound.conf", new_conf)
+
+    -- 唤醒 softvol 并重启音频服务
+    sys.exec("aplay -D softvol /dev/zero -d 1 >/dev/null 2>&1")
+    sys.exec("/etc/init.d/owntone restart >/dev/null 2>&1")
+    sys.exec("/etc/init.d/shairport-sync restart >/dev/null 2>&1")
+    sys.exec("/etc/init.d/gmediarender restart >/dev/null 2>&1")
+
+    http.prepare_content("application/json")
+    http.write_json({ success = true, card = card_num, name = card_name })
 end
