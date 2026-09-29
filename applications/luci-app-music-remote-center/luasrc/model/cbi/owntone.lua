@@ -244,6 +244,73 @@ function alsa_init_btn.write(self, section)
     sys.call("alsactl init >/dev/null 2>&1")
 end
 
+
+-- ===== 独立音量控制（softvol）配置开关 =====
+local softvol_enable = s:taboption("advanced", Flag, "softvol_enable",
+    translate("启用独立音量控制 (Softvol)"),
+    translate("开启后，会为 OwnTone 创建独立的软件混音器，音量不受 AirPlay 和 DLNA 影响。"))
+
+softvol_enable.default = "0"
+softvol_enable.rmempty = false
+
+-- 应用按钮
+local apply_softvol = s:taboption("advanced", Button, "apply_softvol",
+    translate("应用 Softvol 配置"))
+apply_softvol.inputstyle = "apply"
+function apply_softvol.write(self, section)
+    local uci = self.map.uci
+    local cfg = self.map.config
+    uci:commit(cfg)
+
+    -- 只有当用户开启了 softvol 时才去生成配置
+    local enabled = uci:get(cfg, section, "softvol_enable") or "0"
+    if enabled == "1" then
+        -- 调用后端 API 写入 /etc/asound.conf
+        luci.sys.exec("curl -s -X POST http://127.0.0.1/cgi-bin/luci/admin/services/owntone/write_asound >/dev/null 2>&1")
+    else
+        -- 关闭时恢复最简单的默认配置（仅 dmixer，不含 softvol）
+        local sys = require "luci.sys"
+        local fs = require "nixio.fs"
+        local cards = sys.exec("cat /proc/asound/cards 2>/dev/null")
+        local _, name = cards:match("(%d+) %[([^%]]+)%]")
+        name = name and name:gsub("%s+$", "") or "Headset"
+
+        local simple_conf = string.format([[
+defaults.pcm.dmix.rate 44100
+defaults.pcm.dmix.format S16_LE
+
+pcm.!default {
+    type plug
+    slave.pcm "dmixer"
+}
+
+pcm.dmixer {
+    type dmix
+    ipc_key 1024
+    ipc_perm 0666
+    slave {
+        pcm "hw:%s,0"
+        period_time 0
+        period_size 1024
+        buffer_size 8192
+        rate 44100
+        format S16_LE
+    }
+    bindings { 0 0 1 1 }
+}
+ctl.dmixer {
+    type hw
+    card %s
+}
+]], name, name)
+        fs.writefile("/etc/asound.conf", simple_conf)
+        sys.exec("/etc/init.d/owntone restart >/dev/null 2>&1")
+        sys.exec("/etc/init.d/shairport-sync restart >/dev/null 2>&1")
+        sys.exec("/etc/init.d/gmediarender restart >/dev/null 2>&1")
+    end
+end
+
+
 -- ===== ALSA 诊断 =====
 local diag = s:taboption("advanced", DummyValue, "_alsa_diag", translate("ALSA 诊断"))
 diag.rawhtml = true
