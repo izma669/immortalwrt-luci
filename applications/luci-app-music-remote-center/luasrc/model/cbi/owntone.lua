@@ -7,17 +7,200 @@ m = Map("owntone")
 m.title = translate("Music Remote Center")
 m.description = translate("Music Remote Center is a DAAP (iTunes Remote), MPD (Music Player Daemon) and RSP (Roku) media server.")
 
+-- 1. 正在播放状态框
 m:section(SimpleSection).template = "owntone/owntone_status"
 
+-- 2. 物理声卡音量与刷新（紧跟正在播放框下面，独立渲染，不进入标签页）
+local snd_vol_sec = m:section(SimpleSection)
+snd_vol_sec.anonymous = true
+snd_vol_sec.addremove = false
+
+local snd_vol = snd_vol_sec:option(DummyValue, "_snd_vol", translate("物理声卡音量控制"))
+snd_vol.rawhtml = true
+snd_vol.default = [[
+<div style="padding: 10px 0;">
+    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+        <button type="button" class="cbi-button cbi-button-action" id="refresh_snd_btn" onclick="refreshSoundcard()">刷新并自动配置声卡</button>
+        <span id="snd_info" style="color: #666; font-size: 13px;">点击上方按钮检测声卡信息</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; max-width: 400px;">
+        <input type="range" id="hw_vol_slider" min="0" max="100" value="50" 
+               style="flex: 1; cursor: pointer;"
+               oninput="document.getElementById('hw_vol_val').innerText = this.value + '%'"
+               onchange="applyHwVolume(this.value)">
+        <span id="hw_vol_val" style="font-weight: bold; width: 45px; text-align: right;">50%</span>
+    </div>
+</div>
+<script type="text/javascript">
+    var currentCard = "0";
+    var currentControl = "Headphone";
+    var owntoneBaseUrl = '/cgi-bin/luci/admin/nas/owntone';
+
+    window.refreshSoundcard = function() {
+        var btn = document.getElementById('refresh_snd_btn');
+        var info = document.getElementById('snd_info');
+        if(!btn) return;
+        btn.disabled = true;
+        btn.innerText = '检测并写入中...';
+        info.innerHTML = '正在重新配置 ALSA 并重启服务，请稍候...';
+        
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', owntoneBaseUrl + '/refresh_soundcard', true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                btn.disabled = false;
+                btn.innerText = '刷新并自动配置声卡';
+                if (xhr.status === 200) {
+                    try {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.success) {
+                            info.innerHTML = '当前声卡: <b>' + res.name + '</b> (hw:' + res.card + ') | 控制项: <b>' + res.control + '</b>';
+                            document.getElementById('hw_vol_slider').value = res.volume;
+                            document.getElementById('hw_vol_val').innerText = res.volume + '%';
+                            currentCard = res.card;
+                            currentControl = res.control;
+                            alert('声卡配置已更新，服务已重启！');
+                        } else {
+                            info.innerHTML = '配置失败，请查看系统日志。';
+                        }
+                    } catch(e) { info.innerHTML = '解析响应失败。'; }
+                } else {
+                    info.innerHTML = '请求失败 (HTTP ' + xhr.status + ')。';
+                }
+            }
+        };
+        xhr.send();
+    };
+
+    window.applyHwVolume = function(val) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', owntoneBaseUrl + '/set_volume', true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.send('volume=' + val + '&card=' + currentCard + '&control=' + currentControl);
+    };
+
+    setTimeout(function() {
+        var btn = document.getElementById('refresh_snd_btn');
+        if(btn) { btn.click(); }
+    }, 500);
+</script>
+]]
+
+
+-- ==================== 标签页定义 ====================
 s = m:section(TypedSection, "owntone")
 s.addremove = false
 s.anonymous = true
 
--- 定义三个子面板
-s:tab("basic", translate("基本设置"))
 s:tab("playback", translate("播放控制选项"))
+s:tab("basic", translate("基本设置"))
 s:tab("advanced", translate("高级设置"))
 s:tab("logs",     translate("日志查看"))
+
+-- ==================== 播放控制选项 ====================
+autoplay = s:taboption("playback", Flag, "autoplay", translate("自动播放音乐库"))
+autoplay.default = "0"
+autoplay.rmempty = false
+autoplay.description = translate("Owntone 启动后自动把整个音乐库加入队列并开始播放。")
+
+autoplay_random = s:taboption("playback", Flag, "autoplay_random", translate("随机选曲"))
+autoplay_random.default = "0"
+autoplay_random.rmempty = false
+autoplay_random:depends("autoplay", "1")
+
+autoplay_repeat = s:taboption("playback", Flag, "autoplay_repeat", translate("列表循环"))
+autoplay_repeat.default = "0"
+autoplay_repeat.rmempty = false
+autoplay_repeat:depends("autoplay", "1")
+
+-- ===== 定时音量调整（每组带独立开关，关闭时自动折叠隐藏） =====
+for i = 1, 4 do
+    -- 独立启用开关
+    local enable_opt = s:taboption("playback", Flag, "enable_time" .. i, 
+        translate("启用定时音量 " .. i))
+    enable_opt.default = "0"
+    enable_opt.rmempty = false
+    enable_opt.description = translate("开启后才生效，关闭时下方时间与音量输入框会自动折叠隐藏。")
+
+    -- 时间输入框，依赖开关
+    local time_opt = s:taboption("playback", Value, "time" .. i, 
+        translate("时间点 " .. i .. " (HH:MM)"))
+    time_opt.default = ""
+    time_opt.rmempty = true
+    time_opt.placeholder = "07:00"
+    time_opt.datatype = "string"
+    time_opt:depends("enable_time" .. i, "1")
+    time_opt.validate = function(self, value)
+        if value and value ~= "" then
+            if not value:match("^%d%d:%d%d$") then
+                return nil, translate("时间格式必须为 HH:MM")
+            end
+            local h, m = value:match("^(%d%d):(%d%d)$")
+            h, m = tonumber(h), tonumber(m)
+            if h < 0 or h > 23 or m < 0 or m > 59 then
+                return nil, translate("时间无效")
+            end
+        end
+        return value
+    end
+
+    -- 音量输入框，同样依赖开关
+    local vol_opt = s:taboption("playback", Value, "volume" .. i, 
+        translate("音量 " .. i .. " (%)"))
+    vol_opt.default = ""
+    vol_opt.rmempty = true
+    vol_opt.datatype = "range(0,100)"
+    vol_opt.placeholder = "50"
+    vol_opt:depends("enable_time" .. i, "1")
+end
+
+-- ===== 应用定时音量设置按钮 =====
+local apply_btn = s:taboption("playback", Button, "apply_volume_schedule", translate("应用定时音量设置"))
+apply_btn.inputstyle = "apply"
+function apply_btn.write(self, section)
+    local uci = self.map.uci
+    local cfg = self.map.config
+    uci:commit(cfg)
+    local new_lines = {}
+    for i = 1, 4 do
+        -- 只有开关为 1 时才生成 cron 任务
+        local enabled = uci:get(cfg, section, "enable_time" .. i) or "0"
+        if enabled == "1" then
+            local t = uci:get(cfg, section, "time" .. i) or ""
+            local v = uci:get(cfg, section, "volume" .. i) or ""
+            if t ~= "" and v ~= "" then
+                local hh, mm = t:match("^(%d?%d):(%d%d)$")
+                if hh and mm then
+                    table.insert(new_lines, string.format(
+                        "%d %d * * * curl -s -X PUT 'http://127.0.0.1:3689/api/player/volume?volume=%s' >/dev/null 2>&1",
+                        tonumber(mm), tonumber(hh), v))
+                end
+            end
+        end
+    end
+    local crontab = "/etc/crontabs/root"
+    local kept = {}
+    local f = io.open(crontab, "r")
+    if f then
+        for line in f:lines() do
+            if not line:match("amixer%s+%-c%s+%d+") and not line:match("api/player/volume") then
+                table.insert(kept, line)
+            end
+        end
+        f:close()
+    end
+    for _, l in ipairs(new_lines) do
+        table.insert(kept, l)
+    end
+    f = io.open(crontab, "w")
+    if f then
+        f:write(table.concat(kept, "\n") .. "\n")
+        f:close()
+    end
+    sys.call("/etc/init.d/cron restart >/dev/null 2>&1")
+end
 
 -- ==================== 基本设置 ====================
 enable = s:taboption("basic", Flag, "enabled", translate("Enabled"))
@@ -46,128 +229,7 @@ function restart_btn.write(self, section)
     sys.call("/etc/init.d/owntone restart >/dev/null 2>&1")
 end
 
--- ==================== 播放控制选项 ====================
-autoplay = s:taboption("playback", Flag, "autoplay", translate("自动播放音乐库"))
-autoplay.default = "0"
-autoplay.rmempty = false
-autoplay.description = translate("Owntone 启动后自动把整个音乐库加入队列并开始播放。")
-
-autoplay_random = s:taboption("playback", Flag, "autoplay_random", translate("随机选曲"))
-autoplay_random.default = "0"
-autoplay_random.rmempty = false
-autoplay_random:depends("autoplay", "1")
-
-autoplay_repeat = s:taboption("playback", Flag, "autoplay_repeat", translate("列表循环"))
-autoplay_repeat.default = "0"
-autoplay_repeat.rmempty = false
-autoplay_repeat:depends("autoplay", "1")
-
--- ===== 定时音量调整（新增 4 个时间点）=====
-for i = 1, 4 do
-    local time_opt = s:taboption("playback", Value, "time" .. i, translate("时间点 " .. i .. " (HH:MM)"))
-    time_opt.default = ""
-    time_opt.rmempty = true
-    time_opt.placeholder = "07:00"
-    time_opt.datatype = "string"
-    time_opt.validate = function(self, value)
-        if value and value ~= "" then
-            if not value:match("^%d%d:%d%d$") then
-                return nil, translate("时间格式必须为 HH:MM")
-            end
-            local h, m = value:match("^(%d%d):(%d%d)$")
-            h, m = tonumber(h), tonumber(m)
-            if h < 0 or h > 23 or m < 0 or m > 59 then
-                return nil, translate("时间无效")
-            end
-        end
-        return value
-    end
-
-    local vol_opt = s:taboption("playback", Value, "volume" .. i, translate("音量 " .. i .. " (%)"))
-    vol_opt.default = ""
-    vol_opt.rmempty = true
-    vol_opt.datatype = "range(0,100)"
-    vol_opt.placeholder = "50"
-end
-
--- ===== 应用定时音量设置按钮 =====
-local apply_btn = s:taboption("playback", Button, "apply_volume_schedule", translate("应用定时音量设置"))
-apply_btn.inputstyle = "apply"
-function apply_btn.write(self, section)
-    local uci = self.map.uci
-    local cfg = self.map.config
-
-    -- 关键：先把内存里的表单值 commit 到磁盘
-    uci:commit(cfg)
-
-    local card_idx   = uci:get(cfg, section, "card") or "plughw:0"
-    local mixer_dev  = uci:get(cfg, section, "mixer_device") or "hw:0"
-    local mixer_ctrl = uci:get(cfg, section, "mixer") or ""
-
-    -- 调试日志
-    local log = io.open("/tmp/owntone_btn.log", "a")
-    if log then
-        log:write(string.format("%s apply: card=%s dev=%s mixer=%s\n",
-            os.date("%Y-%m-%d %H:%M:%S"),
-            tostring(card_idx), tostring(mixer_dev), tostring(mixer_ctrl)))
-    end
-
-    if mixer_ctrl == "" then
-        if log then log:write("  mixer 为空，放弃\n"); log:close() end
-        return
-    end
-
-    local card_num = tostring(card_idx):match(":(%d+)") or "0"
-
-    -- 收集新 cron 行
-    local new_lines = {}
-    for i = 1, 4 do
-        local t = uci:get(cfg, section, "time" .. i) or ""
-        local v = uci:get(cfg, section, "volume" .. i) or ""
-        if log then log:write(string.format("  #%d time=%s vol=%s\n", i, t, v)) end
-        if t ~= "" and v ~= "" then
-            local hh, mm = t:match("^(%d?%d):(%d%d)$")
-            if hh and mm then
-                table.insert(new_lines, string.format(
-                    "%d %d * * * amixer -c %s -D %s sset '%s' %s%% >/dev/null 2>&1",
-                    tonumber(mm), tonumber(hh),
-                    card_num, mixer_dev, mixer_ctrl, v))
-            end
-        end
-    end
-
-    -- 读写 crontab
-    local crontab = "/etc/crontabs/root"
-    local kept = {}
-    local f = io.open(crontab, "r")
-    if f then
-        for line in f:lines() do
-            if not line:match("amixer%s+%-c%s+%d+") then
-                table.insert(kept, line)
-            end
-        end
-        f:close()
-    end
-    for _, l in ipairs(new_lines) do
-        table.insert(kept, l)
-    end
-
-    f = io.open(crontab, "w")
-    if f then
-        f:write(table.concat(kept, "\n") .. "\n")
-        f:close()
-        if log then log:write("  写入 " .. #new_lines .. " 条 cron\n") end
-    elseif log then
-        log:write("  错误：无法写 crontab\n")
-    end
-    if log then log:close() end
-
-    -- 重启 cron
-    sys.call("/etc/init.d/cron restart >/dev/null 2>&1")
-end
-
 -- ==================== 高级设置 ====================
-
 -- ===== 重载USB声卡内核模块按钮 =====
 local reload_usb_btn = s:taboption("advanced", Button, "reload_usb_btn", translate("Reload USB Sound Loadable Kernel Module"))
 reload_usb_btn.inputstyle = "reload"
@@ -175,76 +237,14 @@ function reload_usb_btn.write(self, section)
     sys.call("rmmod snd_usb_audio >/dev/null 2>&1; modprobe snd_usb_audio >/dev/null 2>&1")
 end
 
--- ===== 初始化所有声卡按钮 (alsactl init) =====
+-- ===== 初始化所有声卡按钮 =====
 local alsa_init_btn = s:taboption("advanced", Button, "alsa_init_btn", translate("Initialize All Sound Cards"))
 alsa_init_btn.inputstyle = "reload"
 function alsa_init_btn.write(self, section)
     sys.call("alsactl init >/dev/null 2>&1")
 end
 
-------------------------------------------------------------
--- ★ 声卡设备
-------------------------------------------------------------
-card = s:taboption("advanced", ListValue, "card", translate("ALSA Mixer"),
-                translate("ALSA 混音器 :  plug会自动转换采样率/格式，dmix能将多路音频混合，hw是声卡硬件，"))
-card:value("plughw:0", "plug->hw:0")
-card:value("hw:0",     "hw:0")
-card:value("default",  "plug->dmix->hw:0")
-card.default = "plughw:0"
-card.rmempty = false
-
-------------------------------------------------------------
--- ★ 混音器设备
-------------------------------------------------------------
-mixer_device = s:taboption("advanced", ListValue, "mixer_device", translate("Mixer Device"))
-mixer_device:value("hw:0", "hw:0")
-mixer_device:value("hw:1", "hw:1")
-mixer_device.default = "hw:0"
-mixer_device.rmempty = false
-
-------------------------------------------------------------
--- ★ 动态读取混音器列表
-------------------------------------------------------------
-local function get_mixers(card_index)
-    local list = {}
-    local out = sys.exec("amixer -c " .. tostring(card_index) .. " scontrols 2>/dev/null")
-    if out and #out > 0 then
-        -- 匹配 Simple mixer control 'PCM',0  ->  PCM
-        for name in out:gmatch("Simple mixer control%s+'([^']+)'") do
-            list[name] = name
-        end
-    end
-    return list
-end
-
-local mixers = get_mixers(0)
-local mixer_count = 0
-for _ in pairs(mixers) do mixer_count = mixer_count + 1 end
-
-mixer = s:taboption("advanced", ListValue, "mixer", translate("Mixer Control"),
-                 translate("列表来自 <code>amixer -c 0 scontrols</code>。选择“(不控制音量)”则跳过音量同步。"))
-mixer:value("", translate("(不控制音量)"))
-for name, _ in pairs(mixers) do
-    mixer:value(name, name)
-end
-mixer.default = ""
-mixer.rmempty = true
-
-------------------------------------------------------------
--- ★ 探测状态提示
-------------------------------------------------------------
-status = s:taboption("advanced", DummyValue, "_mixer_status", translate("Detection Status"))
-status.rawhtml = true
-status.cfgvalue = function(self, section)
-    if mixer_count == 0 then
-        return "<span style='color:#c00'>未探测到混音器。请确认已安装 <code>alsa-utils</code>，且 USB 声卡已插入。</span>"
-    end
-    return string.format("<span style='color:#080'>检测到 %d 个混音器控制。</span>", mixer_count)
-end
-
-------------------------------------------------------------
--- ★ DummyValue 显示原始命令输出
-------------------------------------------------------------
+-- ===== ALSA 诊断 =====
 local diag = s:taboption("advanced", DummyValue, "_alsa_diag", translate("ALSA 诊断"))
 diag.rawhtml = true
 diag.cfgvalue = function(self, section)
@@ -270,7 +270,6 @@ diag.cfgvalue = function(self, section)
 end
 
 -- ==================== 日志查看 ====================
--- 刷新按钮（纯 JS，不写回 UCI）
 refresh_btn = s:taboption("logs", DummyValue, "_refresh_btn")
 refresh_btn.rawhtml = true
 refresh_btn.default = [[
@@ -288,25 +287,21 @@ log_view.rows     = 30
 log_view.wrap     = "off"
 log_view.readonly = true
 
+function log_view.write(self, section, value)
+end
+
 function log_view.cfgvalue(self, section)
     local data
-
-    -- 1) 优先从 syslog (logd) 抓取
     data = sys.exec("logread -e owntone -e forked-daapd 2>/dev/null | tail -n 200")
-
-    -- 2) 回退到常见日志文件（用 shell test 判断，避免依赖 fs）
     if not data or data == "" then
         data = sys.exec("[ -f /var/log/owntone.log ] && tail -n 200 /var/log/owntone.log 2>/dev/null")
     end
     if not data or data == "" then
         data = sys.exec("[ -f /tmp/log/owntone.log ] && tail -n 200 /tmp/log/owntone.log 2>/dev/null")
     end
-
-    -- 3) 兜底
     if not data or data == "" then
         data = translate("(暂无日志输出，请确认 Owntone 已启动)") .. "\n"
     end
-
     return data
 end
 
