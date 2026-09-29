@@ -10,7 +10,7 @@ m.description = translate("Music Remote Center is a DAAP (iTunes Remote), MPD (M
 -- 1. 正在播放状态框
 m:section(SimpleSection).template = "owntone/owntone_status"
 
--- 2. 物理声卡音量与刷新（紧跟正在播放框下面，独立渲染，不进入标签页）
+-- 2. 物理声卡音量滑块 + 当前声卡信息（保留在顶部）
 local snd_vol_sec = m:section(SimpleSection)
 snd_vol_sec.anonymous = true
 snd_vol_sec.addremove = false
@@ -19,55 +19,42 @@ local snd_vol = snd_vol_sec:option(DummyValue, "_snd_vol", translate("物理声�
 snd_vol.rawhtml = true
 snd_vol.default = [[
 <div style="padding: 10px 0;">
-    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
-        <button type="button" class="cbi-button cbi-button-action" id="refresh_snd_btn" onclick="refreshSoundcard()">刷新并自动配置声卡</button>
-        <span id="snd_info" style="color: #666; font-size: 13px;">点击上方按钮检测声卡信息</span>
-    </div>
     <div style="display: flex; align-items: center; gap: 12px; max-width: 400px;">
         <input type="range" id="hw_vol_slider" min="0" max="100" value="50" 
                style="flex: 1; cursor: pointer;"
                oninput="document.getElementById('hw_vol_val').innerText = this.value + '%'"
-               onchange="applyHwVolume(this.value)">
-        <span id="hw_vol_val" style="font-weight: bold; width: 45px; text-align: right;">50%</span>
+               onchange="window.applyHwVolume(this.value)">
+        <span id="hw_vol_val" style="font-weight: bold; width: 45px; text-align: right;">--%</span>
     </div>
+    <div id="snd_info" style="color: #666; font-size: 13px; margin-top: 6px;">正在读取声卡信息...</div>
 </div>
 <script type="text/javascript">
-    var currentCard = "0";
-    var currentControl = "Headphone";
-    var owntoneBaseUrl = '/cgi-bin/luci/admin/nas/owntone';
+    window.currentCard = "0";
+    window.currentControl = "Headphone";
+    window.owntoneBaseUrl = '/cgi-bin/luci/admin/nas/owntone';
 
-    window.refreshSoundcard = function() {
-        var btn = document.getElementById('refresh_snd_btn');
-        var info = document.getElementById('snd_info');
-        if(!btn) return;
-        btn.disabled = true;
-        btn.innerText = '检测并写入中...';
-        info.innerHTML = '正在重新配置 ALSA 并重启服务，请稍候...';
-        
+    window.loadSoundcardInfo = function() {
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', owntoneBaseUrl + '/refresh_soundcard', true);
-        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.open('GET', window.owntoneBaseUrl + '/get_soundcard_info', true);
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                btn.disabled = false;
-                btn.innerText = '刷新并自动配置声卡';
-                if (xhr.status === 200) {
-                    try {
-                        var res = JSON.parse(xhr.responseText);
-                        if (res.success) {
-                            info.innerHTML = '当前声卡: <b>' + res.name + '</b> (hw:' + res.card + ') | 控制项: <b>' + res.control + '</b>';
-                            document.getElementById('hw_vol_slider').value = res.volume;
-                            document.getElementById('hw_vol_val').innerText = res.volume + '%';
-                            currentCard = res.card;
-                            currentControl = res.control;
-                            alert('声卡配置已更新，服务已重启！');
-                        } else {
-                            info.innerHTML = '配置失败，请查看系统日志。';
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var res = JSON.parse(xhr.responseText);
+                    if (res.success) {
+                        window.currentCard = res.card;
+                        window.currentControl = res.control;
+                        var infoEl = document.getElementById('snd_info');
+                        if (infoEl) {
+                            infoEl.innerHTML = '当前声卡: <b>' + res.name + '</b> (hw:' + res.card + ') | 控制项: <b>' + res.control + '</b>';
                         }
-                    } catch(e) { info.innerHTML = '解析响应失败。'; }
-                } else {
-                    info.innerHTML = '请求失败 (HTTP ' + xhr.status + ')。';
-                }
+                        var sliderEl = document.getElementById('hw_vol_slider');
+                        var valEl = document.getElementById('hw_vol_val');
+                        if (typeof res.volume === 'number') {
+                            if (sliderEl) sliderEl.value = res.volume;
+                            if (valEl) valEl.innerText = res.volume + '%';
+                        }
+                    }
+                } catch(e) {}
             }
         };
         xhr.send();
@@ -75,16 +62,13 @@ snd_vol.default = [[
 
     window.applyHwVolume = function(val) {
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', owntoneBaseUrl + '/set_volume', true);
+        xhr.open('POST', window.owntoneBaseUrl + '/set_volume', true);
         xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        xhr.send('volume=' + val + '&card=' + currentCard + '&control=' + currentControl);
+        xhr.send('volume=' + val + '&card=' + window.currentCard + '&control=' + window.currentControl);
     };
 
-    setTimeout(function() {
-        var btn = document.getElementById('refresh_snd_btn');
-        if(btn) { btn.click(); }
-    }, 500);
+    setTimeout(window.loadSoundcardInfo, 300);
 </script>
 ]]
 
@@ -115,16 +99,16 @@ autoplay_repeat.default = "0"
 autoplay_repeat.rmempty = false
 autoplay_repeat:depends("autoplay", "1")
 
--- ===== 定时音量调整（每组带独立开关，关闭时自动折叠隐藏） =====
+-- ===== 定时音量调整（每个时间点包含：启用开关 + 时间 + 控制目标 + 音量） =====
 for i = 1, 4 do
     -- 独立启用开关
     local enable_opt = s:taboption("playback", Flag, "enable_time" .. i, 
         translate("启用定时音量 " .. i))
     enable_opt.default = "0"
     enable_opt.rmempty = false
-    enable_opt.description = translate("开启后才生效，关闭时下方时间与音量输入框会自动折叠隐藏。")
+    enable_opt.description = translate("开启后才生效，关闭时下方时间、控制目标和音量输入框会自动折叠隐藏。")
 
-    -- 时间输入框，依赖开关
+    -- 时间
     local time_opt = s:taboption("playback", Value, "time" .. i, 
         translate("时间点 " .. i .. " (HH:MM)"))
     time_opt.default = ""
@@ -146,7 +130,16 @@ for i = 1, 4 do
         return value
     end
 
-    -- 音量输入框，同样依赖开关
+    -- 控制目标
+    local target_opt = s:taboption("playback", ListValue, "target" .. i, 
+        translate("控制目标 " .. i))
+    target_opt:value("softvol", translate("OwnTone 软件音量（只影响本地播放）"))
+    target_opt:value("hw",     translate("物理声卡音量（影响 AirPlay/DLNA/OwnTone 全部）"))
+    target_opt.default = "softvol"
+    target_opt.rmempty = false
+    target_opt:depends("enable_time" .. i, "1")
+
+    -- 音量
     local vol_opt = s:taboption("playback", Value, "volume" .. i, 
         translate("音量 " .. i .. " (%)"))
     vol_opt.default = ""
@@ -163,23 +156,65 @@ function apply_btn.write(self, section)
     local uci = self.map.uci
     local cfg = self.map.config
     uci:commit(cfg)
-    local new_lines = {}
-    for i = 1, 4 do
-        -- 只有开关为 1 时才生成 cron 任务
-        local enabled = uci:get(cfg, section, "enable_time" .. i) or "0"
-        if enabled == "1" then
-            local t = uci:get(cfg, section, "time" .. i) or ""
-            local v = uci:get(cfg, section, "volume" .. i) or ""
-            if t ~= "" and v ~= "" then
-                local hh, mm = t:match("^(%d?%d):(%d%d)$")
-                if hh and mm then
-                    table.insert(new_lines, string.format(
-                        "%d %d * * * curl -s -X PUT 'http://127.0.0.1:3689/api/player/volume?volume=%s' >/dev/null 2>&1",
-                        tonumber(mm), tonumber(hh), v))
+
+    local sys = require "luci.sys"
+    local fs = require "nixio.fs"
+
+    -- 动态解析物理声卡编号和控制项，供 hw 目标使用
+    local card_num, control_name = "0", "Headphone"
+    if fs.access("/etc/asound.conf") then
+        local conf = fs.readfile("/etc/asound.conf") or ""
+        local name = conf:match('pcm%s+"hw:([^,]+),')
+        if name then
+            if name:match("^%d+$") then
+                card_num = name
+            else
+                local cards = sys.exec("cat /proc/asound/cards 2>/dev/null")
+                for num, cname in cards:gmatch("(%d+) %[([^%]]+)%]") do
+                    if cname:gsub("%s+$", "") == name then
+                        card_num = num
+                        break
+                    end
                 end
             end
         end
     end
+    local scontrols = sys.exec("amixer -c " .. card_num .. " scontrols 2>/dev/null")
+    if scontrols:match("'Headphone'") then control_name = "Headphone"
+    elseif scontrols:match("'Master'") then control_name = "Master"
+    elseif scontrols:match("'PCM'") then control_name = "PCM"
+    else
+        local first = scontrols:match("'([^']+)'")
+        if first then control_name = first end
+    end
+
+    local new_lines = {}
+    for i = 1, 4 do
+        local enabled = uci:get(cfg, section, "enable_time" .. i) or "0"
+        if enabled == "1" then
+            local t = uci:get(cfg, section, "time" .. i) or ""
+            local v = uci:get(cfg, section, "volume" .. i) or ""
+            local target = uci:get(cfg, section, "target" .. i) or "softvol"
+            if t ~= "" and v ~= "" then
+                local hh, mm = t:match("^(%d?%d):(%d%d)$")
+                if hh and mm then
+                    if target == "hw" then
+                        -- 控制物理声卡硬件音量
+                        table.insert(new_lines, string.format(
+                            "%d %d * * * amixer -c %s sset '%s' %s%% unmute >/dev/null 2>&1",
+                            tonumber(mm), tonumber(hh), card_num, control_name, v))
+                    else
+                        -- 控制 OwnTone 软件音量
+                        table.insert(new_lines, string.format(
+                            "%d %d * * * curl -s -X PUT 'http://127.0.0.1:3689/api/player/volume?volume=%s' >/dev/null 2>&1",
+                            tonumber(mm), tonumber(hh), v))
+                    end
+                end
+            end
+        end
+    end
+
+    -- 清理旧的音量任务（amixer 或 curl 音量），保留其他 cron 行
     local crontab = "/etc/crontabs/root"
     local kept = {}
     local f = io.open(crontab, "r")
@@ -230,6 +265,65 @@ function restart_btn.write(self, section)
 end
 
 -- ==================== 高级设置 ====================
+-- ===== 刷新并自动配置声卡 =====
+local snd_refresh = s:taboption("advanced", DummyValue, "_snd_refresh", translate("刷新并自动配置声卡"))
+snd_refresh.rawhtml = true
+snd_refresh.default = [[
+<div style="padding: 10px 0;">
+    <button type="button" class="cbi-button cbi-button-action" id="refresh_snd_btn" onclick="refreshSoundcard()">刷新并自动配置声卡</button>
+    <div style="color: #888; font-size: 12px; line-height: 1.7; margin-top: 8px;">
+        <b>作用：</b>检测当前 USB 声卡的型号和编号，自动将声卡信息和独立音量控制（softvol）写入 <code>/etc/asound.conf</code>，并重启 OwnTone、AirPlay、DLNA 服务。<br>
+        <b>使用时机：</b>仅在<b>更换 USB 声卡后手动点击一次</b>。平时调节音量请直接用上方“物理声卡音量控制”滑块。
+    </div>
+</div>
+<script type="text/javascript">
+    window.refreshSoundcard = function() {
+        var btn = document.getElementById('refresh_snd_btn');
+        if(!btn) return;
+        btn.disabled = true;
+        var oldText = btn.innerText;
+        btn.innerText = '检测并写入中...';
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', window.owntoneBaseUrl + '/refresh_soundcard', true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                btn.disabled = false;
+                btn.innerText = oldText;
+                if (xhr.status === 200) {
+                    try {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.success) {
+                            window.currentCard = res.card;
+                            window.currentControl = res.control;
+                            var infoEl = document.getElementById('snd_info');
+                            if (infoEl) {
+                                infoEl.innerHTML = '当前声卡: <b>' + res.name + '</b> (hw:' + res.card + ') | 控制项: <b>' + res.control + '</b>';
+                            }
+                            var sliderEl = document.getElementById('hw_vol_slider');
+                            var valEl = document.getElementById('hw_vol_val');
+                            if (typeof res.volume === 'number') {
+                                if (sliderEl) sliderEl.value = res.volume;
+                                if (valEl) valEl.innerText = res.volume + '%';
+                            }
+                            alert('声卡配置已更新，服务已重启。');
+                        } else {
+                            alert('配置失败，请查看系统日志。');
+                        }
+                    } catch(e) {
+                        alert('解析响应失败。');
+                    }
+                } else {
+                    alert('请求失败 (HTTP ' + xhr.status + ')。');
+                }
+            }
+        };
+        xhr.send();
+    };
+</script>
+]]
+
 -- ===== 重载USB声卡内核模块按钮 =====
 local reload_usb_btn = s:taboption("advanced", Button, "reload_usb_btn", translate("Reload USB Sound Loadable Kernel Module"))
 reload_usb_btn.inputstyle = "reload"
@@ -243,73 +337,6 @@ alsa_init_btn.inputstyle = "reload"
 function alsa_init_btn.write(self, section)
     sys.call("alsactl init >/dev/null 2>&1")
 end
-
-
--- ===== 独立音量控制（softvol）配置开关 =====
-local softvol_enable = s:taboption("advanced", Flag, "softvol_enable",
-    translate("启用独立音量控制 (Softvol)"),
-    translate("开启后，会为 OwnTone 创建独立的软件混音器，音量不受 AirPlay 和 DLNA 影响。"))
-
-softvol_enable.default = "0"
-softvol_enable.rmempty = false
-
--- 应用按钮
-local apply_softvol = s:taboption("advanced", Button, "apply_softvol",
-    translate("应用 Softvol 配置"))
-apply_softvol.inputstyle = "apply"
-function apply_softvol.write(self, section)
-    local uci = self.map.uci
-    local cfg = self.map.config
-    uci:commit(cfg)
-
-    -- 只有当用户开启了 softvol 时才去生成配置
-    local enabled = uci:get(cfg, section, "softvol_enable") or "0"
-    if enabled == "1" then
-        -- 调用后端 API 写入 /etc/asound.conf
-        luci.sys.exec("curl -s -X POST http://127.0.0.1/cgi-bin/luci/admin/services/owntone/write_asound >/dev/null 2>&1")
-    else
-        -- 关闭时恢复最简单的默认配置（仅 dmixer，不含 softvol）
-        local sys = require "luci.sys"
-        local fs = require "nixio.fs"
-        local cards = sys.exec("cat /proc/asound/cards 2>/dev/null")
-        local _, name = cards:match("(%d+) %[([^%]]+)%]")
-        name = name and name:gsub("%s+$", "") or "Headset"
-
-        local simple_conf = string.format([[
-defaults.pcm.dmix.rate 44100
-defaults.pcm.dmix.format S16_LE
-
-pcm.!default {
-    type plug
-    slave.pcm "dmixer"
-}
-
-pcm.dmixer {
-    type dmix
-    ipc_key 1024
-    ipc_perm 0666
-    slave {
-        pcm "hw:%s,0"
-        period_time 0
-        period_size 1024
-        buffer_size 8192
-        rate 44100
-        format S16_LE
-    }
-    bindings { 0 0 1 1 }
-}
-ctl.dmixer {
-    type hw
-    card %s
-}
-]], name, name)
-        fs.writefile("/etc/asound.conf", simple_conf)
-        sys.exec("/etc/init.d/owntone restart >/dev/null 2>&1")
-        sys.exec("/etc/init.d/shairport-sync restart >/dev/null 2>&1")
-        sys.exec("/etc/init.d/gmediarender restart >/dev/null 2>&1")
-    end
-end
-
 
 -- ===== ALSA 诊断 =====
 local diag = s:taboption("advanced", DummyValue, "_alsa_diag", translate("ALSA 诊断"))
