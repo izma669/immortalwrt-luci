@@ -11,6 +11,7 @@ function index()
     entry({"admin", "nas", "owntone", "get_soundcard_info"}, call("action_get_soundcard_info")).leaf = true
     entry({"admin", "nas", "owntone", "refresh_soundcard"}, call("action_refresh_soundcard")).leaf = true
     entry({"admin", "nas", "owntone", "apply_schedule"}, call("action_apply_schedule")).leaf = true
+    entry({"admin", "nas", "owntone", "sync_schedule"}, call("action_sync_schedule")).leaf = true
     entry({"admin", "nas", "owntone", "restart_service"}, call("action_restart_service")).leaf = true
 end
 
@@ -45,16 +46,13 @@ function act_status()
     luci.http.write_json(e)
 end
 
--- 从 /etc/asound.conf 里解析出当前配置的声卡名
 local function parse_asound_card()
     local fs = require "nixio.fs"
     if not fs.access("/etc/asound.conf") then return nil end
     local data = fs.readfile("/etc/asound.conf") or ""
-    local name = data:match('pcm%s+"hw:([^,]+),')
-    return name
+    return data:match('pcm%s+"hw:([^,]+),')
 end
 
--- 根据声卡名找到编号和音量控制项
 local function resolve_card(name)
     local sys = require "luci.sys"
     local card_num, card_name, control_name = "0", "Headset", "Headphone"
@@ -63,7 +61,7 @@ local function resolve_card(name)
     if name and name ~= "" then
         if name:match("^%d+$") then
             card_num = name
-            local num, cname = cards:match("(" .. name .. ") %[([^%]]+)%]")
+            local _, cname = cards:match("(" .. name .. ") %[([^%]]+)%]")
             if cname then card_name = cname:gsub("%s+$", "") end
         else
             for num, cname in cards:gmatch("(%d+) %[([^%]]+)%]") do
@@ -91,7 +89,6 @@ local function resolve_card(name)
     return card_num, card_name, control_name
 end
 
--- 读取当前声卡信息和音量（不写配置，不重启）
 function action_get_soundcard_info()
     local sys = require "luci.sys"
     local card_name = parse_asound_card()
@@ -105,7 +102,6 @@ function action_get_soundcard_info()
     })
 end
 
--- 调整音量（只调音量）
 function action_set_volume()
     local vol = luci.http.formvalue("volume")
     local card = luci.http.formvalue("card") or "0"
@@ -117,7 +113,6 @@ function action_set_volume()
     luci.http.write_json({ success = true })
 end
 
--- 手动刷新：检测新声卡 → 重写 /etc/asound.conf → 重启服务
 function action_refresh_soundcard()
     local sys = require "luci.sys"
     local fs = require "nixio.fs"
@@ -195,20 +190,18 @@ pcm.softvol {
     })
 end
 
--- 独立重启 OwnTone 服务（供 HTML 按钮调用）
 function action_restart_service()
     luci.sys.call("/etc/init.d/owntone restart >/dev/null 2>&1")
     luci.http.prepare_content("application/json")
     luci.http.write_json({ success = true })
 end
 
--- 应用定时音量计划（同时写 UCI 和 crontab）
+-- 应用定时音量计划（写 UCI + crontab，带 # owntone-vol-N 标识）
 function action_apply_schedule()
     local uci = require "luci.model.uci".cursor()
     local sys = require "luci.sys"
     local fs = require "nixio.fs"
 
-    -- 收集前端传来的所有参数
     local params = {}
     for i = 1, 4 do
         params["enable_time" .. i] = luci.http.formvalue("enable_time" .. i) or "0"
@@ -217,13 +210,11 @@ function action_apply_schedule()
         params["volume" .. i]      = luci.http.formvalue("volume" .. i) or ""
     end
 
-    -- 保存到 UCI，让下次打开页面还能看到
     for k, v in pairs(params) do
         uci:set("owntone", "owntone", k, v)
     end
     uci:commit("owntone")
 
-    -- 解析当前物理声卡编号和控制项
     local card_num, control_name = "0", "Headphone"
     if fs.access("/etc/asound.conf") then
         local conf = fs.readfile("/etc/asound.conf") or ""
@@ -251,37 +242,38 @@ function action_apply_schedule()
         if first then control_name = first end
     end
 
-    -- 生成新的 cron 任务
     local new_lines = {}
     for i = 1, 4 do
         if params["enable_time" .. i] == "1" then
             local t = params["time" .. i]
             local v = params["volume" .. i]
             local target = params["target" .. i]
-            if t ~= "" and v ~= "" then
+            -- 校验：时间格式正确、音量是 0-100 纯数字（自动去前导零）
+            if t ~= "" and v:match("^%d+$") and tonumber(v) <= 100 then
+                v = tostring(tonumber(v))
                 local hh, mm = t:match("^(%d?%d):(%d%d)$")
                 if hh and mm then
                     if target == "hw" then
                         table.insert(new_lines, string.format(
-                            "%d %d * * * amixer -c %s sset '%s' %s%% unmute >/dev/null 2>&1",
-                            tonumber(mm), tonumber(hh), card_num, control_name, v))
+                            "%d %d * * * amixer -c %s sset '%s' %s%% unmute >/dev/null 2>&1 # owntone-vol-%d",
+                            tonumber(mm), tonumber(hh), card_num, control_name, v, i))
                     else
                         table.insert(new_lines, string.format(
-                            "%d %d * * * curl -s -X PUT 'http://127.0.0.1:3689/api/player/volume?volume=%s' >/dev/null 2>&1",
-                            tonumber(mm), tonumber(hh), v))
+                            "%d %d * * * curl -s -X PUT 'http://127.0.0.1:3689/api/player/volume?volume=%s' >/dev/null 2>&1 # owntone-vol-%d",
+                            tonumber(mm), tonumber(hh), v, i))
                     end
                 end
             end
         end
     end
 
-    -- 清理旧任务，写入新任务
+    -- 只清理带 # owntone-vol-N 标识的行，其他计划任务不动
     local crontab = "/etc/crontabs/root"
     local kept = {}
     local f = io.open(crontab, "r")
     if f then
         for line in f:lines() do
-            if not line:match("amixer%s+%-c%s+%d+") and not line:match("api/player/volume") then
+            if not line:match("# owntone%-vol%-%d") then
                 table.insert(kept, line)
             end
         end
@@ -297,4 +289,48 @@ function action_apply_schedule()
 
     luci.http.prepare_content("application/json")
     luci.http.write_json({ success = true, count = #new_lines })
+end
+
+-- 从 crontab 反向解析定时任务，回写 UCI（保证界面和实际一致）
+function action_sync_schedule()
+    local uci = require "luci.model.uci".cursor()
+    local fs = require "nixio.fs"
+
+    local result = {}
+    for i = 1, 4 do
+        result[i] = { enable = "0", time = "", target = "softvol", volume = "" }
+    end
+
+    if fs.access("/etc/crontabs/root") then
+        local data = fs.readfile("/etc/crontabs/root") or ""
+        for line in data:gmatch("[^\r\n]+") do
+            local idx = line:match("# owntone%-vol%-(%d)")
+            if idx then
+                idx = tonumber(idx)
+                if idx and idx >= 1 and idx <= 4 then
+                    local mm = line:match("^(%d+)%s+%d+%s")
+                    local hh = line:match("^%d+%s+(%d+)%s")
+                    local vol = line:match("volume=(%d+)") or line:match("%s(%d+)%%%s+unmute")
+                    local target = line:match("amixer") and "hw" or "softvol"
+                    if mm and hh and vol then
+                        result[idx].enable = "1"
+                        result[idx].time   = string.format("%02d:%02d", tonumber(hh), tonumber(mm))
+                        result[idx].target = target
+                        result[idx].volume = vol
+                    end
+                end
+            end
+        end
+    end
+
+    for i = 1, 4 do
+        uci:set("owntone", "owntone", "enable_time" .. i, result[i].enable)
+        uci:set("owntone", "owntone", "time" .. i,        result[i].time)
+        uci:set("owntone", "owntone", "target" .. i,      result[i].target)
+        uci:set("owntone", "owntone", "volume" .. i,      result[i].volume)
+    end
+    uci:commit("owntone")
+
+    luci.http.prepare_content("application/json")
+    luci.http.write_json({ success = true, tasks = result })
 end
