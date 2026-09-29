@@ -168,7 +168,7 @@
         preload.src = url;
     }
 
-    XHR.poll(3, '<%=url("admin/services/shairport-sync/nowplaying")%>', null,
+    XHR.poll(1, '<%=url("admin/services/shairport-sync/nowplaying")%>', null,
         function(x, data) {
             var wrap    = document.getElementById('sps-artwrap');
             var elArt   = document.getElementById('sps-art');
