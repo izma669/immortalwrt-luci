@@ -238,6 +238,7 @@ function apply_btn.write(self, section)
 end
 
 -- ==================== 基本设置 ====================
+
 enable = s:taboption("basic", Flag, "enabled", translate("Enabled"))
 enable.default = "0"
 enable.rmempty = false
@@ -253,6 +254,22 @@ db_path.rmempty = false
 directories = s:taboption("basic", Value, "directories", translate("Music Directorie Path"))
 directories.default = "/opt/music"
 directories.rmempty = false
+
+-- ===== MPD 端口 =====
+mpd_port = s:taboption("basic", Value, "mpd_port", translate("MPD 端口"))
+mpd_port.default = "6600"
+mpd_port.datatype = "port"
+mpd_port.rmempty = true
+mpd_port.description = translate("默认 6600。如果你用 MPD 客户端（如 MPDlux）遥控，可以把它暴露出来，方便修改。设为 0 可禁用 MPD。")
+-- ===== MPD 端口 =====
+
+-- ===== 启动时禁用扫描 =====
+local filescan_off = s:taboption("basic", Flag, "filescan_disable",
+    translate("启动时禁用扫描"),
+    translate("如果你音乐库很大，想加快 Owntone 启动速度，可以开启此项。注意：关闭后，新增或删除的音乐文件不会在启动时自动更新到数据库，需要手动触发重扫描。"))
+filescan_off.default = "0"
+filescan_off.rmempty = false
+-- ===== 启动时禁用扫描 =====
 
 readme = s:taboption("basic", DummyValue, "readme", translate("Readme"))
 readme.description = translate("About iOS Remote Pairing: <br />1. Open the web interface <br /> 2. Start iPhone Remote APP, go to Settings, Add Library<br />3. Enter the pair code in the web interface")
