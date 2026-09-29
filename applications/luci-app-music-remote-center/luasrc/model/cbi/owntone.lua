@@ -149,12 +149,11 @@ end
 local apply_btn = s:taboption("playback", DummyValue, "_apply_schedule", translate("应用定时音量设置"))
 apply_btn.rawhtml = true
 apply_btn.default = [[
+
 <button type="button" class="cbi-button cbi-button-apply" onclick="applySchedule()">应用定时音量设置</button>
 <div id="schedule_status" style="color:#666;font-size:12px;margin-top:6px;"></div>
-
-
 <script type="text/javascript">
-// 用 indexOf 做模糊匹配，兼容 LuCI 各种 name 前缀
+// 用 indexOf 模糊匹配，兼容 LuCI 各种 name 前缀
 function getFlagValue(suffix) {
     var els = document.querySelectorAll('input[type="checkbox"]');
     for (var k = 0; k < els.length; k++) {
@@ -174,6 +173,25 @@ function getInputValue(suffix) {
     }
     return '';
 }
+function setFlagValue(suffix, val) {
+    var els = document.querySelectorAll('input[type="checkbox"]');
+    for (var k = 0; k < els.length; k++) {
+        if (els[k].name && els[k].name.indexOf(suffix) !== -1) {
+            els[k].checked = (val === '1' || val === 1);
+            return;
+        }
+    }
+}
+function setInputValue(suffix, val) {
+    var inputs = document.querySelectorAll('input, select');
+    for (var k = 0; k < inputs.length; k++) {
+        var el = inputs[k];
+        if (el.name && el.name.indexOf(suffix) !== -1 && el.type !== 'checkbox' && el.type !== 'hidden') {
+            el.value = val;
+            return;
+        }
+    }
+}
 
 function applySchedule() {
     var params = {};
@@ -184,7 +202,6 @@ function applySchedule() {
         params['volume' + i]      = getInputValue('volume' + i);
     }
 
-    // 在状态栏里显示抓到的参数，方便一眼看出问题
     var status = document.getElementById('schedule_status');
     status.innerHTML = '<span style="color:#666;">提交中... 抓到的参数: ' +
         'E1=' + params.enable_time1 + ' T1=' + params.time1 + ' V1=' + params.volume1 +
@@ -213,8 +230,33 @@ function applySchedule() {
     }).join('&');
     xhr.send(body);
 }
-</script>
 
+// ★ 页面加载时从 crontab 反向同步一次（以 crontab 为准）
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/cgi-bin/luci/admin/nas/owntone/sync_schedule', true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var res = JSON.parse(xhr.responseText);
+                    if (res.success && res.tasks) {
+                        for (var i = 1; i <= 4; i++) {
+                            var t = res.tasks[i];
+                            setFlagValue('enable_time' + i, t.enable);
+                            setInputValue('time' + i, t.time);
+                            setInputValue('target' + i, t.target);
+                            setInputValue('volume' + i, t.volume);
+                        }
+                    }
+                } catch(e) {}
+            }
+        };
+        xhr.send();
+    }, 400);
+});
+</script>
 
 ]]
 
