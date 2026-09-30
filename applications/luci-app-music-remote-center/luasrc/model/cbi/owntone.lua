@@ -107,25 +107,19 @@ for i = 1, 4 do
     enable_opt.rmempty = false
     enable_opt.description = translate("开启后才生效，关闭时下方时间、控制目标和音量输入框会自动折叠隐藏。")
 
-    local time_opt = s:taboption("playback", Value, "time" .. i, 
+       -- 时间（下拉框，15 分钟步长，避免手动输入错误）
+    local time_opt = s:taboption("playback", ListValue, "time" .. i, 
         translate("时间点 " .. i .. " (HH:MM)"))
+    time_opt:value("", translate("(未设置)"))
+    for h = 0, 23 do
+        for m = 0, 45, 15 do
+            local val = string.format("%02d:%02d", h, m)
+            time_opt:value(val, val)
+        end
+    end
     time_opt.default = ""
     time_opt.rmempty = true
-    time_opt.placeholder = "07:00"
-    time_opt.datatype = "string"
     time_opt:depends("enable_time" .. i, "1")
-    time_opt.validate = function(self, value)
-        if value and value ~= "" then
-            if not value:match("^%d%d:%d%d$") then
-                return nil, translate("时间格式必须为 HH:MM")
-            end
-            local h, m = value:match("^(%d%d):(%d%d)$")
-            h, m = tonumber(h), tonumber(m)
-            if h < 0 or h > 23 or m < 0 or m > 59 then
-                return nil, translate("时间无效")
-            end
-        end
-        return value
     end
 
     local target_opt = s:taboption("playback", ListValue, "target" .. i, 
@@ -136,12 +130,15 @@ for i = 1, 4 do
     target_opt.rmempty = false
     target_opt:depends("enable_time" .. i, "1")
 
-    local vol_opt = s:taboption("playback", Value, "volume" .. i, 
+        -- 音量（下拉框，步长 5%，避免手动输入错误）
+    local vol_opt = s:taboption("playback", ListValue, "volume" .. i, 
         translate("音量 " .. i .. " (%)"))
-    vol_opt.default = ""
+    vol_opt:value("", translate("(未设置)"))
+    for v = 0, 100, 5 do
+        vol_opt:value(tostring(v), tostring(v) .. "%")
+    end
+    vol_opt.default = "50"
     vol_opt.rmempty = true
-    vol_opt.datatype = "range(0,100)"
-    vol_opt.placeholder = "50"
     vol_opt:depends("enable_time" .. i, "1")
 end
 
