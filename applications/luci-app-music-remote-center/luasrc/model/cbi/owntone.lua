@@ -107,12 +107,12 @@ for i = 1, 4 do
     enable_opt.rmempty = false
     enable_opt.description = translate("开启后才生效，关闭时下方时间、控制目标和音量输入框会自动折叠隐藏。")
 
-       -- 时间（下拉框，15 分钟步长，避免手动输入错误）
+   -- 时间（下拉框，15 分钟步长，避免手动输入错误）
     local time_opt = s:taboption("playback", ListValue, "time" .. i, 
         translate("时间点 " .. i .. " (HH:MM)"))
     time_opt:value("", translate("(未设置)"))
     for h = 0, 23 do
-        for m = 0, 45, 15 do
+        for m = 0, 50, 10 do
             local val = string.format("%02d:%02d", h, m)
             time_opt:value(val, val)
         end
@@ -120,7 +120,6 @@ for i = 1, 4 do
     time_opt.default = ""
     time_opt.rmempty = true
     time_opt:depends("enable_time" .. i, "1")
-    end
 
     local target_opt = s:taboption("playback", ListValue, "target" .. i, 
         translate("控制目标 " .. i))
@@ -134,13 +133,14 @@ for i = 1, 4 do
     local vol_opt = s:taboption("playback", ListValue, "volume" .. i, 
         translate("音量 " .. i .. " (%)"))
     vol_opt:value("", translate("(未设置)"))
-    for v = 0, 100, 5 do
+    for v = 0, 100, 1 do
         vol_opt:value(tostring(v), tostring(v) .. "%")
     end
     vol_opt.default = "50"
     vol_opt.rmempty = true
     vol_opt:depends("enable_time" .. i, "1")
 end
+
 
 -- ===== 应用定时音量设置（HTML 按钮 + AJAX，脱离 CBI 验证） =====
 local apply_btn = s:taboption("playback", DummyValue, "_apply_schedule", translate("应用定时音量设置"))
