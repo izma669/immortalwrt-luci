@@ -293,7 +293,7 @@ end
 
 -- 从 crontab 反向解析定时任务，回写 UCI（保证界面和实际一致）
 function action_sync_schedule()
-    local uci = require "luci.model.uci".cursor()
+-- 测试20260930超过可以删    local uci = require "luci.model.uci".cursor()
     local fs = require "nixio.fs"
 
     local result = {}
@@ -323,13 +323,13 @@ function action_sync_schedule()
         end
     end
 
-    for i = 1, 4 do
-        uci:set("owntone", "owntone", "enable_time" .. i, result[i].enable)
-        uci:set("owntone", "owntone", "time" .. i,        result[i].time)
-        uci:set("owntone", "owntone", "target" .. i,      result[i].target)
-        uci:set("owntone", "owntone", "volume" .. i,      result[i].volume)
-    end
-    uci:commit("owntone")
+-- 测试20260930超过可以删    for i = 1, 4 do
+-- 测试20260930超过可以删        uci:set("owntone", "owntone", "enable_time" .. i, result[i].enable)
+-- 测试20260930超过可以删        uci:set("owntone", "owntone", "time" .. i,        result[i].time)
+-- 测试20260930超过可以删        uci:set("owntone", "owntone", "target" .. i,      result[i].target)
+-- 测试20260930超过可以删        uci:set("owntone", "owntone", "volume" .. i,      result[i].volume)
+-- 测试20260930超过可以删    end
+-- 测试20260930超过可以删    uci:commit("owntone")
 
     luci.http.prepare_content("application/json")
     luci.http.write_json({ success = true, tasks = result })
