@@ -79,6 +79,7 @@ s.addremove = false
 s.anonymous = true
 
 s:tab("playback", translate("播放控制选项"))
+s:tab("schedule", translate("定时控制音量"))
 s:tab("basic", translate("基本设置"))
 s:tab("advanced", translate("高级设置"))
 s:tab("logs",     translate("日志查看"))
@@ -99,94 +100,99 @@ autoplay_repeat.default = "0"
 autoplay_repeat.rmempty = false
 autoplay_repeat:depends("autoplay", "1")
 
--- ===== 定时音量调整（每个时间点包含：启用开关 + 时间 + 控制目标 + 音量） =====
-for i = 1, 4 do
-    local enable_opt = s:taboption("playback", Flag, "enable_time" .. i, 
-        translate("启用定时音量 " .. i))
-    enable_opt.default = "0"
-    enable_opt.rmempty = false
-    enable_opt.description = translate("开启后才生效，关闭时下方时间、控制目标和音量输入框会自动折叠隐藏。")
 
-   -- 时间（下拉框，15 分钟步长，避免手动输入错误）
-    local time_opt = s:taboption("playback", ListValue, "time" .. i, 
-        translate("时间点 " .. i .. " (HH:MM)"))
-    time_opt:value("", translate("(未设置)"))
+-- ==================== 定时控制音量 ====================
+-- ===== 定时音量调整（自定义 HTML 实现横向排列） =====
+for i = 1, 4 do
+    -- 构建时间选项
+    local time_opts = '<option value="">(未设置)</option>'
     for h = 0, 23 do
         for m = 0, 50, 10 do
             local val = string.format("%02d:%02d", h, m)
-            time_opt:value(val, val)
+            time_opts = time_opts .. string.format('<option value="%s">%s</option>', val, val)
         end
     end
-    time_opt.default = ""
-    time_opt.rmempty = true
-    time_opt:depends("enable_time" .. i, "1")
 
-    local target_opt = s:taboption("playback", ListValue, "target" .. i, 
-        translate("控制目标 " .. i))
-    target_opt:value("softvol", translate("OwnTone 软件音量（只影响本地播放）"))
-    target_opt:value("hw",     translate("物理声卡音量（影响 AirPlay/DLNA/OwnTone 全部）"))
-    target_opt.default = "softvol"
-    target_opt.rmempty = false
-    target_opt:depends("enable_time" .. i, "1")
-
-        -- 音量（下拉框，步长 5%，避免手动输入错误）
-    local vol_opt = s:taboption("playback", ListValue, "volume" .. i, 
-        translate("音量 " .. i .. " (%)"))
-    vol_opt:value("", translate("(未设置)"))
+    -- 构建音量选项
+    local vol_opts = '<option value="">(未设置)</option>'
     for v = 0, 100, 1 do
-        vol_opt:value(tostring(v), tostring(v) .. "%")
+        vol_opts = vol_opts .. string.format('<option value="%d">%d%%</option>', v, v)
     end
-    vol_opt.default = "50"
-    vol_opt.rmempty = true
-    vol_opt:depends("enable_time" .. i, "1")
+
+    local html = string.format([[
+    <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #eee;">
+        <div style="display: flex; align-items: center; min-width: 130px;">
+            <input type="checkbox" id="enable_time%d" name="enable_time%d" value="1" style="margin-right: 8px;" onchange="toggleScheduleRow(%d)">
+            <label for="enable_time%d" style="font-weight: bold; cursor: pointer; margin: 0;">启用定时音量 %d</label>
+        </div>
+        <div id="schedule_fields_%d" style="display: none; gap: 20px; align-items: flex-end;">
+            <div style="display: flex; flex-direction: column;">
+                <label style="font-size: 12px; color: #666; margin-bottom: 4px;">时间点 (HH:MM)</label>
+                <select name="time%d" id="time%d" style="width: 110px; height: 30px; border: 1px solid #ccc; border-radius: 3px; padding: 2px 5px;">%s</select>
+            </div>
+            <div style="display: flex; flex-direction: column;">
+                <label style="font-size: 12px; color: #666; margin-bottom: 4px;">控制目标</label>
+                <select name="target%d" id="target%d" style="width: 220px; height: 30px; border: 1px solid #ccc; border-radius: 3px; padding: 2px 5px;">
+                    <option value="softvol">OwnTone 软件音量（只影响本地播放）</option>
+                    <option value="hw">物理声卡音量（影响全部）</option>
+                </select>
+            </div>
+            <div style="display: flex; flex-direction: column;">
+                <label style="font-size: 12px; color: #666; margin-bottom: 4px;">音量 (%%)</label>
+                <select name="volume%d" id="volume%d" style="width: 90px; height: 30px; border: 1px solid #ccc; border-radius: 3px; padding: 2px 5px;">%s</select>
+            </div>
+        </div>
+    </div>
+    ]], i, i, i, i, i, i, i, i, time_opts, i, i, i, i, vol_opts)
+
+    local row_opt = s:taboption("schedule", DummyValue, "_schedule_row_" .. i)
+    row_opt.rawhtml = true
+    row_opt.default = html
 end
 
-
 -- ===== 应用定时音量设置（HTML 按钮 + AJAX，脱离 CBI 验证） =====
-local apply_btn = s:taboption("playback", DummyValue, "_apply_schedule", translate("应用定时音量设置"))
+local apply_btn = s:taboption("schedule", DummyValue, "_apply_schedule", translate("应用定时音量设置"))
 apply_btn.rawhtml = true
 apply_btn.default = [[
 
 <button type="button" class="cbi-button cbi-button-apply" onclick="applySchedule()">应用定时音量设置</button>
 <div id="schedule_status" style="color:#666;font-size:12px;margin-top:6px;"></div>
 <script type="text/javascript">
-// 用 indexOf 模糊匹配，兼容 LuCI 各种 name 前缀
+// ★ 折叠控制函数
+function toggleScheduleRow(index) {
+    var cb = document.getElementById('enable_time' + index);
+    var fields = document.getElementById('schedule_fields_' + index);
+    if (cb && fields) {
+        fields.style.display = cb.checked ? 'flex' : 'none';
+    }
+}
+
+// ★ 精准 ID 匹配，彻底解决错位问题
 function getFlagValue(suffix) {
-    var els = document.querySelectorAll('input[type="checkbox"]');
-    for (var k = 0; k < els.length; k++) {
-        if (els[k].name && els[k].name.indexOf(suffix) !== -1) {
-            return els[k].checked ? '1' : '0';
-        }
-    }
-    return '0';
+    var el = document.getElementById(suffix);
+    return (el && el.checked) ? '1' : '0';
 }
+
 function getInputValue(suffix) {
-    var inputs = document.querySelectorAll('input, select');
-    for (var k = 0; k < inputs.length; k++) {
-        var el = inputs[k];
-        if (el.name && el.name.indexOf(suffix) !== -1 && el.type !== 'checkbox' && el.type !== 'hidden') {
-            return el.value || '';
-        }
-    }
-    return '';
+    var el = document.getElementById(suffix);
+    return el ? el.value : '';
 }
+
 function setFlagValue(suffix, val) {
-    var els = document.querySelectorAll('input[type="checkbox"]');
-    for (var k = 0; k < els.length; k++) {
-        if (els[k].name && els[k].name.indexOf(suffix) !== -1) {
-            els[k].checked = (val === '1' || val === 1);
-            return;
+    var el = document.getElementById(suffix);
+    if (el) {
+        el.checked = (val === '1' || val === 1);
+        if (suffix.indexOf('enable_time') !== -1) {
+            var idx = suffix.replace('enable_time', '');
+            toggleScheduleRow(idx);
         }
     }
 }
+
 function setInputValue(suffix, val) {
-    var inputs = document.querySelectorAll('input, select');
-    for (var k = 0; k < inputs.length; k++) {
-        var el = inputs[k];
-        if (el.name && el.name.indexOf(suffix) !== -1 && el.type !== 'checkbox' && el.type !== 'hidden') {
-            el.value = val;
-            return;
-        }
+    var el = document.getElementById(suffix);
+    if (el) {
+        el.value = val;
     }
 }
 
@@ -228,9 +234,9 @@ function applySchedule() {
     xhr.send(body);
 }
 
-// ★ 页面加载时从 crontab 反向同步一次（以 crontab 为准）
-window.addEventListener('load', function() {
-    setTimeout(function() {
+// ★ 核心修复：使用 setTimeout 替代 window.onload，适配 LuCI SPA 架构
+setTimeout(function() {
+    try {
         var xhr = new XMLHttpRequest();
         xhr.open('POST', '/cgi-bin/luci/admin/nas/owntone/sync_schedule', true);
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
@@ -240,19 +246,21 @@ window.addEventListener('load', function() {
                     var res = JSON.parse(xhr.responseText);
                     if (res.success && res.tasks) {
                         for (var i = 1; i <= 4; i++) {
-                            var t = res.tasks[i];
+                            // ★ 修复：Lua 数组转为 JSON 数组时下标从 0 开始，需要 i-1
+                            // 兼容返回对象或数组的两种情况
+                            var t = res.tasks[i-1] || res.tasks[i] || { enable: '0', time: '', target: 'softvol', volume: '' };
                             setFlagValue('enable_time' + i, t.enable);
                             setInputValue('time' + i, t.time);
                             setInputValue('target' + i, t.target);
                             setInputValue('volume' + i, t.volume);
                         }
                     }
-                } catch(e) {}
+                } catch(e) { console.log('sync parse error:', e); }
             }
         };
         xhr.send();
-    }, 400);
-});
+    } catch(e) { console.log('sync_schedule error:', e); }
+}, 800); // 延迟 800ms 确保 LuCI DOM 渲染完毕
 </script>
 
 ]]
