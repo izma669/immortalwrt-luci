@@ -28,7 +28,6 @@
         font-size: 15px;
         box-shadow: 0 6px 20px rgba(0,0,0,0.1);
     }
-    /* 中心的小圆孔，模拟唱片 */
     #gmr-np-artwrap::after {
         content: "";
         position: absolute;
@@ -46,9 +45,28 @@
         from { transform: rotate(0deg); }
         to   { transform: rotate(360deg); }
     }
+    #gmr-download-status-bar {
+        margin-top: 8px;
+        font-size: 12px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        display: none;
+        word-break: break-all;
+        white-space: pre-wrap;
+        max-height: 100px;
+        overflow-y: auto;
+        line-height: 1.4;
+        font-family: monospace;
+        transition: all 0.3s ease;
+    }
+    .gmr-dl-blue { background: #eaf3ff; color: #1a73e8; border: 1px solid #c2d7f8; }
+    .gmr-dl-green { background: #e6f4ea; color: #137333; border: 1px solid #b7e1c3; }
+    .gmr-dl-red { background: #fce8e6; color: #c5221f; border: 1px solid #f5c2c0; }
 </style>
 
 <script type="text/javascript">
+    var gmrDownloadTimer = null;
+
     XHR.poll(3, '<%=url("admin/services/gmediarender/nowplaying")%>', null,
         function(x, data) {
             var wrap     = document.getElementById('gmr-np-artwrap');
@@ -60,11 +78,11 @@
             var elState  = document.getElementById('gmr-np-state');
             var elPos    = document.getElementById('gmr-np-pos');
             var elMedia  = document.getElementById('gmr-np-media');
-            // 修改点1：替换原有的 elAudio，改为 elVol 和 elSC
             var elVol    = document.getElementById('gmr-np-vol');
             var elSC     = document.getElementById('gmr-np-soundcard');
             var elUrl    = document.getElementById('gmr-np-url');
             var elDl     = document.getElementById('gmr-np-dlbtn');
+            var elDown   = document.getElementById('gmr-np-downloadbtn');
             if (!elTitle) return;
 
             if (!data || (!data.title && !data.artist)) {
@@ -74,11 +92,11 @@
                 elAlbum.innerHTML  = '-';
                 elPos.innerHTML    = '-';
                 elMedia.innerHTML  = '-';
-                // 修改点2：空闲状态清空音量和声卡
                 if (elVol) elVol.innerHTML = '-';
                 if (elSC)  elSC.innerHTML  = '-';
                 if (elUrl) elUrl.textContent = '-';
                 if (elDl)  elDl.setAttribute('href', '#');
+                if (elDown) { elDown.disabled = true; elDown.style.opacity = '0.6'; }
                 if (wrap)  wrap.classList.remove('has-art');
                 if (elArt)   elArt.style.display = 'none';
                 if (elNoArt) elNoArt.style.display = 'flex';
@@ -92,14 +110,12 @@
                 elPos.innerHTML    = (data.position || '0:00:00') +
                                      ' / ' + (data.duration || '-');
 
-                // 媒体信息：类型 · 格式 · 音质 （码率为估值，去掉不显示）
                 var mb = [];
                 if (data.mediatype) mb.push(data.mediatype);
                 if (data.format)    mb.push(data.format);
                 if (data.quality)   mb.push(data.quality);
                 elMedia.innerHTML = mb.length ? mb.join(' · ') : '-';
 
-                // 修改点3：参照右侧 AirPlay2，显示音量与输出声卡
                 if (elVol) elVol.innerHTML = (data.volume || 0) + '%';
                 if (elSC)  elSC.innerHTML  = data.soundcard || '-';
 
@@ -109,14 +125,21 @@
                 } else if (elDl) {
                     elDl.setAttribute('href', '#');
                 }
+                if (elDown) {
+                    if (data.streamurl && data.streamurl.length > 5) {
+                        elDown.disabled = false;
+                        elDown.style.opacity = '1';
+                    } else {
+                        elDown.disabled = true;
+                        elDown.style.opacity = '0.6';
+                    }
+                }
 
                 if (data.albumart && data.albumart.length > 5) {
                     if (elArt.src !== data.albumart) elArt.src = data.albumart;
                     elArt.style.display = 'block';
                     elNoArt.style.display = 'none';
                     if (wrap) wrap.classList.add('has-art');
-
-                    // 播放中才旋转，暂停/停止则停转
                     elArt.style.animationPlayState =
                         (data.playing ? 'running' : 'paused');
                 } else {
@@ -153,6 +176,94 @@
             btn.textContent = '已复制!';
             setTimeout(function(){ btn.textContent = '复制'; }, 1500);
         }
+    }
+
+    function gmrPollDownloadLog() {
+        if (gmrDownloadTimer) clearInterval(gmrDownloadTimer);
+        var statusBar = document.getElementById('gmr-download-status-bar');
+        
+        gmrDownloadTimer = setInterval(function() {
+            var xhr = new XHR();
+            xhr.get('<%=url("admin/services/gmediarender/download_log")%>', null, function(x) {
+                try {
+                    var res = JSON.parse(x.responseText);
+                    var log = res.log || "";
+                    
+                    statusBar.style.display = 'block';
+                    statusBar.className = 'gmr-dl-blue';
+                    
+                    if (log.indexOf('100%') !== -1 || log.indexOf('saved') !== -1 || log.indexOf('complete') !== -1) {
+                        statusBar.className = 'gmr-dl-green';
+                        statusBar.textContent = '下载完成！\n' + log.split('\n').slice(-3).join('\n');
+                        clearInterval(gmrDownloadTimer);
+                    } else if (log.indexOf('failed') !== -1 || log.indexOf('error') !== -1 || log.indexOf('No such file') !== -1) {
+                        statusBar.className = 'gmr-dl-red';
+                        statusBar.textContent = '下载失败！\n' + log;
+                        clearInterval(gmrDownloadTimer);
+                    } else {
+                        var lines = log.trim().split('\n');
+                        var displayLog = lines.slice(-4).join('\n');
+                        statusBar.textContent = '正在下载...\n' + displayLog;
+                    }
+                } catch(e) {}
+            });
+        }, 1500);
+    }
+
+    function gmrDownloadToDevice() {
+        var elUrl = document.getElementById('gmr-np-url');
+        var elTitle = document.getElementById('gmr-np-title');
+        var elArtist = document.getElementById('gmr-np-artist');
+        var btn = document.getElementById('gmr-np-downloadbtn');
+        var statusBar = document.getElementById('gmr-download-status-bar');
+        
+        if (!elUrl || !elUrl.textContent || elUrl.textContent === '-') {
+            alert('当前没有可下载的音频源。');
+            return;
+        }
+        var url = elUrl.textContent;
+        // 获取当前界面的歌曲名和歌手，供后端重命名使用
+        var title = elTitle ? elTitle.textContent.trim() : '';
+        var artist = elArtist ? elArtist.textContent.trim() : '';
+        
+        var tokenInput = document.querySelector('input[name="token"]');
+        var token = tokenInput ? tokenInput.value : '';
+
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = '请求中...';
+        }
+        
+        statusBar.style.display = 'block';
+        statusBar.className = 'gmr-dl-blue';
+        statusBar.textContent = '正在发送下载请求...';
+
+        var xhr = new XHR();
+        // 将 title 和 artist 一起发送到后端
+        xhr.post('<%=url("admin/services/gmediarender/download")%>', { 
+            url: url, 
+            title: title, 
+            artist: artist, 
+            token: token 
+        }, function(x) {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '下载到设备';
+            }
+            try {
+                var res = JSON.parse(x.responseText);
+                if (res.success) {
+                    statusBar.textContent = res.msg;
+                    gmrPollDownloadLog();
+                } else {
+                    statusBar.className = 'gmr-dl-red';
+                    statusBar.textContent = '错误：' + res.msg;
+                }
+            } catch(e) {
+                statusBar.className = 'gmr-dl-red';
+                statusBar.textContent = '请求解析失败：' + e.message + '\n服务器返回：\n' + x.responseText;
+            }
+        });
     }
 
     function gmrCollapseBasicSettings() {
@@ -229,7 +340,6 @@
                 <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">媒体信息</td>
                 <td id="gmr-np-media" style="padding: 6px 0; color: #555; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
             </tr>
-            <!-- 修改点4：参照右侧 AirPlay 2，将“音频”修改为“音频设备”，并显示音量和输出声卡 -->
             <tr>
                 <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">音频设备</td>
                 <td style="padding: 6px 0; color: #555; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
@@ -280,7 +390,22 @@
                         text-decoration: none;
                         line-height: 1.4;
                     ">浏览器打开</a>
+                <button id="gmr-np-downloadbtn" type="button" onclick="gmrDownloadToDevice()" disabled
+                    style="
+                        flex-shrink: 0;
+                        font-size: 11px;
+                        padding: 4px 10px;
+                        border: 1px solid #5cb85c;
+                        background: #5cb85c;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        color: #fff;
+                        text-decoration: none;
+                        line-height: 1.4;
+                        opacity: 0.6;
+                    ">下载到设备</button>
             </div>
+            <div id="gmr-download-status-bar" class="gmr-dl-blue"></div>
         </div>
     </div>
 </div>
