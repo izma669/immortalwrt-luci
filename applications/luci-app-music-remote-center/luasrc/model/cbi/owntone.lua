@@ -7,15 +7,23 @@ m = Map("owntone")
 m.title = translate("Music Remote Center")
 m.description = translate("Music Remote Center is a DAAP (iTunes Remote), MPD (Music Player Daemon) and RSP (Roku) media server.")
 
--- 1. 正在播放状态框
+-- 1. 正在播放状态框 (保留在顶部全局)
 m:section(SimpleSection).template = "owntone/owntone_status"
 
--- 2. 物理声卡音量滑块 + 当前声卡信息（保留在顶部）
-local snd_vol_sec = m:section(SimpleSection)
-snd_vol_sec.anonymous = true
-snd_vol_sec.addremove = false
+-- ==================== 标签页定义 ====================
+s = m:section(TypedSection, "owntone")
+s.addremove = false
+s.anonymous = true
 
-local snd_vol = snd_vol_sec:option(DummyValue, "_snd_vol", translate("物理声卡音量控制"))
+s:tab("playback", translate("播放控制选项"))
+s:tab("schedule", translate("定时控制音量"))
+s:tab("basic", translate("基本设置"))
+s:tab("advanced", translate("高级设置"))
+s:tab("logs",     translate("日志查看"))
+
+-- ==================== 播放控制选项 ====================
+-- ★ 移动到这里：物理声卡音量滑块 + 当前声卡信息
+local snd_vol = s:taboption("playback", DummyValue, "_snd_vol", translate("物理声卡音量控制"))
 snd_vol.rawhtml = true
 snd_vol.default = [[
 <div style="padding: 10px 0;">
@@ -72,19 +80,6 @@ snd_vol.default = [[
 </script>
 ]]
 
-
--- ==================== 标签页定义 ====================
-s = m:section(TypedSection, "owntone")
-s.addremove = false
-s.anonymous = true
-
-s:tab("playback", translate("播放控制选项"))
-s:tab("schedule", translate("定时控制音量"))
-s:tab("basic", translate("基本设置"))
-s:tab("advanced", translate("高级设置"))
-s:tab("logs",     translate("日志查看"))
-
--- ==================== 播放控制选项 ====================
 autoplay = s:taboption("playback", Flag, "autoplay", translate("自动播放音乐库"))
 autoplay.default = "0"
 autoplay.rmempty = false
