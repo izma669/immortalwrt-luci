@@ -46,6 +46,12 @@ o.datatype = "port"
 o.default = "49152"
 o.rmempty = false
 
+-- 新增：下载歌曲存放位置
+o = s:option(Value, "download_dir", "下载歌曲存放位置",
+    "下载歌曲的默认保存路径，请确保目录已挂载且有足够空间（默认 /mnt/sda1/media/music）")
+o.default = "/mnt/sda1/media/music"
+o.rmempty = false
+
 o = s:option(Flag, "enable_log", "启用日志",
     "把日志写入文件后解析播放数据，这是“正在播放”显示功能所必需的")
 o.default = "1"
