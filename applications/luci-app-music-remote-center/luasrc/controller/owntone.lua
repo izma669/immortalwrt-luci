@@ -13,6 +13,7 @@ function index()
     entry({"admin", "nas", "owntone", "apply_schedule"}, call("action_apply_schedule")).leaf = true
     entry({"admin", "nas", "owntone", "sync_schedule"}, call("action_sync_schedule")).leaf = true
     entry({"admin", "nas", "owntone", "restart_service"}, call("action_restart_service")).leaf = true
+    entry({"admin", "nas", "owntone", "player_control"}, call("player_control")).leaf = true
 end
 
 function act_status()
@@ -293,7 +294,6 @@ end
 
 -- 从 crontab 反向解析定时任务，回写 UCI（保证界面和实际一致）
 function action_sync_schedule()
--- 测试20260930超过可以删    local uci = require "luci.model.uci".cursor()
     local fs = require "nixio.fs"
 
     local result = {}
@@ -323,14 +323,53 @@ function action_sync_schedule()
         end
     end
 
--- 测试20260930超过可以删    for i = 1, 4 do
--- 测试20260930超过可以删        uci:set("owntone", "owntone", "enable_time" .. i, result[i].enable)
--- 测试20260930超过可以删        uci:set("owntone", "owntone", "time" .. i,        result[i].time)
--- 测试20260930超过可以删        uci:set("owntone", "owntone", "target" .. i,      result[i].target)
--- 测试20260930超过可以删        uci:set("owntone", "owntone", "volume" .. i,      result[i].volume)
--- 测试20260930超过可以删    end
--- 测试20260930超过可以删    uci:commit("owntone")
-
     luci.http.prepare_content("application/json")
     luci.http.write_json({ success = true, tasks = result })
+end
+
+-- ==================== 播放控制 ====================
+function player_control()
+    local action = luci.http.formvalue("action")
+    if not action then
+        luci.http.status(400, "Bad Request")
+        luci.http.prepare_content("application/json")
+        luci.http.write_json({ success = false, error = "缺少 action 参数" })
+        return
+    end
+
+    -- 先检查 OwnTone 是否在运行
+    local running = luci.sys.call("pgrep owntone >/dev/null") == 0
+    if not running then
+        luci.http.status(500, "Not Running")
+        luci.http.prepare_content("application/json")
+        luci.http.write_json({ success = false, error = "OwnTone 服务未运行，请等待服务启动或手动重启服务！" })
+        return
+    end
+
+    local uci = require("luci.model.uci").cursor()
+    local port = uci:get("owntone", "owntone", "port") or "3689"
+
+    local api_path = ""
+    if action == "next" then api_path = "next"
+    elseif action == "previous" then api_path = "previous"
+    elseif action == "toggle" then api_path = "toggle"
+    else
+        luci.http.status(400, "Invalid action")
+        luci.http.prepare_content("application/json")
+        luci.http.write_json({ success = false, error = "无效的 action: " .. action })
+        return
+    end
+
+    local cmd = string.format("curl -s -o /dev/null -w '%%{http_code}' -X PUT http://127.0.0.1:%s/api/player/%s", port, api_path)
+    local http_code = luci.sys.exec(cmd)
+    http_code = http_code:gsub("%s+", "")
+
+    if http_code == "200" or http_code == "204" then
+        luci.http.prepare_content("application/json")
+        luci.http.write_json({ success = true })
+    else
+        luci.http.status(500, "API Error")
+        luci.http.prepare_content("application/json")
+        luci.http.write_json({ success = false, error = "OwnTone API 返回状态码: " .. (http_code or "空") })
+    end
 end
