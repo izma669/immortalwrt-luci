@@ -18,6 +18,7 @@ function action_status()
     luci.http.write_json({ running = running, enabled = enabled == "1" })
 end
 
+-- 修复日志显示：将 wget 的八进制转义解码回 UTF-8 中文
 function action_download_log()
     local fs = require "nixio.fs"
     local logfile = "/tmp/gmediarender_dl.log"
@@ -25,6 +26,11 @@ function action_download_log()
     if fs.access(logfile) then
         data = fs.readfile(logfile) or ""
         if #data > 3000 then data = data:sub(-3000) end
+        
+        -- 核心修复：匹配 \344 这样的八进制码，并还原为字符
+        data = data:gsub("\\(%d%d%d)", function(oct)
+            return string.char(tonumber(oct, 8))
+        end)
     end
     luci.http.prepare_content("application/json")
     luci.http.write_json({ log = data })
@@ -81,7 +87,6 @@ function action_download()
     -- 清理和拼接文件名的逻辑
     local function sanitize_filename(s)
         if not s then return "" end
-        -- 替换非法字符为下划线，并去除首尾空格
         s = s:gsub("[\\/:*?\"<>|]", "_")
         s = s:gsub("^%s+", ""):gsub("%s+$", "")
         return s
@@ -90,27 +95,22 @@ function action_download()
     local safe_title = sanitize_filename(title)
     local safe_artist = sanitize_filename(artist)
     
-    -- 过滤掉无意义的占位符
     if safe_title == "暂无播放" or safe_title == "空闲" then safe_title = "" end
     if safe_artist == "-" or safe_artist == "未知艺术家" then safe_artist = "" end
     
     local filename = ""
-    -- 核心拼接逻辑：歌曲名-演唱者
     if safe_title ~= "" and safe_artist ~= "" then
         filename = safe_title .. "-" .. safe_artist
     elseif safe_title ~= "" then
         filename = safe_title
     else
-        -- 如果没有歌曲信息，回退到从 URL 提取文件名
         filename = url:match("([^/]+)$") or "download_song"
         filename = filename:match("([^?]+)") or filename
     end
     
-    -- 提取扩展名（优先从 URL 获取，否则默认 .mp3）
     local ext = url:match("%.([%a%d]+)(?:$|%?)")
     if not ext or #ext > 4 then ext = "mp3" end
     
-    -- 如果拼接后的文件名没有扩展名，自动补全
     if not filename:match("%.%w+$") then
         filename = filename .. "." .. ext
     end
@@ -120,13 +120,17 @@ function action_download()
     
     sys.call("echo '开始下载...' > " .. logfile)
     
+    local safe_filepath = "'" .. filepath:gsub("'", "'\\''") .. "'"
+    local safe_url = "'" .. url:gsub("'", "'\\''") .. "'"
+    local safe_logfile = "'" .. logfile:gsub("'", "'\\''") .. "'"
+    
     local cmd = ""
     if tool == "wget" then
-        cmd = string.format("wget -O %s %s >> %s 2>&1 &", 
-            string.format("%q", filepath), string.format("%q", url), logfile)
+        cmd = string.format("env LANG=C.UTF-8 LC_ALL=C.UTF-8 wget -O %s %s >> %s 2>&1 &", 
+            safe_filepath, safe_url, safe_logfile)
     else
-        cmd = string.format("uclient-fetch -O %s %s >> %s 2>&1 &", 
-            string.format("%q", filepath), string.format("%q", url), logfile)
+        cmd = string.format("env LANG=C.UTF-8 LC_ALL=C.UTF-8 uclient-fetch -O %s %s >> %s 2>&1 &", 
+            safe_filepath, safe_url, safe_logfile)
     end
     
     sys.call(cmd)
@@ -135,8 +139,8 @@ function action_download()
     http.write_json({success = true, msg = "已开始后台下载:\n" .. filename})
 end
 
+-- action_nowplaying 保持原样，不需要修改
 function action_nowplaying()
-    -- 保持原有逻辑不变
     local fs  = require "nixio.fs"
     local uci = require "luci.model.uci".cursor()
     local logfile = uci:get("gmediarender", "main", "logfile")
