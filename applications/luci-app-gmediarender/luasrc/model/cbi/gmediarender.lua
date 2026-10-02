@@ -46,7 +46,13 @@ o.datatype = "port"
 o.default = "49152"
 o.rmempty = false
 
--- 新增：下载歌曲存放位置
+-- 新增：播放时自动下载（严格按标准 Flag 格式，保证不会白板）
+o = s:option(Flag, "auto_download", "播放时自动下载",
+    "当检测到开始播放新歌曲时，自动将其下载到指定目录")
+o.default = "0"
+o.rmempty = false
+
+-- 下载歌曲存放位置
 o = s:option(Value, "download_dir", "下载歌曲存放位置",
     "下载歌曲的默认保存路径，请确保目录已挂载且有足够空间（默认 /mnt/sda1/media/music）")
 o.default = "/mnt/sda1/media/music"
