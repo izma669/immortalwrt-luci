@@ -1,64 +1,11 @@
 <style>
-    #gmr-np-artwrap {
-        position: relative;
-        width: 260px;
-        height: 260px;
-        flex-shrink: 0;
-    }
-    #gmr-np-art {
-        width: 260px;
-        height: 260px;
-        border-radius: 50%;
-        object-fit: cover;
-        display: none;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.18);
-        background: #ddd;
-        animation: gmr-spin 24s linear infinite;
-        animation-play-state: paused;
-    }
-    #gmr-np-noart {
-        width: 260px;
-        height: 260px;
-        border-radius: 50%;
-        background: #e4e8ee;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #a0a6b0;
-        font-size: 15px;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
-    }
-    #gmr-np-artwrap::after {
-        content: "";
-        position: absolute;
-        top: 50%; left: 50%;
-        width: 34px; height: 34px;
-        margin: -17px 0 0 -17px;
-        border-radius: 50%;
-        background: radial-gradient(circle, #f8f9fb 40%, #ddd 42%, #bbb 70%, #999 72%);
-        box-shadow: inset 0 0 4px rgba(0,0,0,0.35);
-        pointer-events: none;
-        display: none;
-    }
+    #gmr-np-artwrap { position: relative; width: 260px; height: 260px; flex-shrink: 0; }
+    #gmr-np-art { width: 260px; height: 260px; border-radius: 50%; object-fit: cover; display: none; box-shadow: 0 6px 20px rgba(0,0,0,0.18); background: #ddd; animation: gmr-spin 24s linear infinite; animation-play-state: paused; }
+    #gmr-np-noart { width: 260px; height: 260px; border-radius: 50%; background: #e4e8ee; display: flex; align-items: center; justify-content: center; color: #a0a6b0; font-size: 15px; box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+    #gmr-np-artwrap::after { content: ""; position: absolute; top: 50%; left: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; background: radial-gradient(circle, #f8f9fb 40%, #ddd 42%, #bbb 70%, #999 72%); box-shadow: inset 0 0 4px rgba(0,0,0,0.35); pointer-events: none; display: none; }
     #gmr-np-artwrap.has-art::after { display: block; }
-    @keyframes gmr-spin {
-        from { transform: rotate(0deg); }
-        to   { transform: rotate(360deg); }
-    }
-    #gmr-download-status-bar {
-        margin-top: 8px;
-        font-size: 12px;
-        padding: 8px 12px;
-        border-radius: 6px;
-        display: none;
-        word-break: break-all;
-        white-space: pre-wrap;
-        max-height: 100px;
-        overflow-y: auto;
-        line-height: 1.4;
-        font-family: monospace;
-        transition: all 0.3s ease;
-    }
+    @keyframes gmr-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    #gmr-download-status-bar { margin-top: 8px; font-size: 12px; padding: 8px 12px; border-radius: 6px; display: none; word-break: break-all; white-space: pre-wrap; max-height: 100px; overflow-y: auto; line-height: 1.4; font-family: monospace; transition: all 0.3s ease; }
     .gmr-dl-blue { background: #eaf3ff; color: #1a73e8; border: 1px solid #c2d7f8; }
     .gmr-dl-green { background: #e6f4ea; color: #137333; border: 1px solid #b7e1c3; }
     .gmr-dl-red { background: #fce8e6; color: #c5221f; border: 1px solid #f5c2c0; }
@@ -67,143 +14,137 @@
 <script type="text/javascript">
     var gmrDownloadTimer = null;
 
-    XHR.poll(3, '<%=url("admin/services/gmediarender/nowplaying")%>', null,
+    // 字节转 MB 辅助函数
+    function gmrBytesToMB(bytes) {
+        if (bytes === undefined || isNaN(bytes) || bytes === 0) return '0 MB';
+        return (bytes / 1048576).toFixed(2) + ' MB';
+    }
+
+    XHR.poll(3, '/cgi-bin/luci/admin/services/gmediarender/nowplaying', null,
         function(x, data) {
-            var wrap     = document.getElementById('gmr-np-artwrap');
-            var elArt    = document.getElementById('gmr-np-art');
-            var elNoArt  = document.getElementById('gmr-np-noart');
-            var elTitle  = document.getElementById('gmr-np-title');
+            var wrap = document.getElementById('gmr-np-artwrap');
+            var elArt = document.getElementById('gmr-np-art');
+            var elNoArt = document.getElementById('gmr-np-noart');
+            var elTitle = document.getElementById('gmr-np-title');
             var elArtist = document.getElementById('gmr-np-artist');
-            var elAlbum  = document.getElementById('gmr-np-album');
-            var elState  = document.getElementById('gmr-np-state');
-            var elPos    = document.getElementById('gmr-np-pos');
-            var elMedia  = document.getElementById('gmr-np-media');
-            var elVol    = document.getElementById('gmr-np-vol');
-            var elSC     = document.getElementById('gmr-np-soundcard');
-            var elUrl    = document.getElementById('gmr-np-url');
-            var elDl     = document.getElementById('gmr-np-dlbtn');
-            var elDown   = document.getElementById('gmr-np-downloadbtn');
+            var elAlbum = document.getElementById('gmr-np-album');
+            var elState = document.getElementById('gmr-np-state');
+            var elPos = document.getElementById('gmr-np-pos');
+            var elMedia = document.getElementById('gmr-np-media');
+            var elVol = document.getElementById('gmr-np-vol');
+            var elSC = document.getElementById('gmr-np-soundcard');
+            var elUrl = document.getElementById('gmr-np-url');
+            var elDl = document.getElementById('gmr-np-dlbtn');
+            var elDown = document.getElementById('gmr-np-downloadbtn');
             if (!elTitle) return;
 
             if (!data || (!data.title && !data.artist)) {
-                elState.innerHTML  = '<span style="color:#c98b00;">空闲</span>';
-                elTitle.innerHTML  = '<span style="color:#999; font-style:italic;">暂无播放</span>';
-                elArtist.innerHTML = '-';
-                elAlbum.innerHTML  = '-';
-                elPos.innerHTML    = '-';
-                elMedia.innerHTML  = '-';
-                if (elVol) elVol.innerHTML = '-';
-                if (elSC)  elSC.innerHTML  = '-';
-                if (elUrl) elUrl.textContent = '-';
-                if (elDl)  elDl.setAttribute('href', '#');
+                elState.innerHTML = '<span style="color:#c98b00;">空闲</span>';
+                elTitle.innerHTML = '<span style="color:#999; font-style:italic;">暂无播放</span>';
+                elArtist.innerHTML = '-'; elAlbum.innerHTML = '-'; elPos.innerHTML = '-'; elMedia.innerHTML = '-';
+                if (elVol) elVol.innerHTML = '-'; if (elSC) elSC.innerHTML = '-';
+                if (elUrl) elUrl.textContent = '-'; if (elDl) elDl.setAttribute('href', '#');
                 if (elDown) { elDown.disabled = true; elDown.style.opacity = '0.6'; }
-                if (wrap)  wrap.classList.remove('has-art');
-                if (elArt)   elArt.style.display = 'none';
-                if (elNoArt) elNoArt.style.display = 'flex';
+                if (wrap) wrap.classList.remove('has-art');
+                if (elArt) elArt.style.display = 'none'; if (elNoArt) elNoArt.style.display = 'flex';
             } else {
-                elState.innerHTML  = data.playing
-                    ? '<span style="color:green; font-weight:bold;">播放中</span>'
-                    : '<span style="color:#c98b00;">暂停</span>';
-                elTitle.innerHTML  = data.title  || '-';
-                elArtist.innerHTML = data.artist || '-';
-                elAlbum.innerHTML  = data.album  || '-';
-                elPos.innerHTML    = (data.position || '0:00:00') +
-                                     ' / ' + (data.duration || '-');
-
-                var mb = [];
-                if (data.mediatype) mb.push(data.mediatype);
-                if (data.format)    mb.push(data.format);
-                if (data.quality)   mb.push(data.quality);
+                elState.innerHTML = data.playing ? '<span style="color:green; font-weight:bold;">播放中</span>' : '<span style="color:#c98b00;">暂停</span>';
+                elTitle.innerHTML = data.title || '-'; elArtist.innerHTML = data.artist || '-'; elAlbum.innerHTML = data.album || '-';
+                elPos.innerHTML = (data.position || '0:00:00') + ' / ' + (data.duration || '-');
+                var mb = []; if (data.mediatype) mb.push(data.mediatype); if (data.format) mb.push(data.format); if (data.quality) mb.push(data.quality);
                 elMedia.innerHTML = mb.length ? mb.join(' · ') : '-';
-
-                if (elVol) elVol.innerHTML = (data.volume || 0) + '%';
-                if (elSC)  elSC.innerHTML  = data.soundcard || '-';
-
+                if (elVol) elVol.innerHTML = (data.volume || 0) + '%'; if (elSC) elSC.innerHTML = data.soundcard || '-';
                 if (elUrl) elUrl.textContent = data.streamurl || '-';
-                if (elDl && data.streamurl) {
-                    elDl.setAttribute('href', data.streamurl);
-                } else if (elDl) {
-                    elDl.setAttribute('href', '#');
-                }
-                if (elDown) {
-                    if (data.streamurl && data.streamurl.length > 5) {
-                        elDown.disabled = false;
-                        elDown.style.opacity = '1';
-                    } else {
-                        elDown.disabled = true;
-                        elDown.style.opacity = '0.6';
-                    }
-                }
-
+                if (elDl && data.streamurl) elDl.setAttribute('href', data.streamurl); else if (elDl) elDl.setAttribute('href', '#');
+                if (elDown) { if (data.streamurl && data.streamurl.length > 5) { elDown.disabled = false; elDown.style.opacity = '1'; } else { elDown.disabled = true; elDown.style.opacity = '0.6'; } }
                 if (data.albumart && data.albumart.length > 5) {
                     if (elArt.src !== data.albumart) elArt.src = data.albumart;
-                    elArt.style.display = 'block';
-                    elNoArt.style.display = 'none';
-                    if (wrap) wrap.classList.add('has-art');
-                    elArt.style.animationPlayState =
-                        (data.playing ? 'running' : 'paused');
-                } else {
-                    elArt.style.display = 'none';
-                    elNoArt.style.display = 'flex';
-                    if (wrap) wrap.classList.remove('has-art');
+                    elArt.style.display = 'block'; elNoArt.style.display = 'none'; if (wrap) wrap.classList.add('has-art');
+                    elArt.style.animationPlayState = (data.playing ? 'running' : 'paused');
+                } else { elArt.style.display = 'none'; elNoArt.style.display = 'flex'; if (wrap) wrap.classList.remove('has-art'); }
+            }
+
+            if (data && data.auto_download_triggered) {
+                var statusBar = document.getElementById('gmr-download-status-bar');
+                if (statusBar) {
+                    statusBar.style.display = 'block';
+                    statusBar.className = 'gmr-dl-blue';
+                    statusBar.textContent = '检测到新歌曲，已触发自动下载...';
+                }
+                if (typeof gmrPollDownloadLog === 'function') {
+                    gmrPollDownloadLog(true);
                 }
             }
         }
     );
 
     function gmrArtError() {
-        var wrap     = document.getElementById('gmr-np-artwrap');
-        var elArt    = document.getElementById('gmr-np-art');
-        var elNoArt  = document.getElementById('gmr-np-noart');
-        if (elArt && elNoArt) {
-            elArt.style.display = 'none';
-            elNoArt.style.display = 'flex';
-        }
+        var wrap = document.getElementById('gmr-np-artwrap');
+        var elArt = document.getElementById('gmr-np-art');
+        var elNoArt = document.getElementById('gmr-np-noart');
+        if (elArt && elNoArt) { elArt.style.display = 'none'; elNoArt.style.display = 'flex'; }
         if (wrap) wrap.classList.remove('has-art');
     }
 
     function gmrCopyUrl() {
         var elUrl = document.getElementById('gmr-np-url');
         if (!elUrl || !elUrl.textContent || elUrl.textContent === '-') return;
-        var t = document.createElement('textarea');
-        t.value = elUrl.textContent;
-        document.body.appendChild(t);
-        t.select();
+        var t = document.createElement('textarea'); t.value = elUrl.textContent;
+        document.body.appendChild(t); t.select();
         try { document.execCommand('copy'); } catch(e) {}
         document.body.removeChild(t);
         var btn = document.getElementById('gmr-np-copybtn');
-        if (btn) {
-            btn.textContent = '已复制!';
-            setTimeout(function(){ btn.textContent = '复制'; }, 1500);
-        }
+        if (btn) { btn.textContent = '已复制!'; setTimeout(function(){ btn.textContent = '复制'; }, 1500); }
     }
 
-    function gmrPollDownloadLog() {
+    function gmrPollDownloadLog(force) {
         if (gmrDownloadTimer) clearInterval(gmrDownloadTimer);
         var statusBar = document.getElementById('gmr-download-status-bar');
-        
+        if (!force && statusBar && statusBar.style.display === 'block' && statusBar.className === 'gmr-dl-blue') return;
+
         gmrDownloadTimer = setInterval(function() {
             var xhr = new XHR();
-            xhr.get('<%=url("admin/services/gmediarender/download_log")%>', null, function(x) {
+            xhr.get('/cgi-bin/luci/admin/services/gmediarender/download_log', null, function(x) {
                 try {
                     var res = JSON.parse(x.responseText);
                     var log = res.log || "";
                     
+                    // ==========================================
+                    // 日志翻译与单位转换
+                    // ==========================================
+                    // 1. 英文替换
+                    log = log.replace(/saved/g, '已保存')
+                             .replace(/Length:/g, '文件大小:')
+                             .replace(/Connecting to/g, '连接到')
+                             .replace(/HTTP request sent, awaiting response.../g, 'HTTP请求已发送，等待响应...')
+                             .replace(/Resolving/g, '正在解析域名')
+                             .replace(/failed:/g, '失败:')
+                             .replace(/ERROR/g, '错误');
+
+                    // 2. 提取 [数字/数字]，转换为 MB
+                    // 匹配 [3452253/3452253] 这种格式
+                    log = log.replace(/\[(\d+)\/(\d+)\]/g, function(match, downloaded, total) {
+                        return '[' + gmrBytesToMB(downloaded) + ' / ' + gmrBytesToMB(total) + ']';
+                    });
+
+                    // 3. 提取文件大小 Length: 数字
+                    log = log.replace(/文件大小: (\d+)/g, function(match, bytes) {
+                        return '文件大小: ' + gmrBytesToMB(bytes);
+                    });
+
                     statusBar.style.display = 'block';
                     statusBar.className = 'gmr-dl-blue';
-                    
-                    if (log.indexOf('100%') !== -1 || log.indexOf('saved') !== -1 || log.indexOf('complete') !== -1) {
+                    if (log.indexOf('100%') !== -1 || log.indexOf('已保存') !== -1 || log.indexOf('complete') !== -1) {
                         statusBar.className = 'gmr-dl-green';
                         statusBar.textContent = '下载完成！\n' + log.split('\n').slice(-3).join('\n');
                         clearInterval(gmrDownloadTimer);
-                    } else if (log.indexOf('failed') !== -1 || log.indexOf('error') !== -1 || log.indexOf('No such file') !== -1) {
+                    } else if (log.indexOf('失败') !== -1 || log.indexOf('错误') !== -1 || log.indexOf('No such file') !== -1) {
                         statusBar.className = 'gmr-dl-red';
                         statusBar.textContent = '下载失败！\n' + log;
                         clearInterval(gmrDownloadTimer);
                     } else {
                         var lines = log.trim().split('\n');
-                        var displayLog = lines.slice(-4).join('\n');
-                        statusBar.textContent = '正在下载...\n' + displayLog;
+                        statusBar.textContent = '正在下载...\n' + lines.slice(-4).join('\n');
                     }
                 } catch(e) {}
             });
@@ -216,53 +157,22 @@
         var elArtist = document.getElementById('gmr-np-artist');
         var btn = document.getElementById('gmr-np-downloadbtn');
         var statusBar = document.getElementById('gmr-download-status-bar');
-        
-        if (!elUrl || !elUrl.textContent || elUrl.textContent === '-') {
-            alert('当前没有可下载的音频源。');
-            return;
-        }
+        if (!elUrl || !elUrl.textContent || elUrl.textContent === '-') { alert('当前没有可下载的音频源。'); return; }
         var url = elUrl.textContent;
-        // 获取当前界面的歌曲名和歌手，供后端重命名使用
         var title = elTitle ? elTitle.textContent.trim() : '';
         var artist = elArtist ? elArtist.textContent.trim() : '';
-        
         var tokenInput = document.querySelector('input[name="token"]');
         var token = tokenInput ? tokenInput.value : '';
-
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = '请求中...';
-        }
-        
-        statusBar.style.display = 'block';
-        statusBar.className = 'gmr-dl-blue';
-        statusBar.textContent = '正在发送下载请求...';
-
+        if (btn) { btn.disabled = true; btn.textContent = '请求中...'; }
+        statusBar.style.display = 'block'; statusBar.className = 'gmr-dl-blue'; statusBar.textContent = '正在发送下载请求...';
         var xhr = new XHR();
-        // 将 title 和 artist 一起发送到后端
-        xhr.post('<%=url("admin/services/gmediarender/download")%>', { 
-            url: url, 
-            title: title, 
-            artist: artist, 
-            token: token 
-        }, function(x) {
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = '下载到设备';
-            }
+        xhr.post('/cgi-bin/luci/admin/services/gmediarender/download', { url: url, title: title, artist: artist, token: token }, function(x) {
+            if (btn) { btn.disabled = false; btn.textContent = '下载到设备'; }
             try {
                 var res = JSON.parse(x.responseText);
-                if (res.success) {
-                    statusBar.textContent = res.msg;
-                    gmrPollDownloadLog();
-                } else {
-                    statusBar.className = 'gmr-dl-red';
-                    statusBar.textContent = '错误：' + res.msg;
-                }
-            } catch(e) {
-                statusBar.className = 'gmr-dl-red';
-                statusBar.textContent = '请求解析失败：' + e.message + '\n服务器返回：\n' + x.responseText;
-            }
+                if (res.success) { statusBar.textContent = res.msg; gmrPollDownloadLog(true); }
+                else { statusBar.className = 'gmr-dl-red'; statusBar.textContent = '错误：' + res.msg; }
+            } catch(e) { statusBar.className = 'gmr-dl-red'; statusBar.textContent = '请求解析失败：' + e.message + '\n服务器返回：\n' + x.responseText; }
         });
     }
 
@@ -276,134 +186,41 @@
             var t = (titleEl.textContent || '').trim();
             if (t !== '基本设置') continue;
             s.dataset.gmrCollapsed = '1';
-
             var det = document.createElement('details');
             det.style.cssText = 'margin: 12px 0; padding: 8px 14px; background: #fafbfc; border: 1px solid #e4e7ec; border-radius: 8px;';
             var sum = document.createElement('summary');
-            sum.textContent = t;
-            sum.style.cssText = 'cursor: pointer; font-weight: 600; padding: 6px 0; user-select: none; color: #333; list-style: none;';
-            titleEl.style.display = 'none';
-            s.parentNode.insertBefore(det, s);
-            det.appendChild(sum);
-            det.appendChild(s);
-            det.open = false;
-            break;
+            sum.textContent = t; sum.style.cssText = 'cursor: pointer; font-weight: 600; padding: 6px 0; user-select: none; color: #333; list-style: none;';
+            titleEl.style.display = 'none'; s.parentNode.insertBefore(det, s);
+            det.appendChild(sum); det.appendChild(s); det.open = false; break;
         }
     }
 
-    if (window.addEventListener) {
-        window.addEventListener('load', function() { setTimeout(gmrCollapseBasicSettings, 100); });
-    } else {
-        window.onload = function() { setTimeout(gmrCollapseBasicSettings, 100); };
-    }
+    if (window.addEventListener) { window.addEventListener('load', function() { setTimeout(gmrCollapseBasicSettings, 100); }); }
+    else { window.onload = function() { setTimeout(gmrCollapseBasicSettings, 100); }; }
 </script>
 
-<div class="cbi-section" style="
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 28px;
-    padding: 22px;
-    background: linear-gradient(135deg, #f8f9fb 0%, #eef1f6 100%);
-    border: 1px solid #d8dde5;
-    border-radius: 10px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-">
+<div class="cbi-section" style="display: flex; flex-wrap: wrap; align-items: center; gap: 28px; padding: 22px; background: linear-gradient(135deg, #f8f9fb 0%, #eef1f6 100%); border: 1px solid #d8dde5; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
     <div id="gmr-np-artwrap">
         <img id="gmr-np-art" src="" onerror="gmrArtError()" alt="封面" />
         <div id="gmr-np-noart">暂无封面</div>
     </div>
-
     <div style="flex: 1 1 320px; min-width: 0;">
         <table class="table" style="margin: 0; table-layout: fixed; width: 100%;">
-            <tr>
-                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">状态</td>
-                <td id="gmr-np-state" style="padding: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
-            </tr>
-            <tr>
-                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">歌曲</td>
-                <td id="gmr-np-title" style="padding: 6px 0; font-weight: 600; color: #222; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
-            </tr>
-            <tr>
-                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">艺术家</td>
-                <td id="gmr-np-artist" style="padding: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
-            </tr>
-            <tr>
-                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">专辑</td>
-                <td id="gmr-np-album" style="padding: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
-            </tr>
-            <tr>
-                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">进度</td>
-                <td id="gmr-np-pos" style="padding: 6px 0; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
-            </tr>
-            <tr>
-                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">媒体信息</td>
-                <td id="gmr-np-media" style="padding: 6px 0; color: #555; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
-            </tr>
-            <tr>
-                <td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">音频设备</td>
-                <td style="padding: 6px 0; color: #555; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                    音量：<span id="gmr-np-vol">-</span>
-                    &nbsp;&nbsp;
-                    输出声卡：<span id="gmr-np-soundcard" style="color:#666;font-size:12px;">-</span>
-                </td>
-            </tr>
+            <tr><td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">状态</td><td id="gmr-np-state" style="padding: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td></tr>
+            <tr><td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">歌曲</td><td id="gmr-np-title" style="padding: 6px 0; font-weight: 600; color: #222; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td></tr>
+            <tr><td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">艺术家</td><td id="gmr-np-artist" style="padding: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td></tr>
+            <tr><td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">专辑</td><td id="gmr-np-album" style="padding: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td></tr>
+            <tr><td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">进度</td><td id="gmr-np-pos" style="padding: 6px 0; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td></tr>
+            <tr><td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">媒体信息</td><td id="gmr-np-media" style="padding: 6px 0; color: #555; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td></tr>
+            <tr><td style="color:#666; padding: 6px 0; width: 75px; white-space: nowrap;">音频设备</td><td style="padding: 6px 0; color: #555; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">音量：<span id="gmr-np-vol">-</span>&nbsp;&nbsp;输出声卡：<span id="gmr-np-soundcard" style="color:#666;font-size:12px;">-</span></td></tr>
         </table>
-
         <div style="margin-top: 10px;">
             <div style="color:#888; font-size:12px; margin-bottom: 4px;">音频源地址</div>
             <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start;">
-                <code id="gmr-np-url" style="
-                    flex: 1 1 200px;
-                    font-size: 11px;
-                    color: #555;
-                    background: #fff;
-                    padding: 6px 8px;
-                    border-radius: 4px;
-                    border: 1px solid #e0e4ea;
-                    white-space: pre-wrap;
-                    word-break: break-all;
-                    max-height: 120px;
-                    overflow: auto;
-                ">-</code>
-                <button id="gmr-np-copybtn" type="button" onclick="gmrCopyUrl()"
-                    style="
-                        flex-shrink: 0;
-                        font-size: 11px;
-                        padding: 4px 10px;
-                        border: 1px solid #c7ccd4;
-                        background: #fff;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        color: #555;
-                    ">复制</button>
-                <a id="gmr-np-dlbtn" href="#" target="_blank" rel="noopener noreferrer"
-                    style="
-                        flex-shrink: 0;
-                        font-size: 11px;
-                        padding: 4px 10px;
-                        border: 1px solid #4a90e2;
-                        background: #4a90e2;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        color: #fff;
-                        text-decoration: none;
-                        line-height: 1.4;
-                    ">浏览器打开</a>
-                <button id="gmr-np-downloadbtn" type="button" onclick="gmrDownloadToDevice()" disabled
-                    style="
-                        flex-shrink: 0;
-                        font-size: 11px;
-                        padding: 4px 10px;
-                        border: 1px solid #5cb85c;
-                        background: #5cb85c;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        color: #fff;
-                        text-decoration: none;
-                        line-height: 1.4;
-                        opacity: 0.6;
-                    ">下载到设备</button>
+                <code id="gmr-np-url" style="flex: 1 1 200px; font-size: 11px; color: #555; background: #fff; padding: 6px 8px; border-radius: 4px; border: 1px solid #e0e4ea; white-space: pre-wrap; word-break: break-all; max-height: 120px; overflow: auto;">-</code>
+                <button id="gmr-np-copybtn" type="button" onclick="gmrCopyUrl()" style="flex-shrink: 0; font-size: 11px; padding: 4px 10px; border: 1px solid #c7ccd4; background: #fff; border-radius: 4px; cursor: pointer; color: #555;">复制</button>
+                <a id="gmr-np-dlbtn" href="#" target="_blank" rel="noopener noreferrer" style="flex-shrink: 0; font-size: 11px; padding: 4px 10px; border: 1px solid #4a90e2; background: #4a90e2; border-radius: 4px; cursor: pointer; color: #fff; text-decoration: none; line-height: 1.4;">浏览器打开</a>
+                <button id="gmr-np-downloadbtn" type="button" onclick="gmrDownloadToDevice()" disabled style="flex-shrink: 0; font-size: 11px; padding: 4px 10px; border: 1px solid #5cb85c; background: #5cb85c; border-radius: 4px; cursor: pointer; color: #fff; text-decoration: none; line-height: 1.4; opacity: 0.6;">下载到设备</button>
             </div>
             <div id="gmr-download-status-bar" class="gmr-dl-blue"></div>
         </div>
