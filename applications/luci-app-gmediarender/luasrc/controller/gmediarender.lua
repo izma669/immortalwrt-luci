@@ -18,7 +18,6 @@ function action_status()
     luci.http.write_json({ running = running, enabled = enabled == "1" })
 end
 
--- 修复日志显示：将 wget 的八进制转义解码回 UTF-8 中文
 function action_download_log()
     local fs = require "nixio.fs"
     local logfile = "/tmp/gmediarender_dl.log"
@@ -26,8 +25,7 @@ function action_download_log()
     if fs.access(logfile) then
         data = fs.readfile(logfile) or ""
         if #data > 3000 then data = data:sub(-3000) end
-        
-        -- 核心修复：匹配 \344 这样的八进制码，并还原为字符
+        -- 八进制转义解码
         data = data:gsub("\\(%d%d%d)", function(oct)
             return string.char(tonumber(oct, 8))
         end)
@@ -36,29 +34,11 @@ function action_download_log()
     luci.http.write_json({ log = data })
 end
 
-function action_download()
-    local http = require "luci.http"
+local function trigger_download(url, title, artist)
     local uci = require "luci.model.uci".cursor()
     local sys = require "luci.sys"
     local fs = require "nixio.fs"
     
-    local url = http.formvalue("url")
-    local title = http.formvalue("title") or ""
-    local artist = http.formvalue("artist") or ""
-    
-    if not url or url == "" then
-        http.prepare_content("application/json")
-        http.write_json({success = false, msg = "无效的链接"})
-        return
-    end
-    
-    if not url:match("^https?://") then
-        http.prepare_content("application/json")
-        http.write_json({success = false, msg = "链接必须以 http 或 https 开头"})
-        return
-    end
-    
-    -- 自动检测下载工具
     local tool = nil
     if sys.call("which wget >/dev/null 2>&1") == 0 then
         tool = "wget"
@@ -66,25 +46,12 @@ function action_download()
         tool = "uclient-fetch"
     end
     
-    if not tool then
-        http.prepare_content("application/json")
-        http.write_json({success = false, msg = "系统未找到 wget 或 uclient-fetch 工具，请先安装下载工具。"})
-        return
-    end
+    if not tool then return false, "系统未找到 wget 或 uclient-fetch 工具" end
     
     local dir = uci:get("gmediarender", "main", "download_dir") or "/mnt/sda1/media/music"
+    if not fs.access(dir) then sys.call("mkdir -p " .. string.format("%q", dir)) end
+    if not fs.access(dir) then return false, "无法创建或访问下载目录：" .. dir end
     
-    if not fs.access(dir) then
-        sys.call("mkdir -p " .. string.format("%q", dir))
-    end
-    
-    if not fs.access(dir) then
-        http.prepare_content("application/json")
-        http.write_json({success = false, msg = "无法创建或访问下载目录：" .. dir})
-        return
-    end
-    
-    -- 清理和拼接文件名的逻辑
     local function sanitize_filename(s)
         if not s then return "" end
         s = s:gsub("[\\/:*?\"<>|]", "_")
@@ -110,10 +77,7 @@ function action_download()
     
     local ext = url:match("%.([%a%d]+)(?:$|%?)")
     if not ext or #ext > 4 then ext = "mp3" end
-    
-    if not filename:match("%.%w+$") then
-        filename = filename .. "." .. ext
-    end
+    if not filename:match("%.%w+$") then filename = filename .. "." .. ext end
     
     local filepath = dir .. "/" .. filename
     local logfile = "/tmp/gmediarender_dl.log"
@@ -134,12 +98,26 @@ function action_download()
     end
     
     sys.call(cmd)
-    
-    http.prepare_content("application/json")
-    http.write_json({success = true, msg = "已开始后台下载:\n" .. filename})
+    return true, "已开始后台下载:\n" .. filename
 end
 
--- action_nowplaying 保持原样，不需要修改
+function action_download()
+    local http = require "luci.http"
+    local url = http.formvalue("url")
+    local title = http.formvalue("title") or ""
+    local artist = http.formvalue("artist") or ""
+    
+    if not url or url == "" or not url:match("^https?://") then
+        http.prepare_content("application/json")
+        http.write_json({success = false, msg = "无效或非法的链接"})
+        return
+    end
+    
+    local ok, msg = trigger_download(url, title, artist)
+    http.prepare_content("application/json")
+    http.write_json({success = ok, msg = msg})
+end
+
 function action_nowplaying()
     local fs  = require "nixio.fs"
     local uci = require "luci.model.uci".cursor()
@@ -152,7 +130,7 @@ function action_nowplaying()
         streamurl="", format="", quality="",
         volume="", playmode="", songid="",
         mediatype="", bitrate="", filesize="", debug="",
-        soundcard=""
+        soundcard="", auto_download_triggered=false
     }
 
     if not fs.access(logfile) then
@@ -285,8 +263,40 @@ function action_nowplaying()
     if not soundcard or soundcard == "" then soundcard = "-" end
     info.soundcard = soundcard
 
-    info.debug = string.format("%s | state=%s | type=%s | fmt=%s | q=%s | br=%s | vol=%s | sc=%s",
-        logfile, state,
+    local auto_dl = uci:get("gmediarender", "main", "auto_download")
+    if auto_dl == "1" then
+        if not info.playing then
+            info.debug = info.debug .. " | Auto-DL: 不在播放状态"
+        elseif not info.streamurl or info.streamurl == "" then
+            info.debug = info.debug .. " | Auto-DL: 无音频地址"
+        elseif not info.streamurl:match("^https?://") then
+            info.debug = info.debug .. " | Auto-DL: 非HTTP音频流"
+        else
+            local last_dl_file = "/tmp/gmediarender_last_dl.txt"
+            local last_url = ""
+            if fs.access(last_dl_file) then
+                last_url = fs.readfile(last_dl_file) or ""
+                last_url = last_url:gsub("%s+$", "")
+            end
+            
+            if info.streamurl ~= last_url then
+                fs.writefile(last_dl_file, info.streamurl)
+                local ok, msg = trigger_download(info.streamurl, info.title, info.artist)
+                if ok then
+                    info.auto_download_triggered = true
+                    info.debug = info.debug .. " | Auto-DL: 触发成功"
+                else
+                    os.remove(last_dl_file)
+                    info.debug = info.debug .. " | Auto-DL 失败: " .. msg
+                end
+            else
+                info.debug = info.debug .. " | Auto-DL: URL未变化，跳过"
+            end
+        end
+    end
+
+    info.debug = info.debug .. string.format(" | state=%s | type=%s | fmt=%s | q=%s | br=%s | vol=%s | sc=%s",
+        state,
         info.mediatype ~= "" and info.mediatype or "-",
         info.format ~= "" and info.format or "-",
         info.quality ~= "" and info.quality or "-",
