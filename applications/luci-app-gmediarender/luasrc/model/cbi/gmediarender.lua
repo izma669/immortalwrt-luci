@@ -69,7 +69,7 @@ o.default = "/var/log/gmediarender.log"
 o.rmempty = true
 
 o = s:option(Flag, "log_cleanup", "启用日志自动清理",
-    "日志超过阈值时自动清空")
+    "向系统添加定时“计划任务”超过阈值时自动执行清空任务")
 o.default = "1"
 o.rmempty = false
 
