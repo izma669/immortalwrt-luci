@@ -14,7 +14,12 @@
 <div class="cbi-map">
     <h2>VirtualHere USB Server</h2>
     
-    <!-- 服务控制 -->
+    <div class="vhusbd-card">
+        <h3>简介与客户端下载</h3>
+        <p>VirtualHere USB Server 用途：可实现通过网络挂载USB设备。</p>
+        <p>从 <a href="http://www.virtualhere.com/usb_client_software" target="_blank">官网</a> 下载对应平台的客户端程序运行并联机。</p>
+    </div>
+
     <div class="vhusbd-card">
         <h3>服务控制</h3>
         <p>当前状态：<span id="service-status" class="status-badge">获取中...</span></p>
@@ -23,7 +28,13 @@
         <button class="cbi-button cbi-button-action" onclick="doAction('restart')">重启服务</button>
     </div>
 
-    <!-- 网络访问控制 -->
+    <div class="vhusbd-card">
+        <h3>服务器重命名</h3>
+        <p>当前名称：<b><span id="current-server-name">获取中...</span></b></p>
+        <input type="text" id="server-name-input" style="width: 250px; padding: 5px; margin-right: 10px;" placeholder="输入新的服务器名称">
+        <button class="cbi-button cbi-button-action" onclick="doRename()">保存并重启</button>
+    </div>
+
     <div class="vhusbd-card">
         <h3>网络访问控制</h3>
         <p>
@@ -32,17 +43,15 @@
         </p>
         <button class="cbi-button cbi-button-action" onclick="toggleFw('wan')">切换外网开关</button>
         <button class="cbi-button cbi-button-action" onclick="toggleFw('ipv6')">切换 IPv6 开关</button>
-        <p style="color:#666; font-size:12px;">* 默认开放端口 7575，依赖 iptables/ip6tables 规则生效</p>
+        <p style="color:#666; font-size:12px;">* 系统会记住你的开关偏好，停止服务时自动关闭，启动服务时自动恢复。</p>
     </div>
 
-    <!-- 一键注册 -->
     <div class="vhusbd-card">
         <h3>一键注册</h3>
         <p>点击下方按钮，自动读取 MAC 并替换 <code>/usr/bin/config.ini</code> 中的序列号。</p>
         <button class="cbi-button cbi-button-apply" onclick="doRegister()">一键注册</button>
     </div>
 
-    <!-- 日志查看 -->
     <div class="vhusbd-card">
         <h3>系统日志</h3>
         <button class="cbi-button cbi-button-action" onclick="showLogs()">查看日志</button>
@@ -53,13 +62,11 @@
 </div>
 
 <script type="text/javascript">
-    // 轮询状态：最多查 5 次，每次间隔 1 秒，直到达到预期状态
     function pollStatus(expectedState, maxRetries) {
         if (maxRetries <= 0) return;
         XHR.get('<%=url("admin/services/vhusbd/action")%>?action=status', null, function(x) {
             var badge = document.getElementById('service-status');
             var res = x.responseText;
-            
             if (res === 'RUNNING') {
                 badge.innerHTML = '运行中';
                 badge.className = 'status-badge status-running';
@@ -67,10 +74,40 @@
                 badge.innerHTML = '已停止';
                 badge.className = 'status-badge status-stopped';
             }
-
-            // 如果没达到预期状态，继续递归轮询
             if (res !== expectedState && maxRetries > 0) {
                 setTimeout(function() { pollStatus(expectedState, maxRetries - 1); }, 1000);
+            }
+        });
+    }
+
+    function getServerName() {
+        XHR.get('<%=url("admin/services/vhusbd/action")%>?action=get_name', null, function(x) {
+            var res = x.responseText;
+            if (res.indexOf('NAME:') === 0) {
+                var name = res.replace('NAME:', '');
+                document.getElementById('current-server-name').innerHTML = name === '' ? '未设置' : name;
+            }
+        });
+    }
+
+    function doRename() {
+        var name = document.getElementById('server-name-input').value.trim();
+        if (name === '') { alert('服务器名称不能为空'); return; }
+        var msgDiv = document.getElementById('action-msg');
+        msgDiv.innerHTML = '正在修改名称并重启服务...';
+        msgDiv.style.color = 'blue';
+        XHR.get('<%=url("admin/services/vhusbd/action")%>?action=rename&name=' + encodeURIComponent(name), null, function(x) {
+            var res = x.responseText;
+            if (res.indexOf('SUCCESS') === 0) {
+                msgDiv.innerHTML = res.replace('SUCCESS:', '');
+                msgDiv.style.color = 'green';
+                document.getElementById('current-server-name').innerHTML = name;
+                document.getElementById('server-name-input').value = '';
+                pollStatus('RUNNING', 5);
+                updateFwStatus();
+            } else {
+                msgDiv.innerHTML = res.replace('ERROR:', '');
+                msgDiv.style.color = 'red';
             }
         });
     }
@@ -82,13 +119,10 @@
                 var parts = res.replace('FW:', '').split(',');
                 var wanOn = parts[0] === '1';
                 var ipv6On = parts[1] === '1';
-                
                 var wanEl = document.getElementById('wan-status');
                 var ipv6El = document.getElementById('ipv6-status');
-                
                 wanEl.innerHTML = wanOn ? '已开启' : '已关闭';
                 wanEl.className = wanOn ? 'fw-on' : 'fw-off';
-                
                 ipv6El.innerHTML = ipv6On ? '已开启' : '已关闭';
                 ipv6El.className = ipv6On ? 'fw-on' : 'fw-off';
             }
@@ -100,11 +134,9 @@
         var currentOn = (type === 'wan') ? 
             (document.getElementById('wan-status').innerHTML === '已开启') : 
             (document.getElementById('ipv6-status').innerHTML === '已开启');
-        
         var newVal = currentOn ? '0' : '1';
         msgDiv.innerHTML = '正在处理...';
         msgDiv.style.color = 'blue';
-
         XHR.get('<%=url("admin/services/vhusbd/action")%>?action=set_fw&type=' + type + '&val=' + newVal, null, function(x) {
             var res = x.responseText;
             if (res.indexOf('SUCCESS') === 0) {
@@ -122,17 +154,15 @@
         var msgDiv = document.getElementById('action-msg');
         msgDiv.innerHTML = '正在执行...';
         msgDiv.style.color = 'blue';
-
-        // 预判预期状态
         var expect = (act === 'stop') ? 'STOPPED' : 'RUNNING';
-
         XHR.get('<%=url("admin/services/vhusbd/action")%>?action=' + act, null, function(x) {
             var res = x.responseText;
             if (res.indexOf('SUCCESS') === 0) {
                 msgDiv.innerHTML = res.replace('SUCCESS:', '');
                 msgDiv.style.color = 'green';
-                // 关键：最多轮询 5 次，每次 1 秒，直到预期状态出现
                 pollStatus(expect, 5);
+                // 无论是启动、停止还是重启，操作后都刷新一下防火墙状态
+                updateFwStatus();
             } else {
                 msgDiv.innerHTML = res.replace('ERROR:', '');
                 msgDiv.style.color = 'red';
@@ -158,10 +188,7 @@
 
     function showLogs() {
         var logArea = document.getElementById('log-area');
-        if (logArea.style.display === 'block') {
-            logArea.style.display = 'none';
-            return;
-        }
+        if (logArea.style.display === 'block') { logArea.style.display = 'none'; return; }
         logArea.style.display = 'block';
         logArea.innerHTML = '加载中...';
         XHR.get('<%=url("admin/services/vhusbd/action")%>?action=logs', null, function(x) {
@@ -170,8 +197,9 @@
     }
 
     window.onload = function() {
-        pollStatus('RUNNING', 1); // 页面加载时先查一次
+        pollStatus('RUNNING', 1);
         updateFwStatus();
+        getServerName();
     };
 </script>
 
