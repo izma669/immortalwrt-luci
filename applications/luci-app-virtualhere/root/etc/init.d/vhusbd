@@ -5,6 +5,28 @@ STOP=10
 USE_PROCD=1
 
 start_service() {
+    # ========== 开机自动恢复防火墙规则 ==========
+    local state_file="/etc/config/vhusbd_fw_state"
+    if [ -f "$state_file" ]; then
+        # 读取保存的状态
+        local wan_state=$(grep "^WAN=" "$state_file" | cut -d= -f2)
+        local ipv6_state=$(grep "^IPV6=" "$state_file" | cut -d= -f2)
+
+        # 先删掉可能残留的旧规则，防止重复
+        iptables -D INPUT -p tcp --dport 7575 -j ACCEPT >/dev/null 2>&1
+        ip6tables -D INPUT -p tcp --dport 7575 -j ACCEPT >/dev/null 2>&1
+
+        # 按保存的状态恢复
+        if [ "$wan_state" = "1" ]; then
+            iptables -I INPUT -p tcp --dport 7575 -j ACCEPT >/dev/null 2>&1
+        fi
+        if [ "$ipv6_state" = "1" ]; then
+            ip6tables -I INPUT -p tcp --dport 7575 -j ACCEPT >/dev/null 2>&1
+        fi
+    fi
+    # ==========================================
+
+    # 启动 VirtualHere 进程
     procd_open_instance
     procd_set_param command /usr/bin/vhusbd
     procd_set_param respawn
@@ -13,12 +35,4 @@ start_service() {
 
 stop_service() {
     killall vhusbd 2>/dev/null
-}
-
-status_service() {
-    if pidof vhusbd > /dev/null 2>&1; then
-        echo "running"
-    else
-        echo "stopped"
-    fi
 }
