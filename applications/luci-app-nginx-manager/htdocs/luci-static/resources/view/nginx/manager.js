@@ -3,7 +3,6 @@
 'require fs';
 'require ui';
 
-// 解析文件内容，返回所有 server {...} 块的数组
 function parseBlocks(content) {
     var blocks = [];
     if (!content) return blocks;
@@ -39,6 +38,25 @@ return view.extend({
         return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() {
             return '';
         });
+    },
+
+    // ---------- 重载 Nginx（不改配置，仅发信号） ----------
+    handleReloadNginx: function(ev) {
+        return fs.exec('/usr/sbin/nginx', ['-t']).then(function(res) {
+            if (res.code !== 0) {
+                throw new Error(_('配置测试失败：\n') + (res.stderr || res.stdout));
+            }
+            return fs.exec('/usr/sbin/nginx', ['-s', 'reload']);
+        }).then(function() {
+            ui.addNotification(null, E('p', _('Nginx 已重载')), 'info');
+        }).catch(function(e) {
+            ui.addNotification(null, E('p', _('重载失败：%s').format(e.message)), 'error');
+        });
+    },
+
+    // ---------- 重新读取文件（刷新页面） ----------
+    handleReloadPage: function(ev) {
+        window.location.reload();
     },
 
     // ---------- 添加 ----------
@@ -104,9 +122,7 @@ return view.extend({
             }
             var blockText = blocks[index].text;
 
-            // 从原文件里移除该块
             var newContent = content.replace(blockText, '');
-            // 清理因移除产生的多余空行（最多保留一个空行）
             newContent = newContent.replace(/\n\s*\n\s*\n+/g, '\n\n');
             newContent = newContent.replace(/^\s*\n+/, '');
 
@@ -132,6 +148,20 @@ return view.extend({
     render: function(currentContent) {
         var self = this;
         var blocks = parseBlocks(currentContent || '');
+
+        // ---- 顶部操作栏 ----
+        var toolbar = E('div', {
+            'style': 'margin-bottom:15px; display:flex; gap:8px;'
+        }, [
+            E('button', {
+                'class': 'cbi-button cbi-button-action',
+                'click': ui.createHandlerFn(this, 'handleReloadNginx')
+            }, _('重载 Nginx')),
+            E('button', {
+                'class': 'cbi-button cbi-button-neutral',
+                'click': ui.createHandlerFn(this, 'handleReloadPage')
+            }, _('重新读取文件'))
+        ]);
 
         // ---- 已配置块列表 ----
         var blockList = E('div', { 'class': 'cbi-section' }, [
@@ -223,6 +253,7 @@ return view.extend({
             E('h2', _('Nginx 配置管理')),
             E('div', { 'class': 'cbi-map-descr' }, _('直接管理 /etc/nginx/conf.d/nginx.conf 文件')),
 
+            toolbar,
             blockList,
             addForm,
             rawView
