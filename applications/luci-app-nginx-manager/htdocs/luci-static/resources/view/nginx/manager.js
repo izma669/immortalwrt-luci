@@ -4,14 +4,12 @@
 'require ui';
 
 return view.extend({
-    // 读取现有文件内容，以便在页面中显示
     load: function() {
         return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() {
-            return ''; // 如果文件不存在，返回空字符串
+            return '';
         });
     },
 
-    // 保存并应用逻辑
     handleSaveApply: function(ev) {
         var port = document.querySelector('#port').value.trim();
         var server_name = document.querySelector('#server_name').value.trim();
@@ -19,7 +17,6 @@ return view.extend({
         var autoindex = document.querySelector('#autoindex').checked ? 'on' : 'off';
         var charset = document.querySelector('#charset').value.trim();
 
-        // 简单的输入验证
         if (!port || isNaN(port)) {
             ui.addNotification(null, E('p', _('端口必须为数字')), 'error');
             return;
@@ -28,7 +25,6 @@ return view.extend({
         if (!root) root = '/mnt';
         if (!charset) charset = 'utf-8';
 
-        // 按照指定格式生成 Nginx 配置块
         var block = '\nserver {\n' +
                     '\tlisten ' + port + ' default_server;\n' +
                     '\tlisten [::]:' + port + ' default_server;\n' +
@@ -42,7 +38,6 @@ return view.extend({
 
         var originalContent;
 
-        // 先读取原文件，以便出错时回滚
         return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() {
             return '';
         }).then(function(content) {
@@ -50,15 +45,12 @@ return view.extend({
             var newContent = content + block;
             return fs.write('/etc/nginx/conf.d/nginx.conf', newContent);
         }).then(function() {
-            // 测试 Nginx 配置是否正确
             return fs.exec('/usr/sbin/nginx', ['-t']).then(function(res) {
                 if (res.code !== 0) {
-                    // 测试失败，回滚文件
                     return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent).then(function() {
                         throw new Error(_('Nginx 配置测试失败：\n') + (res.stderr || res.stdout));
                     });
                 }
-                // 测试成功，重载 Nginx
                 return fs.exec('/etc/init.d/nginx', ['reload']);
             });
         }).then(function() {
@@ -74,25 +66,23 @@ return view.extend({
             E('h2', _('Nginx 配置管理')),
             E('div', { 'class': 'cbi-map-descr' }, _('直接管理 /etc/nginx/conf.d/nginx.conf 文件')),
 
-            // 显示当前文件内容
             E('div', { 'class': 'cbi-section' }, [
                 E('h3', _('当前文件内容')),
-                E('pre', { 
-                    'style': 'background: #f4f4f4; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap;' 
+                E('pre', {
+                    'style': 'background: #f4f4f4; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap;'
                 }, currentContent || _('(文件为空)'))
             ]),
 
-            // 添加新监听端口表单
             E('div', { 'class': 'cbi-section' }, [
                 E('h3', _('添加新监听端口')),
-                
+
                 E('div', { 'class': 'cbi-value' }, [
                     E('label', { 'class': 'cbi-value-title', 'for': 'port' }, _('监听端口')),
                     E('div', { 'class': 'cbi-value-field' }, [
                         E('input', { 'type': 'text', 'id': 'port', 'class': 'cbi-input-text', 'value': '880' })
                     ])
                 ]),
-                
+
                 E('div', { 'class': 'cbi-value' }, [
                     E('label', { 'class': 'cbi-value-title', 'for': 'server_name' }, _('服务器名称')),
                     E('div', { 'class': 'cbi-value-field' }, [
