@@ -33,6 +33,16 @@ function parseBlocks(content) {
     return blocks;
 }
 
+// 统一封装：校验 + 重载
+function checkAndReload() {
+    return fs.exec('/usr/sbin/nginx', ['-t']).then(function(res) {
+        if (res.code !== 0) {
+            throw new Error(_('Nginx 配置测试失败：\n') + (res.stderr || res.stdout));
+        }
+        return fs.exec('/etc/init.d/nginx', ['reload']);
+    });
+}
+
 return view.extend({
     load: function() {
         return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() {
@@ -40,21 +50,16 @@ return view.extend({
         });
     },
 
-    // ---------- 重载 Nginx（不改配置，仅发信号） ----------
+    // ---------- 重载 Nginx ----------
     handleReloadNginx: function(ev) {
-        return fs.exec('/usr/sbin/nginx', ['-t']).then(function(res) {
-            if (res.code !== 0) {
-                throw new Error(_('配置测试失败：\n') + (res.stderr || res.stdout));
-            }
-            return fs.exec('/usr/sbin/nginx', ['-s', 'reload']);
-        }).then(function() {
+        return checkAndReload().then(function() {
             ui.addNotification(null, E('p', _('Nginx 已重载')), 'info');
         }).catch(function(e) {
             ui.addNotification(null, E('p', _('重载失败：%s').format(e.message)), 'error');
         });
     },
 
-    // ---------- 重新读取文件（刷新页面） ----------
+    // ---------- 重新读取文件 ----------
     handleReloadPage: function(ev) {
         window.location.reload();
     },
@@ -94,13 +99,11 @@ return view.extend({
             originalContent = content;
             return fs.write('/etc/nginx/conf.d/nginx.conf', content + block);
         }).then(function() {
-            return fs.exec('/usr/sbin/nginx', ['-t']).then(function(res) {
-                if (res.code !== 0) {
-                    return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent).then(function() {
-                        throw new Error(_('Nginx 配置测试失败：\n') + (res.stderr || res.stdout));
-                    });
-                }
-                return fs.exec('/usr/sbin/nginx', ['-s', 'reload']);
+            return checkAndReload().catch(function(e) {
+                // 校验或重载失败 → 回滚
+                return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent).then(function() {
+                    throw e;
+                });
             });
         }).then(function() {
             ui.addNotification(null, E('p', _('配置已成功保存并重载 Nginx')), 'info');
@@ -127,14 +130,11 @@ return view.extend({
             newContent = newContent.replace(/^\s*\n+/, '');
 
             return fs.write('/etc/nginx/conf.d/nginx.conf', newContent).then(function() {
-                return fs.exec('/usr/sbin/nginx', ['-t']);
-            }).then(function(res) {
-                if (res.code !== 0) {
+                return checkAndReload().catch(function(e) {
                     return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent).then(function() {
-                        throw new Error(_('Nginx 配置测试失败：\n') + (res.stderr || res.stdout));
+                        throw e;
                     });
-                }
-                return fs.exec('/usr/sbin/nginx', ['-s', 'reload']);
+                });
             }).then(function() {
                 ui.addNotification(null, E('p', _('已删除该监听配置')), 'info');
                 window.setTimeout(function() { window.location.reload(); }, 1200);
@@ -149,7 +149,6 @@ return view.extend({
         var self = this;
         var blocks = parseBlocks(currentContent || '');
 
-        // ---- 顶部操作栏 ----
         var toolbar = E('div', {
             'style': 'margin-bottom:15px; display:flex; gap:8px;'
         }, [
@@ -163,7 +162,6 @@ return view.extend({
             }, _('重新读取文件'))
         ]);
 
-        // ---- 已配置块列表 ----
         var blockList = E('div', { 'class': 'cbi-section' }, [
             E('h3', _('已配置的监听端口'))
         ]);
@@ -194,7 +192,6 @@ return view.extend({
             });
         }
 
-        // ---- 添加表单 ----
         var addForm = E('div', { 'class': 'cbi-section' }, [
             E('h3', _('添加新监听端口')),
 
@@ -241,7 +238,6 @@ return view.extend({
             ])
         ]);
 
-        // ---- 原始文件预览 ----
         var rawView = E('div', { 'class': 'cbi-section' }, [
             E('h3', _('当前文件内容')),
             E('pre', {
