@@ -33,7 +33,6 @@ function parseBlocks(content) {
     return blocks;
 }
 
-// 调用 init.d 重载；非 0 视为失败
 function reloadNginx() {
     return fs.exec('/etc/init.d/nginx', ['reload']).then(function(res) {
         if (res.code !== 0) {
@@ -50,7 +49,6 @@ return view.extend({
         });
     },
 
-    // ---------- 重载 Nginx ----------
     handleReloadNginx: function(ev) {
         return reloadNginx().then(function() {
             ui.addNotification(null, E('p', _('Nginx 已重载')), 'info');
@@ -59,13 +57,12 @@ return view.extend({
         });
     },
 
-    // ---------- 重新读取文件 ----------
     handleReloadPage: function(ev) {
         window.location.reload();
     },
 
-    // ---------- 添加 ----------
-    handleSaveApply: function(ev) {
+    // 注意：这里改名为 handleAddServer，避免触发 LuCI 的底部按钮
+    handleAddServer: function(ev) {
         var port = document.querySelector('#port').value.trim();
         var server_name = document.querySelector('#server_name').value.trim();
         var root = document.querySelector('#root').value.trim();
@@ -100,7 +97,6 @@ return view.extend({
             return fs.write('/etc/nginx/conf.d/nginx.conf', content + block);
         }).then(function() {
             return reloadNginx().catch(function(e) {
-                // 重载失败 → 回滚文件
                 return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent).then(function() {
                     throw e;
                 });
@@ -113,7 +109,6 @@ return view.extend({
         });
     },
 
-    // ---------- 删除 ----------
     handleDelete: function(index, ev) {
         return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() {
             return '';
@@ -144,7 +139,6 @@ return view.extend({
         });
     },
 
-    // ---------- 渲染 ----------
     render: function(currentContent) {
         var self = this;
         var blocks = parseBlocks(currentContent || '');
@@ -232,9 +226,9 @@ return view.extend({
 
             E('div', { 'class': 'cbi-page-actions' }, [
                 E('button', {
-                    'class': 'cbi-button cbi-button-apply',
-                    'click': ui.createHandlerFn(this, 'handleSaveApply')
-                }, _('保存并应用'))
+                    'class': 'cbi-button cbi-button-action',
+                    'click': ui.createHandlerFn(this, 'handleAddServer')
+                }, _('添加此监听配置'))
             ])
         ]);
 
