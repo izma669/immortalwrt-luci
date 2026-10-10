@@ -11,8 +11,9 @@
         "/etc/nginx/conf.d/nginx.conf": [ "write" ]
       },
       "exec": {
-        "/etc/init.d/nginx": [ "reload" ],
-        "/usr/sbin/nginx": [ "-t" ]
+        "/usr/sbin/nginx": [ "-t", "-s", "reload", "-c", "/etc/nginx/uci.conf" ],
+        "/etc/init.d/nginx": [ "reload", "restart" ],
+        "/etc/rc.common": [ "reload", "restart" ]
       }
     }
   }
