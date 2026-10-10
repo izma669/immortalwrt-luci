@@ -1,105 +1,134 @@
 'use strict';
 'require view';
-'require form';
-'require uci';
-'require rpc';
+'require fs';
 'require ui';
 
-// 声明调用 ubus 的 service list 方法
-var callServiceList = rpc.declare({
-    object: 'service',
-    method: 'list',
-    params: ['name'],
-    expect: { '': {} }
-});
-
 return view.extend({
-    // 加载时需要的数据
+    // 读取现有文件内容，以便在页面中显示
     load: function() {
-        return Promise.all([
-            uci.load('nginx'),
-            callServiceList('nginx')
-        ]);
+        return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() {
+            return ''; // 如果文件不存在，返回空字符串
+        });
     },
 
-    render: function(data) {
-        var serviceData = data[1];
-        var m, s, o;
+    // 保存并应用逻辑
+    handleSaveApply: function(ev) {
+        var port = document.querySelector('#port').value.trim();
+        var server_name = document.querySelector('#server_name').value.trim();
+        var root = document.querySelector('#root').value.trim();
+        var autoindex = document.querySelector('#autoindex').checked ? 'on' : 'off';
+        var charset = document.querySelector('#charset').value.trim();
 
-        // 创建表单 Map，绑定到 'nginx' 配置文件
-        m = new form.Map('nginx', _('Nginx 配置管理'),
-            _('通过 UCI 管理 Nginx 的服务器配置。'));
+        // 简单的输入验证
+        if (!port || isNaN(port)) {
+            ui.addNotification(null, E('p', _('端口必须为数字')), 'error');
+            return;
+        }
+        if (!server_name) server_name = 'localhost';
+        if (!root) root = '/mnt';
+        if (!charset) charset = 'utf-8';
 
-        // --- 全局设置 (config main global) ---
-        s = m.section(form.NamedSection, 'global', 'main', _('全局设置'));
-        s.anonymous = true;
+        // 按照指定格式生成 Nginx 配置块
+        var block = '\nserver {\n' +
+                    '\tlisten ' + port + ' default_server;\n' +
+                    '\tlisten [::]:' + port + ' default_server;\n' +
+                    '\tserver_name ' + server_name + ';\n' +
+                    '\tlocation / {\n' +
+                    '\t\tautoindex ' + autoindex + ';\n' +
+                    '\t\tcharset ' + charset + ';\n' +
+                    '\t\troot ' + root + ';\n' +
+                    '\t}\n' +
+                    '}\n';
 
-        o = s.option(form.Flag, 'uci_enable', _('启用 UCI 配置'),
-            _('启用后，Nginx 将从 UCI 生成配置文件。'));
-        o.default = 'true';
-        o.rmempty = false;
+        var originalContent;
 
-        // --- HTTP 服务器 (_lan_http) ---
-        s = m.section(form.NamedSection, '_lan_http', 'server', _('HTTP 服务器 (端口 80)'));
-        s.anonymous = false; // 显示 section 名称
-        s.addremove = false; // 不允许删除默认 server
+        // 先读取原文件，以便出错时回滚
+        return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() {
+            return '';
+        }).then(function(content) {
+            originalContent = content;
+            var newContent = content + block;
+            return fs.write('/etc/nginx/conf.d/nginx.conf', newContent);
+        }).then(function() {
+            // 测试 Nginx 配置是否正确
+            return fs.exec('/usr/sbin/nginx', ['-t']).then(function(res) {
+                if (res.code !== 0) {
+                    // 测试失败，回滚文件
+                    return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent).then(function() {
+                        throw new Error(_('Nginx 配置测试失败：\n') + (res.stderr || res.stdout));
+                    });
+                }
+                // 测试成功，重载 Nginx
+                return fs.exec('/etc/init.d/nginx', ['reload']);
+            });
+        }).then(function() {
+            ui.addNotification(null, E('p', _('配置已成功保存并重载 Nginx')), 'info');
+            window.setTimeout(function() { window.location.reload(); }, 1500);
+        }).catch(function(e) {
+            ui.addNotification(null, E('p', _('保存失败：%s').format(e.message)), 'error');
+        });
+    },
 
-        o = s.option(form.DynamicList, 'listen', _('监听地址'),
-            _('例如：80 或 [::]:80'));
-        o.datatype = 'string';
+    render: function(currentContent) {
+        var container = E('div', { 'class': 'cbi-map' }, [
+            E('h2', _('Nginx 配置管理')),
+            E('div', { 'class': 'cbi-map-descr' }, _('直接管理 /etc/nginx/conf.d/nginx.conf 文件')),
 
-        o = s.option(form.Value, 'server_name', _('服务器名称'),
-            _('例如：_lan 或 example.com'));
-        o.datatype = 'hostname';
+            // 显示当前文件内容
+            E('div', { 'class': 'cbi-section' }, [
+                E('h3', _('当前文件内容')),
+                E('pre', { 
+                    'style': 'background: #f4f4f4; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap;' 
+                }, currentContent || _('(文件为空)'))
+            ]),
 
-        o = s.option(form.DynamicList, 'include', _('包含文件'),
-            _('例如：conf.d/*.locations'));
-        o.datatype = 'string';
+            // 添加新监听端口表单
+            E('div', { 'class': 'cbi-section' }, [
+                E('h3', _('添加新监听端口')),
+                
+                E('div', { 'class': 'cbi-value' }, [
+                    E('label', { 'class': 'cbi-value-title', 'for': 'port' }, _('监听端口')),
+                    E('div', { 'class': 'cbi-value-field' }, [
+                        E('input', { 'type': 'text', 'id': 'port', 'class': 'cbi-input-text', 'value': '880' })
+                    ])
+                ]),
+                
+                E('div', { 'class': 'cbi-value' }, [
+                    E('label', { 'class': 'cbi-value-title', 'for': 'server_name' }, _('服务器名称')),
+                    E('div', { 'class': 'cbi-value-field' }, [
+                        E('input', { 'type': 'text', 'id': 'server_name', 'class': 'cbi-input-text', 'value': 'localhost' })
+                    ])
+                ]),
 
-        // --- HTTPS 服务器 (_lan) ---
-        s = m.section(form.NamedSection, '_lan', 'server', _('HTTPS 服务器 (端口 443)'));
-        s.anonymous = false;
-        s.addremove = false;
+                E('div', { 'class': 'cbi-value' }, [
+                    E('label', { 'class': 'cbi-value-title', 'for': 'root' }, _('网站根目录')),
+                    E('div', { 'class': 'cbi-value-field' }, [
+                        E('input', { 'type': 'text', 'id': 'root', 'class': 'cbi-input-text', 'value': '/mnt' })
+                    ])
+                ]),
 
-        o = s.option(form.DynamicList, 'listen', _('监听地址'),
-            _('例如：443 ssl default_server'));
-        o.datatype = 'string';
+                E('div', { 'class': 'cbi-value' }, [
+                    E('label', { 'class': 'cbi-value-title', 'for': 'autoindex' }, _('开启目录浏览')),
+                    E('div', { 'class': 'cbi-value-field' }, [
+                        E('input', { 'type': 'checkbox', 'id': 'autoindex', 'checked': true })
+                    ])
+                ]),
 
-        o = s.option(form.Value, 'server_name', _('服务器名称'));
-        o.datatype = 'hostname';
+                E('div', { 'class': 'cbi-value' }, [
+                    E('label', { 'class': 'cbi-value-title', 'for': 'charset' }, _('字符编码')),
+                    E('div', { 'class': 'cbi-value-field' }, [
+                        E('input', { 'type': 'text', 'id': 'charset', 'class': 'cbi-input-text', 'value': 'utf-8' })
+                    ])
+                ]),
 
-        o = s.option(form.DynamicList, 'include', _('包含文件'));
-        o.datatype = 'string';
-
-        o = s.option(form.Flag, 'uci_manage_ssl', _('UCI 管理 SSL'));
-        o.default = 'self-signed';
-        o.rmempty = false;
-
-        o = s.option(form.Value, 'ssl_certificate', _('SSL 证书路径'));
-        o.datatype = 'file';
-
-        o = s.option(form.Value, 'ssl_certificate_key', _('SSL 私钥路径'));
-        o.datatype = 'file';
-
-        o = s.option(form.Value, 'ssl_session_cache', _('SSL 会话缓存'));
-        o.datatype = 'string';
-
-        o = s.option(form.Value, 'ssl_session_timeout', _('SSL 会话超时'));
-        o.datatype = 'string';
-
-        o = s.option(form.Value, 'access_log', _('访问日志'));
-        o.datatype = 'string';
-
-        // 在表单下方添加服务控制按钮
-        var serviceStatus = serviceData['nginx'] ? serviceData['nginx'].instances : null;
-        var isRunning = serviceStatus && serviceStatus.instance1 && serviceStatus.instance1.running;
-
-        m.description = _('当前 Nginx 状态：%s').format(
-            isRunning ? _('运行中') : _('已停止')
-        ) + '<br />' +
-        '<button class="btn cbi-button cbi-button-apply" onclick="location.href=\'/cgi-bin/luci/admin/system/startup\'">' +
-        _('管理服务') + '</button>';
-
-        return m.render();
+                E('div', { 'class': 'cbi-page-actions' }, [
+                    E('button', {
+                        'class': 'cbi-button cbi-button-apply',
+                        'click': ui.createHandlerFn(this, 'handleSaveApply')
+                    }, _('保存并应用'))
+                ])
+            ])
+        ]);
+        return container;
     }
 });
