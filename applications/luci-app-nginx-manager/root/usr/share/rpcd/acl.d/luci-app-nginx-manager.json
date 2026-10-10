@@ -2,13 +2,18 @@
   "luci-app-nginx-manager": {
     "description": "Grant access to Nginx configuration",
     "read": {
-      "uci": [ "nginx" ],
-      "ubus": { "service": [ "list" ] },
-      "file": { "/etc/config/nginx": [ "read" ] }
+      "file": {
+        "/etc/nginx/conf.d/nginx.conf": [ "read" ]
+      }
     },
     "write": {
-      "uci": [ "nginx" ],
-      "file": { "/etc/config/nginx": [ "write" ] }
+      "file": {
+        "/etc/nginx/conf.d/nginx.conf": [ "write" ]
+      },
+      "exec": {
+        "/etc/init.d/nginx": [ "reload" ],
+        "/usr/sbin/nginx": [ "-t" ]
+      }
     }
   }
 }
