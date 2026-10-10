@@ -11,8 +11,7 @@
         "/etc/nginx/conf.d/nginx.conf": [ "write" ]
       },
       "exec": {
-        "/etc/init.d/*": [ "reload", "restart", "start", "stop" ],
-        "/usr/sbin/nginx": [ "-t" ]
+        "/etc/init.d/*": [ "reload", "restart", "start", "stop" ]
       }
     }
   }
