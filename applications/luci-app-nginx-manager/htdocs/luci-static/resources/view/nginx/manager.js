@@ -45,13 +45,16 @@ return view.extend({
             var newContent = content + block;
             return fs.write('/etc/nginx/conf.d/nginx.conf', newContent);
         }).then(function() {
+            // 用 nginx -t 检查配置
             return fs.exec('/usr/sbin/nginx', ['-t']).then(function(res) {
                 if (res.code !== 0) {
+                    // 测试失败 → 回滚
                     return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent).then(function() {
                         throw new Error(_('Nginx 配置测试失败：\n') + (res.stderr || res.stdout));
                     });
                 }
-                return fs.exec('/etc/init.d/nginx', ['reload']);
+                // 直接发 reload 信号，绕过 init.d 的 rc.common 框架
+                return fs.exec('/usr/sbin/nginx', ['-s', 'reload']);
             });
         }).then(function() {
             ui.addNotification(null, E('p', _('配置已成功保存并重载 Nginx')), 'info');
