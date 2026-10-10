@@ -33,13 +33,13 @@ function parseBlocks(content) {
     return blocks;
 }
 
-// 统一封装：校验 + 重载
-function checkAndReload() {
-    return fs.exec('/usr/sbin/nginx', ['-t']).then(function(res) {
+// 调用 init.d 重载；非 0 视为失败
+function reloadNginx() {
+    return fs.exec('/etc/init.d/nginx', ['reload']).then(function(res) {
         if (res.code !== 0) {
-            throw new Error(_('Nginx 配置测试失败：\n') + (res.stderr || res.stdout));
+            var msg = (res.stderr || '').trim() || (res.stdout || '').trim() || _('未知错误');
+            throw new Error(_('Nginx 重载失败：\n') + msg);
         }
-        return fs.exec('/etc/init.d/nginx', ['reload']);
     });
 }
 
@@ -52,7 +52,7 @@ return view.extend({
 
     // ---------- 重载 Nginx ----------
     handleReloadNginx: function(ev) {
-        return checkAndReload().then(function() {
+        return reloadNginx().then(function() {
             ui.addNotification(null, E('p', _('Nginx 已重载')), 'info');
         }).catch(function(e) {
             ui.addNotification(null, E('p', _('重载失败：%s').format(e.message)), 'error');
@@ -99,8 +99,8 @@ return view.extend({
             originalContent = content;
             return fs.write('/etc/nginx/conf.d/nginx.conf', content + block);
         }).then(function() {
-            return checkAndReload().catch(function(e) {
-                // 校验或重载失败 → 回滚
+            return reloadNginx().catch(function(e) {
+                // 重载失败 → 回滚文件
                 return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent).then(function() {
                     throw e;
                 });
@@ -130,7 +130,7 @@ return view.extend({
             newContent = newContent.replace(/^\s*\n+/, '');
 
             return fs.write('/etc/nginx/conf.d/nginx.conf', newContent).then(function() {
-                return checkAndReload().catch(function(e) {
+                return reloadNginx().catch(function(e) {
                     return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent).then(function() {
                         throw e;
                     });
