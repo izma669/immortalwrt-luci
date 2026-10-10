@@ -8,10 +8,10 @@
     },
     "write": {
       "file": {
-        "/etc/nginx/conf.d/nginx.conf": [ "write" ]
-      },
-      "exec": {
-        "/etc/init.d/*": [ "reload", "restart", "start", "stop" ]
+        "/etc/nginx/conf.d/nginx.conf": [ "write" ],
+        "/etc/init.d/nginx": [ "exec" ],
+        "/usr/sbin/nginx": [ "exec" ],
+        "/etc/rc.common": [ "exec" ]
       }
     }
   }
