@@ -7,8 +7,7 @@
       "path": "nginx/manager"
     },
     "depends": {
-      "acl": [ "luci-app-nginx-manager" ],
-      "uci": { "rpcd": true }
+      "acl": [ "luci-app-nginx-manager" ]
     }
   }
 }
