@@ -1,0 +1,14 @@
+{
+  "admin/services/nginx-manager": {
+    "title": "Nginx 管理器",
+    "order": 30,
+    "action": {
+      "type": "view",
+      "path": "nginx/manager"
+    },
+    "depends": {
+      "acl": [ "luci-app-nginx-manager" ],
+      "uci": { "rpcd": true }
+    }
+  }
+}
