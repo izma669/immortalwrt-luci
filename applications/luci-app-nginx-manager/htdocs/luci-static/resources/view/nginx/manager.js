@@ -368,18 +368,8 @@ return view.extend({
             }, [header, body]);
         }
 
-        var blockListContainer = E('div', {}, []);
-        mainBlocks.forEach(function(m) { blockListContainer.appendChild(makeCard(m, true)); });
-        extraBlocks.forEach(function(m) { blockListContainer.appendChild(makeCard(m, false)); });
-
-        var blockList = E('div', { 'class': 'cbi-section' }, [
-            E('h3', _('已配置的监听端口')),
-            tabBar,
-            blockListContainer
-        ]);
-
-        // 添加额外监听端口（折叠）
-        var addFormBody = E('div', { 'id': 'add-form-body', 'style': 'display:none;' }, [
+        // ===== 额外服务 tab 里的"添加新端口"表单 =====
+        var addFormBody = E('div', { 'id': 'add-form-body', 'style': 'display:none; padding:10px;' }, [
             E('div', { 'class': 'cbi-value' }, [
                 E('label', { 'class': 'cbi-value-title', 'for': 'port' }, _('监听端口')),
                 E('div', { 'class': 'cbi-value-field' }, [
@@ -418,16 +408,31 @@ return view.extend({
             ])
         ]);
 
-        var addForm = E('div', { 'class': 'cbi-section' }, [
-            E('div', {
-                'style': 'display:flex; gap:8px; align-items:center; cursor:pointer; user-select:none; padding:6px 0;',
-                'click': function() { self.toggleSection('add-form-body'); }
-            }, [
-                E('span', { 'id': 'arrow-add-form-body', 'style': 'font-size:10px; color:#888; width:12px; text-align:center;' }, '▶'),
-                E('h3', { 'style': 'margin:0; display:inline;' }, _('添加额外监听端口')),
-                E('span', { 'style': 'color:#888; font-size:12px; margin-left:6px;' }, _('（点击展开）'))
-            ]),
-            addFormBody
+        var addFormHeader = E('div', {
+            'style': 'display:flex; gap:8px; align-items:center; cursor:pointer; user-select:none; padding:8px 12px; background:#e8f5e9; border-radius:4px;',
+            'click': function() { self.toggleSection('add-form-body'); }
+        }, [
+            E('span', { 'id': 'arrow-add-form-body', 'style': 'font-size:10px; color:#4a9eff; width:12px; text-align:center;' }, '▶'),
+            E('strong', { 'style': 'font-size:13px; color:#2e7d32;' }, _('+ 添加新监听端口')),
+            E('span', { 'style': 'color:#888; font-size:12px; margin-left:6px;' }, _('（点击展开）'))
+        ]);
+
+        var addFormCard = E('div', {
+            'class': 'block-card',
+            'data-tab': 'extra',
+            'style': 'margin-bottom:10px; border:1px solid #a5d6a7; border-radius:4px;'
+        }, [addFormHeader, addFormBody]);
+
+        // 组装 block 列表
+        var blockListContainer = E('div', {}, []);
+        mainBlocks.forEach(function(m) { blockListContainer.appendChild(makeCard(m, true)); });
+        extraBlocks.forEach(function(m) { blockListContainer.appendChild(makeCard(m, false)); });
+        blockListContainer.appendChild(addFormCard);  // 添加表单只属于额外服务 tab
+
+        var blockList = E('div', { 'class': 'cbi-section' }, [
+            E('h3', _('已配置的监听端口')),
+            tabBar,
+            blockListContainer
         ]);
 
         // 当前文件内容（折叠）
@@ -455,7 +460,6 @@ return view.extend({
             toolbar,
             mediaSection,
             blockList,
-            addForm,
             rawView
         ]);
     }
