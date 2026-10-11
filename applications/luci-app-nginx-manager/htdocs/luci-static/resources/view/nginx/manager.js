@@ -172,6 +172,7 @@ return view.extend({
             'style': 'max-height:380px; min-height:200px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; background:#fff;'
         }, []);
 
+
         function renderDir(path) {
             currentPath = path;
             selectedPath = path;
@@ -179,7 +180,23 @@ return view.extend({
             listEl.innerHTML = '';
             listEl.appendChild(E('div', { 'style': 'padding:14px; color:#888;' }, _('加载中...')));
 
-            return fs.list(path).then(function(entries) {
+            // 用 /bin/ls -1p 列目录（-p 会给目录加 / 后缀）
+            return fs.exec('/bin/ls', ['-1p', path]).then(function(res) {
+                if (res.code !== 0) {
+                    throw new Error((res.stderr || '').trim() || _('列出目录失败'));
+                }
+                var raw = (res.stdout || '').split('\n').map(function(s) {
+                    return s.replace(/\r$/, '').trim();
+                }).filter(function(s) { return s; });
+
+                var entries = raw.map(function(name) {
+                    var isDir = /\/$/.test(name);
+                    return {
+                        name: isDir ? name.slice(0, -1) : name,
+                        type: isDir ? 'directory' : 'file'
+                    };
+                });
+
                 listEl.innerHTML = '';
                 if (path !== '/mnt') {
                     var parent = path.replace(/\/+$/, '').replace(/\/[^\/]+$/, '') || '/mnt';
@@ -217,6 +234,9 @@ return view.extend({
                     _('读取失败：') + (e.message || e)));
             });
         }
+        
+        
+        
 
         renderDir('/mnt');
 
