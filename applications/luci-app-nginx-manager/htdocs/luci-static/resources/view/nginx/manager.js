@@ -42,6 +42,20 @@ function reloadNginx() {
     });
 }
 
+function extractMediaPort(content) {
+    if (!content) return null;
+    var m = content.match(/listen\s+(\d+)\s+default_server/);
+    return m ? parseInt(m[1], 10) : null;
+}
+
+function replaceMediaPort(content, oldPort, newPort) {
+    var re1 = new RegExp('listen\\s+' + oldPort + '\\s+default_server', 'g');
+    var re2 = new RegExp('listen\\s+\\[::\\]:' + oldPort + '\\s+default_server', 'g');
+    content = content.replace(re1, 'listen ' + newPort + ' default_server');
+    content = content.replace(re2, 'listen [::]:' + newPort + ' default_server');
+    return content;
+}
+
 return view.extend({
     load: function() {
         return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() {
@@ -61,7 +75,63 @@ return view.extend({
         window.location.reload();
     },
 
-    // 注意：这里改名为 handleAddServer，避免触发 LuCI 的底部按钮
+    // ---------- 部署播放器到 /mnt ----------
+    handleDeployPlayer: function(ev) {
+        return fs.exec('/bin/cp', ['-f', '/www/player.html', '/mnt/player.html'])
+            .then(function(res) {
+                if (res.code !== 0) {
+                    throw new Error((res.stderr || '').trim() || _('复制失败'));
+                }
+                ui.addNotification(null, E('p', _('播放器已部署到 /mnt/player.html')), 'info');
+            })
+            .catch(function(e) {
+                ui.addNotification(null, E('p', _('部署失败：%s').format(e.message)), 'error');
+            });
+    },
+
+    // ---------- 打开多媒体 HTTP 管理 ----------
+    handleOpenPlayer: function(ev) {
+        var port = document.getElementById('media-port').value;
+        var url = 'http://' + window.location.hostname + ':' + port + '/';
+        window.open(url, '_blank');
+    },
+
+    // ---------- 保存媒体端口 ----------
+    handleSaveMediaPort: function(ev) {
+        var newPort = parseInt(document.getElementById('media-port').value, 10);
+        if (!newPort || newPort < 1 || newPort > 65535) {
+            ui.addNotification(null, E('p', _('端口必须为 1-65535 之间的数字')), 'error');
+            return;
+        }
+
+        return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() { return ''; })
+            .then(function(content) {
+                var oldPort = extractMediaPort(content);
+                if (!oldPort) throw new Error(_('未找到 listen <port> default_server 配置'));
+                if (oldPort === newPort) {
+                    ui.addNotification(null, E('p', _('端口未改变')), 'info');
+                    return;
+                }
+                var originalContent = content;
+                var newContent = replaceMediaPort(content, oldPort, newPort);
+                return fs.write('/etc/nginx/conf.d/nginx.conf', newContent)
+                    .then(function() {
+                        return reloadNginx().catch(function(e) {
+                            return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent)
+                                .then(function() { throw e; });
+                        });
+                    })
+                    .then(function() {
+                        ui.addNotification(null, E('p', _('媒体端口已改为 %d，Nginx 已重载').format(newPort)), 'info');
+                        window.setTimeout(function() { window.location.reload(); }, 1200);
+                    });
+            })
+            .catch(function(e) {
+                ui.addNotification(null, E('p', _('保存失败：%s').format(e.message)), 'error');
+            });
+    },
+
+    // ---------- 添加监听端口（其它用途） ----------
     handleAddServer: function(ev) {
         var port = document.querySelector('#port').value.trim();
         var server_name = document.querySelector('#server_name').value.trim();
@@ -89,73 +159,126 @@ return view.extend({
                     '}\n';
 
         var originalContent;
-
-        return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() {
-            return '';
-        }).then(function(content) {
-            originalContent = content;
-            return fs.write('/etc/nginx/conf.d/nginx.conf', content + block);
-        }).then(function() {
-            return reloadNginx().catch(function(e) {
-                return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent).then(function() {
-                    throw e;
+        return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() { return ''; })
+            .then(function(content) {
+                originalContent = content;
+                return fs.write('/etc/nginx/conf.d/nginx.conf', content + block);
+            })
+            .then(function() {
+                return reloadNginx().catch(function(e) {
+                    return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent)
+                        .then(function() { throw e; });
                 });
+            })
+            .then(function() {
+                ui.addNotification(null, E('p', _('配置已成功保存并重载 Nginx')), 'info');
+                window.setTimeout(function() { window.location.reload(); }, 1200);
+            })
+            .catch(function(e) {
+                ui.addNotification(null, E('p', _('保存失败：%s').format(e.message)), 'error');
             });
-        }).then(function() {
-            ui.addNotification(null, E('p', _('配置已成功保存并重载 Nginx')), 'info');
-            window.setTimeout(function() { window.location.reload(); }, 1200);
-        }).catch(function(e) {
-            ui.addNotification(null, E('p', _('保存失败：%s').format(e.message)), 'error');
-        });
     },
 
     handleDelete: function(index, ev) {
-        return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() {
-            return '';
-        }).then(function(content) {
-            var originalContent = content;
-            var blocks = parseBlocks(content);
-            if (index < 0 || index >= blocks.length) {
-                throw new Error(_('无效的块索引'));
-            }
-            var blockText = blocks[index].text;
+        return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() { return ''; })
+            .then(function(content) {
+                var originalContent = content;
+                var blocks = parseBlocks(content);
+                if (index < 0 || index >= blocks.length) throw new Error(_('无效的块索引'));
+                var blockText = blocks[index].text;
 
-            var newContent = content.replace(blockText, '');
-            newContent = newContent.replace(/\n\s*\n\s*\n+/g, '\n\n');
-            newContent = newContent.replace(/^\s*\n+/, '');
+                // 主服务块（含 listen XXX default_server）不允许删除
+                if (/listen\s+\d+\s+default_server/.test(blockText)) {
+                    ui.addNotification(null, E('p', _('媒体服务器块不允许删除，仅可修改端口')), 'error');
+                    return;
+                }
 
-            return fs.write('/etc/nginx/conf.d/nginx.conf', newContent).then(function() {
-                return reloadNginx().catch(function(e) {
-                    return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent).then(function() {
-                        throw e;
+                var newContent = content.replace(blockText, '');
+                newContent = newContent.replace(/\n\s*\n\s*\n+/g, '\n\n');
+                newContent = newContent.replace(/^\s*\n+/, '');
+
+                return fs.write('/etc/nginx/conf.d/nginx.conf', newContent)
+                    .then(function() {
+                        return reloadNginx().catch(function(e) {
+                            return fs.write('/etc/nginx/conf.d/nginx.conf', originalContent)
+                                .then(function() { throw e; });
+                        });
+                    })
+                    .then(function() {
+                        ui.addNotification(null, E('p', _('已删除该监听配置')), 'info');
+                        window.setTimeout(function() { window.location.reload(); }, 1200);
                     });
-                });
-            }).then(function() {
-                ui.addNotification(null, E('p', _('已删除该监听配置')), 'info');
-                window.setTimeout(function() { window.location.reload(); }, 1200);
-            }).catch(function(e) {
+            })
+            .catch(function(e) {
                 ui.addNotification(null, E('p', _('删除失败：%s').format(e.message)), 'error');
             });
-        });
     },
 
     render: function(currentContent) {
         var self = this;
-        var blocks = parseBlocks(currentContent || '');
+        var content = currentContent || '';
+        var blocks = parseBlocks(content);
+        var mediaPort = extractMediaPort(content);
 
-        var toolbar = E('div', {
-            'style': 'margin-bottom:15px; display:flex; gap:8px;'
-        }, [
+        // ---------- 顶部工具栏 ----------
+        var toolbar = E('div', { 'style': 'margin-bottom:15px; display:flex; gap:8px; flex-wrap:wrap;' }, [
             E('button', {
                 'class': 'cbi-button cbi-button-action',
+                'click': ui.createHandlerFn(this, 'handleOpenPlayer')
+            }, _('▶ 启动多媒体 HTTP 管理')),
+            E('button', {
+                'class': 'cbi-button cbi-button-neutral',
                 'click': ui.createHandlerFn(this, 'handleReloadNginx')
             }, _('重载 Nginx')),
             E('button', {
                 'class': 'cbi-button cbi-button-neutral',
                 'click': ui.createHandlerFn(this, 'handleReloadPage')
-            }, _('重新读取文件'))
+            }, _('重新读取文件')),
+            E('button', {
+                'class': 'cbi-button cbi-button-neutral',
+                'click': ui.createHandlerFn(this, 'handleDeployPlayer')
+            }, _('重新部署播放器'))
         ]);
 
+        // ---------- 媒体服务端口面板 ----------
+        var mediaSection = E('div', { 'class': 'cbi-section' }, [
+            E('h3', _('多媒体 HTTP 服务')),
+            E('div', { 'class': 'cbi-map-descr' },
+                _('控制播放器所在 nginx 服务块的监听端口。改完自动保存并重载。')),
+
+            E('div', { 'class': 'cbi-value' }, [
+                E('label', { 'class': 'cbi-value-title', 'for': 'media-port' }, _('HTTP 端口')),
+                E('div', { 'class': 'cbi-value-field', 'style': 'display:flex; gap:8px; align-items:center; flex-wrap:wrap;' }, [
+                    E('input', {
+                        'type': 'number',
+                        'id': 'media-port',
+                        'class': 'cbi-input-text',
+                        'value': mediaPort || 880,
+                        'min': '1',
+                        'max': '65535',
+                        'style': 'width:120px;'
+                    }),
+                    E('button', {
+                        'class': 'cbi-button cbi-button-action',
+                        'click': ui.createHandlerFn(this, 'handleSaveMediaPort')
+                    }, _('保存端口')),
+                    E('button', {
+                        'class': 'cbi-button cbi-button-apply',
+                        'click': ui.createHandlerFn(this, 'handleOpenPlayer')
+                    }, _('启动多媒体 HTTP 管理'))
+                ])
+            ]),
+
+            E('div', { 'class': 'cbi-value' }, [
+                E('label', { 'class': 'cbi-value-title' }, _('访问地址')),
+                E('div', { 'class': 'cbi-value-field' }, [
+                    E('code', { 'style': 'color:#4a9eff;' },
+                        'http://' + window.location.hostname + ':' + (mediaPort || 880) + '/')
+                ])
+            ])
+        ]);
+
+        // ---------- 已配置块列表 ----------
         var blockList = E('div', { 'class': 'cbi-section' }, [
             E('h3', _('已配置的监听端口'))
         ]);
@@ -166,17 +289,20 @@ return view.extend({
             }, _('(暂无配置)')));
         } else {
             blocks.forEach(function(b, idx) {
+                var isMedia = /listen\s+\d+\s+default_server/.test(b.text);
                 var card = E('div', {
-                    'style': 'border:1px solid #ddd; border-radius:4px; padding:10px; margin-bottom:10px; background:#fafafa;'
+                    'style': 'border:1px solid ' + (isMedia ? '#4a9eff' : '#ddd') + '; border-radius:4px; padding:10px; margin-bottom:10px; background:' + (isMedia ? '#f0f7ff' : '#fafafa') + ';'
                 }, [
                     E('div', {
                         'style': 'display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;'
                     }, [
-                        E('strong', {}, _('监听配置 #%d').format(idx + 1)),
-                        E('button', {
-                            'class': 'cbi-button cbi-button-remove',
-                            'click': function(ev) { self.handleDelete(idx, ev); }
-                        }, _('删除'))
+                        E('strong', {}, _('监听配置 #%d').format(idx + 1) + (isMedia ? '  (' + _('主服务') + ')' : '')),
+                        isMedia
+                            ? E('span', { 'style': 'color:#4a9eff; font-size:12px;' }, _('端口由上方面板管理'))
+                            : E('button', {
+                                'class': 'cbi-button cbi-button-remove',
+                                'click': function(ev) { self.handleDelete(idx, ev); }
+                            }, _('删除'))
                     ]),
                     E('pre', {
                         'style': 'background:#fff; padding:8px; border-radius:3px; overflow-x:auto; white-space:pre-wrap; margin:0; font-size:12px;'
@@ -186,44 +312,41 @@ return view.extend({
             });
         }
 
+        // ---------- 添加新监听端口 ----------
         var addForm = E('div', { 'class': 'cbi-section' }, [
-            E('h3', _('添加新监听端口')),
+            E('h3', _('添加额外监听端口')),
+            E('div', { 'class': 'cbi-map-descr' }, _('额外端口不会影响多媒体 HTTP 服务')),
 
             E('div', { 'class': 'cbi-value' }, [
                 E('label', { 'class': 'cbi-value-title', 'for': 'port' }, _('监听端口')),
                 E('div', { 'class': 'cbi-value-field' }, [
-                    E('input', { 'type': 'text', 'id': 'port', 'class': 'cbi-input-text', 'value': '880' })
+                    E('input', { 'type': 'text', 'id': 'port', 'class': 'cbi-input-text', 'value': '8081' })
                 ])
             ]),
-
             E('div', { 'class': 'cbi-value' }, [
                 E('label', { 'class': 'cbi-value-title', 'for': 'server_name' }, _('服务器名称')),
                 E('div', { 'class': 'cbi-value-field' }, [
                     E('input', { 'type': 'text', 'id': 'server_name', 'class': 'cbi-input-text', 'value': 'localhost' })
                 ])
             ]),
-
             E('div', { 'class': 'cbi-value' }, [
                 E('label', { 'class': 'cbi-value-title', 'for': 'root' }, _('网站根目录')),
                 E('div', { 'class': 'cbi-value-field' }, [
                     E('input', { 'type': 'text', 'id': 'root', 'class': 'cbi-input-text', 'value': '/mnt' })
                 ])
             ]),
-
             E('div', { 'class': 'cbi-value' }, [
                 E('label', { 'class': 'cbi-value-title', 'for': 'autoindex' }, _('开启目录浏览')),
                 E('div', { 'class': 'cbi-value-field' }, [
                     E('input', { 'type': 'checkbox', 'id': 'autoindex', 'checked': true })
                 ])
             ]),
-
             E('div', { 'class': 'cbi-value' }, [
                 E('label', { 'class': 'cbi-value-title', 'for': 'charset' }, _('字符编码')),
                 E('div', { 'class': 'cbi-value-field' }, [
                     E('input', { 'type': 'text', 'id': 'charset', 'class': 'cbi-input-text', 'value': 'utf-8' })
                 ])
             ]),
-
             E('div', { 'class': 'cbi-page-actions' }, [
                 E('button', {
                     'class': 'cbi-button cbi-button-action',
@@ -232,11 +355,12 @@ return view.extend({
             ])
         ]);
 
+        // ---------- 文件内容预览 ----------
         var rawView = E('div', { 'class': 'cbi-section' }, [
             E('h3', _('当前文件内容')),
             E('pre', {
-                'style': 'background: #f4f4f4; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap;'
-            }, currentContent || _('(文件为空)'))
+                'style': 'background:#f4f4f4; padding:10px; border-radius:4px; overflow-x:auto; white-space:pre-wrap; max-height:400px;'
+            }, content || _('(文件为空)'))
         ]);
 
         return E('div', { 'class': 'cbi-map' }, [
@@ -244,6 +368,7 @@ return view.extend({
             E('div', { 'class': 'cbi-map-descr' }, _('直接管理 /etc/nginx/conf.d/nginx.conf 文件')),
 
             toolbar,
+            mediaSection,
             blockList,
             addForm,
             rawView
