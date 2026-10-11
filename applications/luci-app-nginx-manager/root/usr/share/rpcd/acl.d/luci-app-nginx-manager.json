@@ -3,7 +3,9 @@
     "description": "Grant access to Nginx configuration",
     "read": {
       "file": {
-        "/etc/nginx/conf.d/nginx.conf": [ "read" ]
+        "/etc/nginx/conf.d/nginx.conf": [ "read" ],
+        "/mnt": [ "read" ],
+        "/mnt/*": [ "read" ]
       }
     },
     "write": {
@@ -12,10 +14,7 @@
       },
       "exec": {
         "/etc/init.d/*": [ "reload", "restart", "start", "stop" ],
-        "/bin/cp": [ "*" ],
-        "/sbin/logread": [ "*" ],
-        "/usr/sbin/logread": [ "*" ],
-        "/bin/logread": [ "*" ]
+        "/bin/cp": [ "*" ]
       }
     }
   }
