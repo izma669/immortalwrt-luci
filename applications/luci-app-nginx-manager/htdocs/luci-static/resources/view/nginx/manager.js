@@ -10,9 +10,7 @@ function parseBlocks(content) {
     var i = 0;
     while (i < lines.length) {
         if (/^\s*server\s*\{/.test(lines[i])) {
-            var start = i;
-            var depth = 0;
-            var j = i;
+            var start = i, depth = 0, j = i;
             for (; j < lines.length; j++) {
                 for (var k = 0; k < lines[j].length; k++) {
                     var c = lines[j][k];
@@ -23,12 +21,23 @@ function parseBlocks(content) {
             }
             blocks.push({ index: blocks.length, text: lines.slice(start, j + 1).join('\n') });
             i = j + 1;
-        } else {
-            i++;
-        }
+        } else { i++; }
     }
     return blocks;
 }
+
+
+function writeNginxConf(content) {
+    var b64 = btoa(unescape(encodeURIComponent(content)));
+    // base64 只含 A-Za-z0-9+/=，不含引号，可以安全地嵌入双引号里
+    var cmd = 'printf %s "' + b64 + '" | base64 -d > /etc/nginx/conf.d/nginx.conf';
+    return fs.exec('/bin/sh', ['-c', cmd]).then(function(res) {
+        if (res && res.code !== 0) {
+            throw new Error('写入失败：' + ((res.stderr || '').trim() || '未知错误'));
+        }
+    });
+}
+
 
 function reloadNginx() {
     return fs.exec('/etc/init.d/nginx', ['reload']).then(function(res) {
@@ -125,10 +134,10 @@ return view.extend({
                     return;
                 }
                 var original = content;
-                return fs.write('/etc/nginx/conf.d/nginx.conf', replaceMediaPort(content, oldPort, newPort))
+                return writeNginxConf(replaceMediaPort(content, oldPort, newPort))
                     .then(function() {
                         return reloadNginx().catch(function(e) {
-                            return fs.write('/etc/nginx/conf.d/nginx.conf', original).then(function() { throw e; });
+                            return writeNginxConf(original).then(function() { throw e; });
                         });
                     }).then(function() {
                         ui.addNotification(null, E('p', _('媒体端口已改为 %d').format(newPort)), 'info');
@@ -137,6 +146,15 @@ return view.extend({
             }).catch(function(e) {
                 ui.addNotification(null, E('p', _('保存失败：%s').format(e.message)), 'error');
             });
+    },
+
+    handleSaveMediaRoot: function(ev) {
+        var newRoot = document.getElementById('media-root-input').value.trim();
+        if (!newRoot || newRoot.charAt(0) !== '/') {
+            ui.addNotification(null, E('p', _('路径必须以 / 开头')), 'error');
+            return;
+        }
+        return this.saveMediaRoot(newRoot);
     },
 
     saveMediaRoot: function(newRoot) {
@@ -148,10 +166,10 @@ return view.extend({
                     return;
                 }
                 var original = content;
-                return fs.write('/etc/nginx/conf.d/nginx.conf', replaceMediaRoot(content, newRoot))
+                return writeNginxConf(replaceMediaRoot(content, newRoot))
                     .then(function() {
                         return reloadNginx().catch(function(e) {
-                            return fs.write('/etc/nginx/conf.d/nginx.conf', original).then(function() { throw e; });
+                            return writeNginxConf(original).then(function() { throw e; });
                         });
                     }).then(function() {
                         ui.addNotification(null, E('p', _('网站根目录已改为 %s').format(newRoot)), 'info');
@@ -162,112 +180,12 @@ return view.extend({
             });
     },
 
-    handleBrowseMediaRoot: function(ev) {
-        var self = this;
-        var currentPath = '/mnt';
-        var selectedPath = '/mnt';
-
-        var pathEl = E('code', { 'style': 'color:#4a9eff; font-size:13px; word-break:break-all;' }, currentPath);
-        var listEl = E('div', {
-            'style': 'max-height:380px; min-height:200px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; background:#fff;'
-        }, []);
-
-
-        function renderDir(path) {
-            currentPath = path;
-            selectedPath = path;
-            pathEl.textContent = path;
-            listEl.innerHTML = '';
-            listEl.appendChild(E('div', { 'style': 'padding:14px; color:#888;' }, _('加载中...')));
-
-            // 用 /bin/ls -1p 列目录（-p 会给目录加 / 后缀）
-            return fs.exec('/bin/ls', ['-1p', path]).then(function(res) {
-                if (res.code !== 0) {
-                    throw new Error((res.stderr || '').trim() || _('列出目录失败'));
-                }
-                var raw = (res.stdout || '').split('\n').map(function(s) {
-                    return s.replace(/\r$/, '').trim();
-                }).filter(function(s) { return s; });
-
-                var entries = raw.map(function(name) {
-                    var isDir = /\/$/.test(name);
-                    return {
-                        name: isDir ? name.slice(0, -1) : name,
-                        type: isDir ? 'directory' : 'file'
-                    };
-                });
-
-                listEl.innerHTML = '';
-                if (path !== '/mnt') {
-                    var parent = path.replace(/\/+$/, '').replace(/\/[^\/]+$/, '') || '/mnt';
-                    if (parent.length < 4) parent = '/mnt';
-                    var up = E('div', {
-                        'style': 'padding:8px 12px; cursor:pointer; color:#ff9800; border-bottom:1px solid #eee; user-select:none;',
-                        'click': function() { renderDir(parent); }
-                    }, '📁 ..  (上级目录)');
-                    up.addEventListener('mouseover', function() { up.style.background = '#fff8e1'; });
-                    up.addEventListener('mouseout', function() { up.style.background = ''; });
-                    listEl.appendChild(up);
-                }
-                var dirs = entries.filter(function(e) { return e.type === 'directory'; })
-                                  .sort(function(a, b) { return a.name.localeCompare(b.name); });
-                if (dirs.length === 0) {
-                    listEl.appendChild(E('div', { 'style': 'padding:14px; color:#888;' }, _('(此目录下无子目录)')));
-                } else {
-                    dirs.forEach(function(d) {
-                        var full = path.replace(/\/+$/, '') + '/' + d.name;
-                        var item = E('div', {
-                            'style': 'padding:8px 12px; cursor:pointer; border-bottom:1px solid #eee; user-select:none;',
-                            'click': function() { renderDir(full); }
-                        }, [
-                            E('span', { 'style': 'margin-right:8px;' }, '📁'),
-                            E('span', { 'style': 'color:#333;' }, d.name)
-                        ]);
-                        item.addEventListener('mouseover', function() { item.style.background = '#f0f7ff'; });
-                        item.addEventListener('mouseout', function() { item.style.background = ''; });
-                        listEl.appendChild(item);
-                    });
-                }
-            }).catch(function(e) {
-                listEl.innerHTML = '';
-                listEl.appendChild(E('div', { 'style': 'padding:14px; color:#d32f2f;' },
-                    _('读取失败：') + (e.message || e)));
-            });
-        }
-        
-        
-        
-
-        renderDir('/mnt');
-
-        ui.showModal(_('选择网站根目录'), [
-            E('div', { 'style': 'margin-bottom:10px; padding:8px; background:#f0f7ff; border-radius:4px;' }, [
-                E('span', { 'style': 'color:#666; margin-right:6px;' }, _('当前位置：')),
-                pathEl
-            ]),
-            listEl,
-            E('div', { 'class': 'right', 'style': 'margin-top:15px;' }, [
-                E('button', { 'class': 'cbi-button cbi-button-neutral', 'click': function() { ui.hideModal(); } }, _('取消')),
-                ' ',
-                E('button', {
-                    'class': 'cbi-button cbi-button-action',
-                    'click': function() {
-                        var pick = selectedPath;
-                        ui.hideModal();
-                        self.saveMediaRoot(pick);
-                    }
-                }, _('选择此目录'))
-            ])
-        ]);
-    },
-
     handleAddServer: function(ev) {
         var port = document.querySelector('#port').value.trim();
         var server_name = document.querySelector('#server_name').value.trim();
         var root = document.querySelector('#root').value.trim();
         var autoindex = document.querySelector('#autoindex').checked ? 'on' : 'off';
         var charset = document.querySelector('#charset').value.trim();
-
         if (!port || isNaN(port)) {
             ui.addNotification(null, E('p', _('端口必须为数字')), 'error');
             return;
@@ -275,27 +193,16 @@ return view.extend({
         if (!server_name) server_name = 'localhost';
         if (!root) root = '/mnt';
         if (!charset) charset = 'utf-8';
-
-        var block = '\nserver {\n' +
-                    '\tlisten ' + port + ' default_server;\n' +
-                    '\tlisten [::]:' + port + ' default_server;\n' +
-                    '\tserver_name ' + server_name + ';\n' +
-                    '\tlocation / {\n' +
-                    '\t\tautoindex ' + autoindex + ';\n' +
-                    '\t\tcharset ' + charset + ';\n' +
-                    '\t\troot ' + root + ';\n' +
-                    '\t}\n' +
-                    '}\n';
-
+        var block = '\nserver {\n\tlisten ' + port + ' default_server;\n\tlisten [::]:' + port + ' default_server;\n\tserver_name ' + server_name + ';\n\tlocation / {\n\t\tautoindex ' + autoindex + ';\n\t\tcharset ' + charset + ';\n\t\troot ' + root + ';\n\t}\n}\n';
         var original;
         return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() { return ''; })
             .then(function(content) {
                 original = content;
-                return fs.write('/etc/nginx/conf.d/nginx.conf', content + block);
+                return writeNginxConf(content + block);
             })
             .then(function() {
                 return reloadNginx().catch(function(e) {
-                    return fs.write('/etc/nginx/conf.d/nginx.conf', original).then(function() { throw e; });
+                    return writeNginxConf(original).then(function() { throw e; });
                 });
             })
             .then(function() {
@@ -320,10 +227,10 @@ return view.extend({
                 }
                 var newContent = content.replace(blockText, '');
                 newContent = newContent.replace(/\n\s*\n\s*\n+/g, '\n\n').replace(/^\s*\n+/, '');
-                return fs.write('/etc/nginx/conf.d/nginx.conf', newContent)
+                return writeNginxConf(newContent)
                     .then(function() {
                         return reloadNginx().catch(function(e) {
-                            return fs.write('/etc/nginx/conf.d/nginx.conf', original).then(function() { throw e; });
+                            return writeNginxConf(original).then(function() { throw e; });
                         });
                     }).then(function() {
                         ui.addNotification(null, E('p', _('已删除该监听配置')), 'info');
@@ -361,9 +268,7 @@ return view.extend({
         var blocks = parseBlocks(content);
         var mediaPort = extractMediaPort(content);
         var mediaRoot = extractMediaRoot(content);
-
-        var mainBlocks = [];
-        var extraBlocks = [];
+        var mainBlocks = [], extraBlocks = [];
         blocks.forEach(function(b, idx) {
             if (/listen\s+\d+\s+default_server/.test(b.text)) mainBlocks.push({ idx: idx, block: b });
             else extraBlocks.push({ idx: idx, block: b });
@@ -390,13 +295,11 @@ return view.extend({
             ]),
 
             E('div', { 'class': 'cbi-value' }, [
-                E('label', { 'class': 'cbi-value-title' }, _('网站根目录')),
+                E('label', { 'class': 'cbi-value-title', 'for': 'media-root-input' }, _('网站根目录')),
                 E('div', { 'class': 'cbi-value-field', 'style': 'display:flex; gap:8px; align-items:center; flex-wrap:wrap;' }, [
-                    E('input', {
-                        'type': 'text', 'id': 'media-root-display', 'class': 'cbi-input-text',
-                        'value': mediaRoot, 'readonly': 'readonly', 'style': 'width:260px; background:#f5f5f5;'
-                    }),
-                    E('button', { 'class': 'cbi-button cbi-button-action', 'click': ui.createHandlerFn(this, 'handleBrowseMediaRoot') }, _('浏览选择...'))
+                    E('input', { 'type': 'text', 'id': 'media-root-input', 'class': 'cbi-input-text',
+                        'value': mediaRoot, 'style': 'width:320px;' }),
+                    E('button', { 'class': 'cbi-button cbi-button-action', 'click': ui.createHandlerFn(this, 'handleSaveMediaRoot') }, _('保存路径'))
                 ])
             ]),
 
@@ -410,7 +313,6 @@ return view.extend({
 
         var tabBtnBase = 'background:#f0f0f0; color:#444; border:1px solid #ccc; padding:6px 14px; border-radius:4px; cursor:pointer; font-size:13px;';
         var tabBtnActive = 'background:#4a9eff; color:#fff; border-color:#4a9eff;';
-
         var tabBar = E('div', { 'style': 'display:flex; gap:6px; margin-bottom:12px;' }, [
             E('button', { 'class': 'tab-btn', 'data-tab': 'main', 'style': tabBtnBase + tabBtnActive,
                 'click': function() { self.switchTab('main'); } }, _('主服务') + ' (' + mainBlocks.length + ')'),
@@ -437,19 +339,15 @@ return view.extend({
                     E('span', { 'class': 'toggle-arrow', 'style': 'font-size:10px; color:#888; width:12px; text-align:center;' }, '▶'),
                     E('strong', { 'style': 'font-size:13px;' }, _('监听配置 #%d').format(idx + 1) + (isMain ? '  (' + _('主服务') + ')' : ''))
                 ]),
-                isMain
-                    ? E('span', { 'style': 'color:#4a9eff; font-size:12px;' }, _('端口和路径由上方面板管理'))
+                isMain ? E('span', { 'style': 'color:#4a9eff; font-size:12px;' }, _('端口和路径由上方面板管理'))
                     : E('button', { 'class': 'cbi-button cbi-button-remove', 'style': 'padding:2px 10px; font-size:12px;',
                         'click': function(ev) { ev.stopPropagation(); self.handleDelete(idx, ev); } }, _('删除'))
             ]);
             var body = E('div', {
                 'style': 'display:none; border:1px solid ' + (isMain ? '#b8d4ff' : '#ddd') + '; border-top:none; border-radius:0 0 4px 4px; padding:10px; background:#fff;'
             }, [E('pre', { 'style': 'background:#fafafa; padding:8px; border-radius:3px; overflow-x:auto; white-space:pre-wrap; margin:0; font-size:12px;' }, b.text)]);
-            return E('div', {
-                'class': 'block-card',
-                'data-tab': isMain ? 'main' : 'extra',
-                'style': 'display:' + (isMain ? 'block' : 'none') + '; margin-bottom:10px;'
-            }, [header, body]);
+            return E('div', { 'class': 'block-card', 'data-tab': isMain ? 'main' : 'extra',
+                'style': 'display:' + (isMain ? 'block' : 'none') + '; margin-bottom:10px;' }, [header, body]);
         }
 
         var addFormBody = E('div', { 'id': 'add-form-body', 'style': 'display:none; padding:10px;' }, [
@@ -478,11 +376,8 @@ return view.extend({
             ])
         ]);
 
-        var addFormCard = E('div', {
-            'class': 'block-card',
-            'data-tab': 'extra',
-            'style': 'display:none; margin-bottom:10px; border:1px solid #a5d6a7; border-radius:4px;'
-        }, [
+        var addFormCard = E('div', { 'class': 'block-card', 'data-tab': 'extra',
+            'style': 'display:none; margin-bottom:10px; border:1px solid #a5d6a7; border-radius:4px;' }, [
             E('div', { 'style': 'display:flex; gap:8px; align-items:center; cursor:pointer; user-select:none; padding:8px 12px; background:#e8f5e9; border-radius:4px;',
                 'click': function() { self.toggleSection('add-form-body'); } }, [
                 E('span', { 'id': 'arrow-add-form-body', 'style': 'font-size:10px; color:#4a9eff; width:12px; text-align:center;' }, '▶'),
@@ -498,15 +393,12 @@ return view.extend({
         blockListContainer.appendChild(addFormCard);
 
         var blockList = E('div', { 'class': 'cbi-section' }, [
-            E('h3', _('已配置的监听端口')),
-            tabBar,
-            blockListContainer
+            E('h3', _('已配置的监听端口')), tabBar, blockListContainer
         ]);
 
         var rawBody = E('div', { 'id': 'raw-body', 'style': 'display:none;' }, [
             E('pre', { 'style': 'background:#f4f4f4; padding:10px; border-radius:4px; overflow-x:auto; white-space:pre-wrap; max-height:400px;' }, content || _('(文件为空)'))
         ]);
-
         var rawView = E('div', { 'class': 'cbi-section' }, [
             E('div', { 'style': 'display:flex; gap:8px; align-items:center; cursor:pointer; user-select:none; padding:6px 0;',
                 'click': function() { self.toggleSection('raw-body'); } }, [
@@ -520,10 +412,7 @@ return view.extend({
         return E('div', { 'class': 'cbi-map' }, [
             E('h2', _('Nginx 配置管理')),
             E('div', { 'class': 'cbi-map-descr' }, _('直接管理 /etc/nginx/conf.d/nginx.conf 文件')),
-            toolbar,
-            mediaSection,
-            blockList,
-            rawView
+            toolbar, mediaSection, blockList, rawView
         ]);
     }
 });
