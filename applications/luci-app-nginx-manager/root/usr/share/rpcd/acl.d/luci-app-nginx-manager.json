@@ -7,13 +7,10 @@
       }
     },
     "write": {
-      "file": {
-        "/etc/nginx/conf.d/nginx.conf": [ "write" ]
-      },
       "exec": {
         "/etc/init.d/*": [ "reload", "restart", "start", "stop" ],
         "/bin/cp": [ "*" ],
-        "/bin/ls": [ "*" ]
+        "/bin/sh": [ "-c", "*" ]
       }
     }
   }
