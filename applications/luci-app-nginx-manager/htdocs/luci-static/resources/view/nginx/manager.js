@@ -73,7 +73,6 @@ function replaceMediaRoot(content, newRoot) {
         }
     }
     content = lines.join('\n');
-    // 替换第一个 alias（通常是 /api/dir/ 里的）
     content = content.replace(/(alias\s+)([^;]+)(;)/, function(m, p1, p2, p3) {
         var hasSlash = /\/$/.test(p2);
         return p1 + newRoot + (hasSlash ? '/' : '') + p3;
@@ -140,7 +139,6 @@ return view.extend({
             });
     },
 
-    // ---------- 选择媒体根目录 ----------
     saveMediaRoot: function(newRoot) {
         return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() { return ''; })
             .then(function(content) {
@@ -156,7 +154,7 @@ return view.extend({
                             return fs.write('/etc/nginx/conf.d/nginx.conf', original).then(function() { throw e; });
                         });
                     }).then(function() {
-                        ui.addNotification(null, E('p', _('媒体根目录已改为 %s').format(newRoot)), 'info');
+                        ui.addNotification(null, E('p', _('网站根目录已改为 %s').format(newRoot)), 'info');
                         window.setTimeout(function() { window.location.reload(); }, 1200);
                     });
             }).catch(function(e) {
@@ -183,8 +181,6 @@ return view.extend({
 
             return fs.list(path).then(function(entries) {
                 listEl.innerHTML = '';
-
-                // 上级按钮
                 if (path !== '/mnt') {
                     var parent = path.replace(/\/+$/, '').replace(/\/[^\/]+$/, '') || '/mnt';
                     if (parent.length < 4) parent = '/mnt';
@@ -196,10 +192,8 @@ return view.extend({
                     up.addEventListener('mouseout', function() { up.style.background = ''; });
                     listEl.appendChild(up);
                 }
-
                 var dirs = entries.filter(function(e) { return e.type === 'directory'; })
                                   .sort(function(a, b) { return a.name.localeCompare(b.name); });
-
                 if (dirs.length === 0) {
                     listEl.appendChild(E('div', { 'style': 'padding:14px; color:#888;' }, _('(此目录下无子目录)')));
                 } else {
@@ -226,17 +220,14 @@ return view.extend({
 
         renderDir('/mnt');
 
-        ui.showModal(_('选择媒体文件目录'), [
+        ui.showModal(_('选择网站根目录'), [
             E('div', { 'style': 'margin-bottom:10px; padding:8px; background:#f0f7ff; border-radius:4px;' }, [
                 E('span', { 'style': 'color:#666; margin-right:6px;' }, _('当前位置：')),
                 pathEl
             ]),
             listEl,
             E('div', { 'class': 'right', 'style': 'margin-top:15px;' }, [
-                E('button', {
-                    'class': 'cbi-button cbi-button-neutral',
-                    'click': function() { ui.hideModal(); }
-                }, _('取消')),
+                E('button', { 'class': 'cbi-button cbi-button-neutral', 'click': function() { ui.hideModal(); } }, _('取消')),
                 ' ',
                 E('button', {
                     'class': 'cbi-button cbi-button-action',
@@ -250,7 +241,6 @@ return view.extend({
         ]);
     },
 
-    // ---------- 额外端口：添加 ----------
     handleAddServer: function(ev) {
         var port = document.querySelector('#port').value.trim();
         var server_name = document.querySelector('#server_name').value.trim();
@@ -367,7 +357,7 @@ return view.extend({
 
         var mediaSection = E('div', { 'class': 'cbi-section' }, [
             E('h3', _('多媒体 HTTP 服务')),
-            E('div', { 'class': 'cbi-map-descr' }, _('控制播放器所在 nginx 服务块的监听端口和媒体根目录')),
+            E('div', { 'class': 'cbi-map-descr' }, _('控制播放器所在 nginx 服务块的监听端口和网站根目录')),
 
             E('div', { 'class': 'cbi-value' }, [
                 E('label', { 'class': 'cbi-value-title', 'for': 'media-port' }, _('HTTP 端口')),
@@ -380,7 +370,7 @@ return view.extend({
             ]),
 
             E('div', { 'class': 'cbi-value' }, [
-                E('label', { 'class': 'cbi-value-title' }, _('媒体文件路径')),
+                E('label', { 'class': 'cbi-value-title' }, _('网站根目录')),
                 E('div', { 'class': 'cbi-value-field', 'style': 'display:flex; gap:8px; align-items:center; flex-wrap:wrap;' }, [
                     E('input', {
                         'type': 'text', 'id': 'media-root-display', 'class': 'cbi-input-text',
