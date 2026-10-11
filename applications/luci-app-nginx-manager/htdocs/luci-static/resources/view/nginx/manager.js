@@ -63,7 +63,6 @@ return view.extend({
         });
     },
 
-    // ---------- 重载 / 刷新 / 部署 ----------
     handleReloadNginx: function(ev) {
         return reloadNginx().then(function() {
             ui.addNotification(null, E('p', _('Nginx 已重载')), 'info');
@@ -89,14 +88,12 @@ return view.extend({
             });
     },
 
-    // ---------- 打开 Web 页面 ----------
     handleOpenPlayer: function(ev) {
         var port = document.getElementById('media-port').value;
         var url = 'http://' + window.location.hostname + ':' + port + '/';
         window.open(url, '_blank');
     },
 
-    // ---------- 保存媒体端口 ----------
     handleSaveMediaPort: function(ev) {
         var newPort = parseInt(document.getElementById('media-port').value, 10);
         if (!newPort || newPort < 1 || newPort > 65535) {
@@ -131,7 +128,6 @@ return view.extend({
             });
     },
 
-    // ---------- 添加额外监听端口 ----------
     handleAddServer: function(ev) {
         var port = document.querySelector('#port').value.trim();
         var server_name = document.querySelector('#server_name').value.trim();
@@ -179,7 +175,6 @@ return view.extend({
             });
     },
 
-    // ---------- 删除块 ----------
     handleDelete: function(index, ev) {
         return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() { return ''; })
             .then(function(content) {
@@ -214,52 +209,25 @@ return view.extend({
             });
     },
 
-    // ---------- 查看日志 ----------
-    handleViewLog: function(ev) {
-        var panel = document.querySelector('#log-panel');
-        if (!panel) return;
-        if (panel.style.display === 'block') {
-            panel.style.display = 'none';
-            return;
-        }
-        panel.style.display = 'block';
-        return this.loadLog();
-    },
-
-    loadLog: function() {
-        var pre = document.querySelector('#log-content');
-        if (pre) {
-            pre.textContent = '加载中...';
-            pre.scrollTop = 0;
-        }
-        return fs.exec('/sbin/logread', ['-e', 'nginx']).then(function(res) {
-            var out = (res.stdout || '') + (res.stderr || '');
-            var lines = out.split('\n').filter(function(l) { return l.trim() !== ''; });
-            if (lines.length > 200) lines = lines.slice(-200);
-            var text = lines.join('\n') || '(无 nginx 日志)';
-            var el = document.querySelector('#log-content');
-            if (el) {
-                el.textContent = text;
-                el.scrollTop = el.scrollHeight;
-            }
-        }).catch(function(e) {
-            var el = document.querySelector('#log-content');
-            if (el) el.textContent = '读取日志失败：' + (e.message || e);
-        });
-    },
-
-    // ---------- 切换 tab ----------
     switchTab: function(tab) {
         document.querySelectorAll('.tab-btn').forEach(function(el) {
             var isActive = el.getAttribute('data-tab') === tab;
             el.style.background = isActive ? '#4a9eff' : '#f0f0f0';
             el.style.color = isActive ? '#fff' : '#444';
             el.style.borderColor = isActive ? '#4a9eff' : '#ccc';
-            if (isActive) el.classList.add('active'); else el.classList.remove('active');
         });
         document.querySelectorAll('.block-card').forEach(function(el) {
             el.style.display = el.getAttribute('data-tab') === tab ? 'block' : 'none';
         });
+    },
+
+    toggleSection: function(id) {
+        var body = document.querySelector('#' + id);
+        var arrow = document.querySelector('#arrow-' + id);
+        if (!body) return;
+        var isHidden = body.style.display === 'none';
+        body.style.display = isHidden ? 'block' : 'none';
+        if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
     },
 
     render: function(currentContent) {
@@ -268,7 +236,6 @@ return view.extend({
         var blocks = parseBlocks(content);
         var mediaPort = extractMediaPort(content);
 
-        // 分类块
         var mainBlocks = [];
         var extraBlocks = [];
         blocks.forEach(function(b, idx) {
@@ -279,7 +246,7 @@ return view.extend({
             }
         });
 
-        // ---------- 顶部工具栏 ----------
+        // 顶部按钮
         var toolbar = E('div', { 'style': 'margin-bottom:15px; display:flex; gap:8px; flex-wrap:wrap;' }, [
             E('button', {
                 'class': 'cbi-button cbi-button-action',
@@ -292,14 +259,10 @@ return view.extend({
             E('button', {
                 'class': 'cbi-button cbi-button-neutral',
                 'click': ui.createHandlerFn(this, 'handleDeployPlayer')
-            }, _('重新部署播放器')),
-            E('button', {
-                'class': 'cbi-button cbi-button-neutral',
-                'click': ui.createHandlerFn(this, 'handleViewLog')
-            }, _('查看日志'))
+            }, _('重新部署播放器'))
         ]);
 
-        // ---------- 多媒体 HTTP 服务面板 ----------
+        // 多媒体 HTTP 服务
         var mediaSection = E('div', { 'class': 'cbi-section' }, [
             E('h3', _('多媒体 HTTP 服务')),
             E('div', { 'class': 'cbi-map-descr' }, _('控制播放器所在 nginx 服务块的监听端口')),
@@ -336,41 +299,13 @@ return view.extend({
             ])
         ]);
 
-        // ---------- 日志面板 ----------
-        var logPanel = E('div', {
-            'id': 'log-panel',
-            'class': 'cbi-section',
-            'style': 'display:none; border:1px solid #4a9eff; background:#f0f7ff;'
-        }, [
-            E('div', { 'style': 'display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;' }, [
-                E('h3', { 'style': 'margin:0;' }, _('Nginx 日志（最近 200 行）')),
-                E('div', { 'style': 'display:flex; gap:6px;' }, [
-                    E('button', {
-                        'class': 'cbi-button cbi-button-neutral',
-                        'click': function(ev) { self.loadLog(); }
-                    }, _('刷新')),
-                    E('button', {
-                        'class': 'cbi-button cbi-button-neutral',
-                        'click': function(ev) {
-                            var p = document.querySelector('#log-panel');
-                            if (p) p.style.display = 'none';
-                        }
-                    }, _('关闭'))
-                ])
-            ]),
-            E('pre', {
-                'id': 'log-content',
-                'style': 'background:#1e1e1e; color:#d4d4d4; padding:12px; border-radius:4px; max-height:400px; overflow:auto; font-size:12px; margin:0; white-space:pre-wrap; word-break:break-all;'
-            }, _('（点上方"查看日志"加载）'))
-        ]);
-
-        // ---------- 监听端口 tab 切换 ----------
+        // tab 切换
         var tabBtnBase = 'background:#f0f0f0; color:#444; border:1px solid #ccc; padding:6px 14px; border-radius:4px; cursor:pointer; font-size:13px;';
         var tabBtnActive = 'background:#4a9eff; color:#fff; border-color:#4a9eff;';
 
         var tabBar = E('div', { 'style': 'display:flex; gap:6px; margin-bottom:12px;' }, [
             E('button', {
-                'class': 'tab-btn active',
+                'class': 'tab-btn',
                 'data-tab': 'main',
                 'style': tabBtnBase + tabBtnActive,
                 'click': function(ev) { self.switchTab('main'); }
@@ -401,7 +336,7 @@ return view.extend({
                 }
             }, [
                 E('div', { 'style': 'display:flex; gap:8px; align-items:center;' }, [
-                    E('span', { 'class': 'toggle-arrow', 'style': 'font-size:10px; color:#888; width:12px; text-align:center;' }, '▼'),
+                    E('span', { 'class': 'toggle-arrow', 'style': 'font-size:10px; color:#888; width:12px; text-align:center;' }, '▶'),
                     E('strong', { 'style': 'font-size:13px;' },
                         _('监听配置 #%d').format(idx + 1) + (isMain ? '  (' + _('主服务') + ')' : ''))
                 ]),
@@ -418,7 +353,7 @@ return view.extend({
             ]);
 
             var body = E('div', {
-                'style': 'border:1px solid ' + (isMain ? '#b8d4ff' : '#ddd') + '; border-top:none; border-radius:0 0 4px 4px; padding:10px; background:#fff;'
+                'style': 'display:none; border:1px solid ' + (isMain ? '#b8d4ff' : '#ddd') + '; border-top:none; border-radius:0 0 4px 4px; padding:10px; background:#fff;'
             }, [
                 E('pre', {
                     'style': 'background:#fafafa; padding:8px; border-radius:3px; overflow-x:auto; white-space:pre-wrap; margin:0; font-size:12px;'
@@ -443,46 +378,38 @@ return view.extend({
             blockListContainer
         ]);
 
-        // ---------- 添加新监听端口 ----------
-        var addForm = E('div', { 'class': 'cbi-section' }, [
-            E('h3', _('添加额外监听端口')),
-            E('div', { 'class': 'cbi-map-descr' }, _('额外端口不会影响多媒体 HTTP 服务')),
-
+        // 添加额外监听端口（折叠）
+        var addFormBody = E('div', { 'id': 'add-form-body', 'style': 'display:none;' }, [
             E('div', { 'class': 'cbi-value' }, [
                 E('label', { 'class': 'cbi-value-title', 'for': 'port' }, _('监听端口')),
                 E('div', { 'class': 'cbi-value-field' }, [
                     E('input', { 'type': 'text', 'id': 'port', 'class': 'cbi-input-text', 'value': '8081' })
                 ])
             ]),
-
             E('div', { 'class': 'cbi-value' }, [
                 E('label', { 'class': 'cbi-value-title', 'for': 'server_name' }, _('服务器名称')),
                 E('div', { 'class': 'cbi-value-field' }, [
                     E('input', { 'type': 'text', 'id': 'server_name', 'class': 'cbi-input-text', 'value': 'localhost' })
                 ])
             ]),
-
             E('div', { 'class': 'cbi-value' }, [
                 E('label', { 'class': 'cbi-value-title', 'for': 'root' }, _('网站根目录')),
                 E('div', { 'class': 'cbi-value-field' }, [
                     E('input', { 'type': 'text', 'id': 'root', 'class': 'cbi-input-text', 'value': '/mnt' })
                 ])
             ]),
-
             E('div', { 'class': 'cbi-value' }, [
                 E('label', { 'class': 'cbi-value-title', 'for': 'autoindex' }, _('开启目录浏览')),
                 E('div', { 'class': 'cbi-value-field' }, [
                     E('input', { 'type': 'checkbox', 'id': 'autoindex', 'checked': true })
                 ])
             ]),
-
             E('div', { 'class': 'cbi-value' }, [
                 E('label', { 'class': 'cbi-value-title', 'for': 'charset' }, _('字符编码')),
                 E('div', { 'class': 'cbi-value-field' }, [
                     E('input', { 'type': 'text', 'id': 'charset', 'class': 'cbi-input-text', 'value': 'utf-8' })
                 ])
             ]),
-
             E('div', { 'class': 'cbi-page-actions' }, [
                 E('button', {
                     'class': 'cbi-button cbi-button-action',
@@ -491,28 +418,45 @@ return view.extend({
             ])
         ]);
 
-        // ---------- 文件预览 ----------
-        var rawView = E('div', { 'class': 'cbi-section' }, [
-            E('h3', _('当前文件内容')),
+        var addForm = E('div', { 'class': 'cbi-section' }, [
+            E('div', {
+                'style': 'display:flex; gap:8px; align-items:center; cursor:pointer; user-select:none; padding:6px 0;',
+                'click': function() { self.toggleSection('add-form-body'); }
+            }, [
+                E('span', { 'id': 'arrow-add-form-body', 'style': 'font-size:10px; color:#888; width:12px; text-align:center;' }, '▶'),
+                E('h3', { 'style': 'margin:0; display:inline;' }, _('添加额外监听端口')),
+                E('span', { 'style': 'color:#888; font-size:12px; margin-left:6px;' }, _('（点击展开）'))
+            ]),
+            addFormBody
+        ]);
+
+        // 当前文件内容（折叠）
+        var rawBody = E('div', { 'id': 'raw-body', 'style': 'display:none;' }, [
             E('pre', {
                 'style': 'background:#f4f4f4; padding:10px; border-radius:4px; overflow-x:auto; white-space:pre-wrap; max-height:400px;'
             }, content || _('(文件为空)'))
         ]);
 
-        var wrapper = E('div', { 'class': 'cbi-map' }, [
+        var rawView = E('div', { 'class': 'cbi-section' }, [
+            E('div', {
+                'style': 'display:flex; gap:8px; align-items:center; cursor:pointer; user-select:none; padding:6px 0;',
+                'click': function() { self.toggleSection('raw-body'); }
+            }, [
+                E('span', { 'id': 'arrow-raw-body', 'style': 'font-size:10px; color:#888; width:12px; text-align:center;' }, '▶'),
+                E('h3', { 'style': 'margin:0; display:inline;' }, _('当前文件内容')),
+                E('span', { 'style': 'color:#888; font-size:12px; margin-left:6px;' }, _('（点击展开）'))
+            ]),
+            rawBody
+        ]);
+
+        return E('div', { 'class': 'cbi-map' }, [
             E('h2', _('Nginx 配置管理')),
             E('div', { 'class': 'cbi-map-descr' }, _('直接管理 /etc/nginx/conf.d/nginx.conf 文件')),
             toolbar,
             mediaSection,
-            logPanel,
             blockList,
             addForm,
             rawView
         ]);
-
-        // render 后把非当前 tab 的卡片隐藏
-        setTimeout(function() { self.switchTab('main'); }, 0);
-
-        return wrapper;
     }
 });
