@@ -4,8 +4,9 @@
     "read": {
       "file": {
         "/etc/nginx/conf.d/nginx.conf": [ "read" ],
-        "/mnt": [ "read" ],
-        "/mnt/*": [ "read" ]
+        "/mnt": [ "read", "list" ],
+        "/mnt/*": [ "read", "list" ],
+        "/mnt/**": [ "read", "list" ]
       }
     },
     "write": {
