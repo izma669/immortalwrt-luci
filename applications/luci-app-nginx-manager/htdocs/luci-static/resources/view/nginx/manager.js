@@ -425,7 +425,11 @@ return view.extend({
             var body = E('div', {
                 'style': 'display:none; border:1px solid ' + (isMain ? '#b8d4ff' : '#ddd') + '; border-top:none; border-radius:0 0 4px 4px; padding:10px; background:#fff;'
             }, [E('pre', { 'style': 'background:#fafafa; padding:8px; border-radius:3px; overflow-x:auto; white-space:pre-wrap; margin:0; font-size:12px;' }, b.text)]);
-            return E('div', { 'class': 'block-card', 'data-tab': isMain ? 'main' : 'extra', 'style': 'margin-bottom:10px;' }, [header, body]);
+            return E('div', {
+                'class': 'block-card',
+                'data-tab': isMain ? 'main' : 'extra',
+                'style': 'display:' + (isMain ? 'block' : 'none') + '; margin-bottom:10px;'
+            }, [header, body]);
         }
 
         var addFormBody = E('div', { 'id': 'add-form-body', 'style': 'display:none; padding:10px;' }, [
@@ -454,7 +458,11 @@ return view.extend({
             ])
         ]);
 
-        var addFormCard = E('div', { 'class': 'block-card', 'data-tab': 'extra', 'style': 'margin-bottom:10px; border:1px solid #a5d6a7; border-radius:4px;' }, [
+        var addFormCard = E('div', {
+            'class': 'block-card',
+            'data-tab': 'extra',
+            'style': 'display:none; margin-bottom:10px; border:1px solid #a5d6a7; border-radius:4px;'
+        }, [
             E('div', { 'style': 'display:flex; gap:8px; align-items:center; cursor:pointer; user-select:none; padding:8px 12px; background:#e8f5e9; border-radius:4px;',
                 'click': function() { self.toggleSection('add-form-body'); } }, [
                 E('span', { 'id': 'arrow-add-form-body', 'style': 'font-size:10px; color:#4a9eff; width:12px; text-align:center;' }, '▶'),
