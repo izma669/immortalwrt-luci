@@ -4,7 +4,7 @@ LUCI_TITLE:=LuCI Nginx Manager
 LUCI_DEPENDS:=+luci-base +nginx
 LUCI_PKGARCH:=all
 
-include $(TOPDIR)/feeds/luci/luci.mk
+include ../../luci.mk
 
 define Package/luci-app-nginx-manager/postinst
 #!/bin/sh
