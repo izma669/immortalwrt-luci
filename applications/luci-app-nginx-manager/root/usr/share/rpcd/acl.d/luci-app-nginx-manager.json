@@ -3,13 +3,13 @@
     "description": "Grant access to Nginx configuration",
     "read": {
       "file": {
-        "/etc/nginx/conf.d/nginx.conf": [ "read" ]
+        "/etc/config/nginx": [ "read" ],
+        "/etc/nginx/conf.d/extra.conf": [ "read" ]
       }
     },
     "write": {
       "exec": {
         "/etc/init.d/*": [ "reload", "restart", "start", "stop" ],
-        "/bin/cp": [ "*" ],
         "/bin/sh": [ "-c", "*" ]
       }
     }
