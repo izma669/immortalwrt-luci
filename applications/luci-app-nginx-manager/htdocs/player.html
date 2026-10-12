@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>媒体播放器</title>
+<title>多媒体文件管理器</title>
 <script src="/mpegts.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -11,7 +11,12 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
 #app{display:flex;height:100%;overflow:hidden}
 #sidebar{width:280px;background:#1a1a1a;display:flex;flex-direction:column;border-right:1px solid #2a2a2a;min-height:0}
 #sidebar header{padding:10px 12px;background:#222;border-bottom:1px solid #2a2a2a;display:flex;gap:8px;align-items:center;flex-shrink:0}
-#upbtn{background:#2f2f2f;border:1px solid #3a3a3a;color:#ccc;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+
+#upbtn{background:#2f2f2f;border:1px solid #3a3a3a;color:#ccc;height:32px;padding:0 12px;border-radius:6px;cursor:pointer;font-size:13px;flex-shrink:0;display:flex !important;align-items:center;justify-content:center;white-space:nowrap}
+#upbtn.hidden{display:flex !important;opacity:0.4;cursor:not-allowed}
+
+
+
 #upbtn:hover{background:#3a3a3a;color:#fff}
 #upbtn.hidden{display:none}
 #dirname{flex:1;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -173,7 +178,10 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
 <div id="app">
   <aside id="sidebar">
     <header>
-      <button id="upbtn" title="返回上级目录">←</button>
+      
+<button id="upbtn" title="返回上级目录">← 返回上级目录</button>
+
+
       <h1 id="dirname">加载中...</h1>
       <span id="count">0</span>
     </header>
@@ -382,8 +390,8 @@ if(dirPath.charAt(dirPath.length-1)!=='/')dirPath+='/';
 var dirName=decodeURIComponent(dirPath.replace(/\/$/,'').split('/').pop()||'根目录');
 dirnameEl.textContent=dirName;
 document.title=dirName+' - 媒体播放器';
-var parts=dirPath.replace(/^\/|\/$/g,'').split('/').filter(Boolean);
-if(parts.length<=1){upBtn.classList.add('hidden')}else{upBtn.onclick=function(){location.href='../'}}
+
+if(dirPath === '/'){upBtn.classList.add('hidden');upBtn.onclick=null}else{upBtn.classList.remove('hidden');upBtn.onclick=function(){location.href='../'}}
 
 // ---------- 全屏 ----------
 function isRealFullscreen(){return!!(document.fullscreenElement||document.webkitFullscreenElement)}
