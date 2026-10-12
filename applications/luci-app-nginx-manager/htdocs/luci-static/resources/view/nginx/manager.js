@@ -3,416 +3,433 @@
 'require fs';
 'require ui';
 
-function parseBlocks(content) {
-    var blocks = [];
-    if (!content) return blocks;
-    var lines = content.split('\n');
-    var i = 0;
-    while (i < lines.length) {
-        if (/^\s*server\s*\{/.test(lines[i])) {
-            var start = i, depth = 0, j = i;
-            for (; j < lines.length; j++) {
-                for (var k = 0; k < lines[j].length; k++) {
-                    var c = lines[j][k];
-                    if (c === '{') depth++;
-                    else if (c === '}') depth--;
-                }
-                if (depth === 0) break;
-            }
-            blocks.push({ index: blocks.length, text: lines.slice(start, j + 1).join('\n') });
-            i = j + 1;
-        } else { i++; }
-    }
-    return blocks;
+// 写文件（通过 base64 + sh，绕开 ubus 权限）
+function writeFile(path, content) {
+var b64 = btoa(unescape(encodeURIComponent(content)));
+var cmd = 'printf %s "' + b64 + '" | base64 -d > ' + path;
+return fs.exec('/bin/sh', ['-c', cmd]).then(function(res) {
+if (res && res.code !== 0) {
+throw new Error('写入失败：' + ((res.stderr || '').trim() || '未知错误'));
 }
-
-
-function writeNginxConf(content) {
-    var b64 = btoa(unescape(encodeURIComponent(content)));
-    // base64 只含 A-Za-z0-9+/=，不含引号，可以安全地嵌入双引号里
-    var cmd = 'printf %s "' + b64 + '" | base64 -d > /etc/nginx/conf.d/nginx.conf';
-    return fs.exec('/bin/sh', ['-c', cmd]).then(function(res) {
-        if (res && res.code !== 0) {
-            throw new Error('写入失败：' + ((res.stderr || '').trim() || '未知错误'));
-        }
-    });
+});
 }
-
 
 function reloadNginx() {
-    return fs.exec('/etc/init.d/nginx', ['reload']).then(function(res) {
-        if (res.code !== 0) {
-            var msg = (res.stderr || '').trim() || (res.stdout || '').trim() || _('未知错误');
-            throw new Error(_('Nginx 重载失败：\n') + msg);
-        }
-    });
+return fs.exec('/etc/init.d/nginx', ['reload']).then(function(res) {
+if (res.code !== 0) {
+throw new Error('Nginx 重载失败：' + ((res.stderr || '').trim() || ''));
+}
+});
 }
 
-function extractMediaPort(content) {
-    if (!content) return null;
-    var m = content.match(/listen\s+(\d+)\s+default_server/);
-    return m ? parseInt(m[1], 10) : null;
+// 解析 UCI 文本里的 server 块
+function parseUciServers(content) {
+if (!content) return [];
+var lines = content.split('\n');
+var blocks = [];
+var current = null;
+for (var i = 0; i < lines.length; i++) {
+var m = lines[i].match(/^config\s+server\s+'([^']+)'/);
+if (m) {
+if (current) blocks.push(current);
+current = { name: m[1], lines: [lines[i]] };
+} else if (/^config\s+/.test(lines[i])) {
+if (current) { blocks.push(current); current = null; }
+} else if (current) {
+current.lines.push(lines[i]);
+}
+}
+if (current) blocks.push(current);
+return blocks.map(function(b) {
+return { name: b.name, text: b.lines.join('\n') };
+});
 }
 
-function replaceMediaPort(content, oldPort, newPort) {
-    var re1 = new RegExp('listen\\s+' + oldPort + '\\s+default_server', 'g');
-    var re2 = new RegExp('listen\\s+\\[::\\]:' + oldPort + '\\s+default_server', 'g');
-    content = content.replace(re1, 'listen ' + newPort + ' default_server');
-    content = content.replace(re2, 'listen [::]:' + newPort + ' default_server');
-    return content;
+// 判断 UCI server 块里监听的端口
+function getListenPorts(blockText) {
+var ports = [];
+var re = /list\s+listen\s+'
+:
+:
+:::(\d+)[^']'/g;
+var m;
+while ((m = re.exec(blockText)) !== null) ports.push(parseInt(m[1], 10));
+// 如果没有 [::] 形式，找纯数字
+if (ports.length === 0) {
+var re2 = /list\s+listen\s+'(\d+)[^']'/g;
+while ((m = re2.exec(blockText)) !== null) ports.push(parseInt(m[1], 10));
+}
+return ports;
 }
 
-function extractMediaRoot(content) {
-    if (!content) return '/mnt';
-    var lines = content.split('\n');
-    for (var i = 0; i < lines.length; i++) {
-        var m = lines[i].match(/^\s*root\s+([^;]+);/);
-        if (m) return m[1].trim();
-    }
-    return '/mnt';
+// 从 UCI 里获取 root
+function getUciRoot(blockText) {
+var m = blockText.match(/option\s+root\s+'([^']+)'/);
+return m ? m[1] : '';
 }
 
-function replaceMediaRoot(content, newRoot) {
-    var lines = content.split('\n');
-    var replaced = false;
-    for (var i = 0; i < lines.length; i++) {
-        if (!replaced && /^\s*root\s+[^;]+;/.test(lines[i])) {
-            lines[i] = lines[i].replace(/root\s+[^;]+;/, 'root ' + newRoot + ';');
-            replaced = true;
-        }
-    }
-    content = lines.join('\n');
-    content = content.replace(/(alias\s+)([^;]+)(;)/, function(m, p1, p2, p3) {
-        var hasSlash = /\/$/.test(p2);
-        return p1 + newRoot + (hasSlash ? '/' : '') + p3;
-    });
-    return content;
+// 修改 UCI 块的 listen 端口
+function replaceUciListen(blockText, oldPort, newPort) {
+var re1 = new RegExp("list\s+listen\s+'" + oldPort + "\s+default_server'", 'g');
+var re2 = new RegExp("list\s+listen\s+'\[::\]:" + oldPort + "\s+default_server'", 'g');
+var re3 = new RegExp("list\s+listen\s+'" + oldPort + "'", 'g');
+var re4 = new RegExp("list\s+listen\s+'\[::\]:" + oldPort + "'", 'g');
+blockText = blockText.replace(re1, "list listen '" + newPort + " default_server'");
+blockText = blockText.replace(re2, "list listen '[::]:" + newPort + " default_server'");
+blockText = blockText.replace(re3, "list listen '" + newPort + "'");
+blockText = blockText.replace(re4, "list listen '[::]:" + newPort + "'");
+return blockText;
+}
+
+// 修改 UCI 块的 root
+function replaceUciRoot(blockText, newRoot) {
+if (/option\s+root\s+'[^']'/.test(blockText)) {
+return blockText.replace(/option\s+root\s+'[^']'/, "option root '" + newRoot + "'");
+}
+// 没有 root 字段，插到最后一行前
+var lines = blockText.split('\n');
+lines.push("\toption root '" + newRoot + "'");
+return lines.join('\n');
+}
+
+// 替换 UCI 里某个 server 块
+function replaceUciBlock(fullContent, blockName, newBlockText) {
+var lines = fullContent.split('\n');
+var result = [];
+var i = 0;
+var replaced = false;
+while (i < lines.length) {
+var m = lines[i].match(/^config\s+server\s+'([^']+)'/);
+if (m && m[1] === blockName) {
+// 找到目标块，用新内容替换
+result.push(newBlockText);
+// 跳过旧块的所有行
+i++;
+while (i < lines.length && !/^config\s+/.test(lines[i])) {
+i++;
+}
+replaced = true;
+} else {
+result.push(lines[i]);
+i++;
+}
+}
+if (!replaced) {
+result.push(newBlockText);
+}
+return result.join('\n');
+}
+
+// 从 extra.conf 里解析所有 server 块
+function parseNginxServers(content) {
+var blocks = [];
+if (!content) return blocks;
+var lines = content.split('\n');
+var i = 0;
+while (i < lines.length) {
+if (/^\sserver\s{/.test(lines[i])) {
+var start = i, depth = 0, j = i;
+for (; j < lines.length; j++) {
+for (var k = 0; k < lines[j].length; k++) {
+var c = lines[j][k];
+if (c === '{') depth++;
+else if (c === '}') depth--;
+}
+if (depth === 0) break;
+}
+blocks.push({ index: blocks.length, text: lines.slice(start, j + 1).join('\n') });
+i = j + 1;
+} else { i++; }
+}
+return blocks;
 }
 
 return view.extend({
-    load: function() {
-        return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() { return ''; });
-    },
+load: function() {
+return Promise.all([
+fs.read('/etc/config/nginx').catch(function() { return ''; }),
+fs.read('/etc/nginx/conf.d/extra.conf').catch(function() { return ''; })
+]).then(function(arr) {
+return { uci: arr[0], extra: arr[1] };
+});
+},
 
-    handleReloadNginx: function(ev) {
-        return reloadNginx().then(function() {
-            ui.addNotification(null, E('p', _('Nginx 已重载')), 'info');
-        }).catch(function(e) {
-            ui.addNotification(null, E('p', _('重载失败：%s').format(e.message)), 'error');
-        });
-    },
+handleReloadNginx: function(ev) {
+return reloadNginx().then(function() {
+ui.addNotification(null, E('p', _('Nginx 已重载')), 'info');
+}).catch(function(e) {
+ui.addNotification(null, E('p', _('重载失败：%s').format(e.message)), 'error');
+});
+},
 
-    handleReloadPage: function(ev) { window.location.reload(); },
+handleReloadPage: function(ev) { window.location.reload(); },
 
-    handleDeployPlayer: function(ev) {
-        return fs.exec('/bin/cp', ['-f', '/www/player.html', '/mnt/player.html'])
-            .then(function(res) {
-                if (res.code !== 0) throw new Error((res.stderr || '').trim() || _('复制失败'));
-                ui.addNotification(null, E('p', _('播放器已部署到 /mnt/player.html')), 'info');
-            }).catch(function(e) {
-                ui.addNotification(null, E('p', _('部署失败：%s').format(e.message)), 'error');
-            });
-    },
+handleOpenPlayer: function(ev) {
+window.open('http://' + window.location.hostname + ':880/', '_blank');
+},
 
-    handleOpenPlayer: function(ev) {
-        var port = document.getElementById('media-port').value;
-        window.open('http://' + window.location.hostname + ':' + port + '/', '_blank');
-    },
+// ---------- 媒体服务：改端口 ----------
+handleSaveMediaPort: function(ev, blockName, oldPort) {
+var newPort = parseInt(document.getElementById('media-port-' + blockName).value, 10);
+if (!newPort || newPort < 1 || newPort > 65535) {
+ui.addNotification(null, E('p', _('端口必须为 1-65535')), 'error');
+return;
+}
+if (newPort === oldPort) {
+ui.addNotification(null, E('p', _('端口未改变')), 'info');
+return;
+}
+var self = this;
+return fs.read('/etc/config/nginx').catch(function() { return ''; })
+.then(function(content) {
+var blocks = parseUciServers(content);
+var block = blocks.find(function(b) { return b.name === blockName; });
+if (!block) throw new Error('未找到 UCI 块：' + blockName);
+var newBlockText = replaceUciListen(block.text, oldPort, newPort);
+var newContent = replaceUciBlock(content, blockName, newBlockText);
+return writeFile('/etc/config/nginx', newContent).then(function() {
+return reloadNginx();
+});
+}).then(function() {
+ui.addNotification(null, E('p', _('端口已改为 %d').format(newPort)), 'info');
+setTimeout(function() { window.location.reload(); }, 1200);
+}).catch(function(e) {
+ui.addNotification(null, E('p', _('保存失败：%s').format(e.message)), 'error');
+});
+},
 
-    handleSaveMediaPort: function(ev) {
-        var newPort = parseInt(document.getElementById('media-port').value, 10);
-        if (!newPort || newPort < 1 || newPort > 65535) {
-            ui.addNotification(null, E('p', _('端口必须为 1-65535 之间的数字')), 'error');
-            return;
-        }
-        return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() { return ''; })
-            .then(function(content) {
-                var oldPort = extractMediaPort(content);
-                if (!oldPort) throw new Error(_('未找到 listen <port> default_server 配置'));
-                if (oldPort === newPort) {
-                    ui.addNotification(null, E('p', _('端口未改变')), 'info');
-                    return;
-                }
-                var original = content;
-                return writeNginxConf(replaceMediaPort(content, oldPort, newPort))
-                    .then(function() {
-                        return reloadNginx().catch(function(e) {
-                            return writeNginxConf(original).then(function() { throw e; });
-                        });
-                    }).then(function() {
-                        ui.addNotification(null, E('p', _('媒体端口已改为 %d').format(newPort)), 'info');
-                        window.setTimeout(function() { window.location.reload(); }, 1200);
-                    });
-            }).catch(function(e) {
-                ui.addNotification(null, E('p', _('保存失败：%s').format(e.message)), 'error');
-            });
-    },
+// ---------- 媒体服务：改 root ----------
+handleSaveMediaRoot: function(ev, blockName) {
+var newRoot = document.getElementById('media-root-' + blockName).value.trim();
+if (!newRoot || newRoot.charAt(0) !== '/') {
+ui.addNotification(null, E('p', _('路径必须以 / 开头')), 'error');
+return;
+}
+return fs.read('/etc/config/nginx').catch(function() { return ''; })
+.then(function(content) {
+var blocks = parseUciServers(content);
+var block = blocks.find(function(b) { return b.name === blockName; });
+if (!block) throw new Error('未找到 UCI 块：' + blockName);
+var newBlockText = replaceUciRoot(block.text, newRoot);
+var newContent = replaceUciBlock(content, blockName, newBlockText);
+return writeFile('/etc/config/nginx', newContent).then(function() {
+return reloadNginx();
+});
+}).then(function() {
+ui.addNotification(null, E('p', _('根目录已改为 %s').format(newRoot)), 'info');
+setTimeout(function() { window.location.reload(); }, 1200);
+}).catch(function(e) {
+ui.addNotification(null, E('p', _('保存失败：%s').format(e.message)), 'error');
+});
+},
 
-    handleSaveMediaRoot: function(ev) {
-        var newRoot = document.getElementById('media-root-input').value.trim();
-        if (!newRoot || newRoot.charAt(0) !== '/') {
-            ui.addNotification(null, E('p', _('路径必须以 / 开头')), 'error');
-            return;
-        }
-        return this.saveMediaRoot(newRoot);
-    },
+// ---------- 额外服务：添加 ----------
+handleAddExtra: function(ev) {
+var port = document.querySelector('#extra-port').value.trim();
+var server_name = document.querySelector('#extra-server-name').value.trim();
+var root = document.querySelector('#extra-root').value.trim();
+if (!port || isNaN(port)) {
+ui.addNotification(null, E('p', _('端口必须为数字')), 'error');
+return;
+}
+if (!server_name) server_name = 'localhost';
+if (!root) root = '/mnt';
+var block = '\nserver {\n' +
+' listen ' + port + ' default_server;\n' +
+' listen [::]:' + port + ' default_server;\n' +
+' server_name ' + server_name + ';\n' +
+' root ' + root + ';\n' +
+' location / {\n' +
+' autoindex on;\n' +
+' }\n' +
+'}\n';
+return fs.read('/etc/nginx/conf.d/extra.conf').catch(function() { return ''; })
+.then(function(content) {
+return writeFile('/etc/nginx/conf.d/extra.conf', content + block);
+}).then(function() {
+return reloadNginx();
+}).then(function() {
+ui.addNotification(null, E('p', _('额外服务已添加')), 'info');
+setTimeout(function() { window.location.reload(); }, 1200);
+}).catch(function(e) {
+ui.addNotification(null, E('p', _('添加失败：%s').format(e.message)), 'error');
+});
+},
 
-    saveMediaRoot: function(newRoot) {
-        return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() { return ''; })
-            .then(function(content) {
-                var oldRoot = extractMediaRoot(content);
-                if (oldRoot === newRoot) {
-                    ui.addNotification(null, E('p', _('路径未改变')), 'info');
-                    return;
-                }
-                var original = content;
-                return writeNginxConf(replaceMediaRoot(content, newRoot))
-                    .then(function() {
-                        return reloadNginx().catch(function(e) {
-                            return writeNginxConf(original).then(function() { throw e; });
-                        });
-                    }).then(function() {
-                        ui.addNotification(null, E('p', _('网站根目录已改为 %s').format(newRoot)), 'info');
-                        window.setTimeout(function() { window.location.reload(); }, 1200);
-                    });
-            }).catch(function(e) {
-                ui.addNotification(null, E('p', _('保存失败：%s').format(e.message)), 'error');
-            });
-    },
+// ---------- 额外服务：删除 ----------
+handleDeleteExtra: function(ev, index) {
+return fs.read('/etc/nginx/conf.d/extra.conf').catch(function() { return ''; })
+.then(function(content) {
+var blocks = parseNginxServers(content);
+if (index < 0 || index >= blocks.length) throw new Error('无效的块索引');
+var blockText = blocks[index].text;
+var newContent = content.replace(blockText, '');
+newContent = newContent.replace(/\n\s\n\s\n+/g, '\n\n').replace(/^\s*\n+/, '');
+return writeFile('/etc/nginx/conf.d/extra.conf', newContent);
+}).then(function() {
+return reloadNginx();
+}).then(function() {
+ui.addNotification(null, E('p', _('已删除该额外服务')), 'info');
+setTimeout(function() { window.location.reload(); }, 1200);
+}).catch(function(e) {
+ui.addNotification(null, E('p', _('删除失败：%s').format(e.message)), 'error');
+});
+},
 
-    handleAddServer: function(ev) {
-        var port = document.querySelector('#port').value.trim();
-        var server_name = document.querySelector('#server_name').value.trim();
-        var root = document.querySelector('#root').value.trim();
-        var autoindex = document.querySelector('#autoindex').checked ? 'on' : 'off';
-        var charset = document.querySelector('#charset').value.trim();
-        if (!port || isNaN(port)) {
-            ui.addNotification(null, E('p', _('端口必须为数字')), 'error');
-            return;
-        }
-        if (!server_name) server_name = 'localhost';
-        if (!root) root = '/mnt';
-        if (!charset) charset = 'utf-8';
-        var block = '\nserver {\n\tlisten ' + port + ' default_server;\n\tlisten [::]:' + port + ' default_server;\n\tserver_name ' + server_name + ';\n\tlocation / {\n\t\tautoindex ' + autoindex + ';\n\t\tcharset ' + charset + ';\n\t\troot ' + root + ';\n\t}\n}\n';
-        var original;
-        return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() { return ''; })
-            .then(function(content) {
-                original = content;
-                return writeNginxConf(content + block);
-            })
-            .then(function() {
-                return reloadNginx().catch(function(e) {
-                    return writeNginxConf(original).then(function() { throw e; });
-                });
-            })
-            .then(function() {
-                ui.addNotification(null, E('p', _('配置已成功保存并重载 Nginx')), 'info');
-                window.setTimeout(function() { window.location.reload(); }, 1200);
-            })
-            .catch(function(e) {
-                ui.addNotification(null, E('p', _('保存失败：%s').format(e.message)), 'error');
-            });
-    },
+switchTab: function(tab) {
+document.querySelectorAll('.tab-btn').forEach(function(el) {
+var isActive = el.getAttribute('data-tab') === tab;
+el.style.background = isActive ? '#4a9eff' : '#f0f0f0';
+el.style.color = isActive ? '#fff' : '#444';
+el.style.borderColor = isActive ? '#4a9eff' : '#ccc';
+});
+document.querySelectorAll('.tab-panel').forEach(function(el) {
+el.style.display = el.getAttribute('data-tab') === tab ? 'block' : 'none';
+});
+},
 
-    handleDelete: function(index, ev) {
-        return fs.read('/etc/nginx/conf.d/nginx.conf').catch(function() { return ''; })
-            .then(function(content) {
-                var original = content;
-                var blocks = parseBlocks(content);
-                if (index < 0 || index >= blocks.length) throw new Error(_('无效的块索引'));
-                var blockText = blocks[index].text;
-                if (/listen\s+\d+\s+default_server/.test(blockText)) {
-                    ui.addNotification(null, E('p', _('主服务块不允许删除，仅可修改端口')), 'error');
-                    return;
-                }
-                var newContent = content.replace(blockText, '');
-                newContent = newContent.replace(/\n\s*\n\s*\n+/g, '\n\n').replace(/^\s*\n+/, '');
-                return writeNginxConf(newContent)
-                    .then(function() {
-                        return reloadNginx().catch(function(e) {
-                            return writeNginxConf(original).then(function() { throw e; });
-                        });
-                    }).then(function() {
-                        ui.addNotification(null, E('p', _('已删除该监听配置')), 'info');
-                        window.setTimeout(function() { window.location.reload(); }, 1200);
-                    });
-            }).catch(function(e) {
-                ui.addNotification(null, E('p', _('删除失败：%s').format(e.message)), 'error');
-            });
-    },
+toggleSection: function(id) {
+var body = document.querySelector('#' + id);
+var arrow = document.querySelector('#arrow-' + id);
+if (!body) return;
+var isHidden = body.style.display === 'none';
+body.style.display = isHidden ? 'block' : 'none';
+if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
+},
 
-    switchTab: function(tab) {
-        document.querySelectorAll('.tab-btn').forEach(function(el) {
-            var isActive = el.getAttribute('data-tab') === tab;
-            el.style.background = isActive ? '#4a9eff' : '#f0f0f0';
-            el.style.color = isActive ? '#fff' : '#444';
-            el.style.borderColor = isActive ? '#4a9eff' : '#ccc';
-        });
-        document.querySelectorAll('.block-card').forEach(function(el) {
-            el.style.display = el.getAttribute('data-tab') === tab ? 'block' : 'none';
-        });
-    },
+render: function(data) {
+var self = this;
+var uciContent = data.uci || '';
+var extraContent = data.extra || '';
 
-    toggleSection: function(id) {
-        var body = document.querySelector('#' + id);
-        var arrow = document.querySelector('#arrow-' + id);
-        if (!body) return;
-        var isHidden = body.style.display === 'none';
-        body.style.display = isHidden ? 'block' : 'none';
-        if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
-    },
+// 解析 UCI server 块
+var uciBlocks = parseUciServers(uciContent);
+var mainUciBlocks = []; // 80/443
+var mediaUciBlocks = []; // 其他端口
+uciBlocks.forEach(function(b) {
+var ports = getListenPorts(b.text);
+var isMain = ports.some(function(p) { return p === 80 || p === 443; });
+if (isMain) mainUciBlocks.push(b);
+else mediaUciBlocks.push(b);
+});
 
-    render: function(currentContent) {
-        var self = this;
-        var content = currentContent || '';
-        var blocks = parseBlocks(content);
-        var mediaPort = extractMediaPort(content);
-        var mediaRoot = extractMediaRoot(content);
-        var mainBlocks = [], extraBlocks = [];
-        blocks.forEach(function(b, idx) {
-            if (/listen\s+\d+\s+default_server/.test(b.text)) mainBlocks.push({ idx: idx, block: b });
-            else extraBlocks.push({ idx: idx, block: b });
-        });
+// 解析 extra.conf
+var extraBlocks = parseNginxServers(extraContent);
 
-        var toolbar = E('div', { 'style': 'margin-bottom:15px; display:flex; gap:8px; flex-wrap:wrap;' }, [
-            E('button', { 'class': 'cbi-button cbi-button-action', 'click': ui.createHandlerFn(this, 'handleReloadNginx') }, _('重载 Nginx')),
-            E('button', { 'class': 'cbi-button cbi-button-neutral', 'click': ui.createHandlerFn(this, 'handleReloadPage') }, _('重新读取文件')),
-            E('button', { 'class': 'cbi-button cbi-button-neutral', 'click': ui.createHandlerFn(this, 'handleDeployPlayer') }, _('重新部署播放器'))
-        ]);
+// ---------- 顶部工具栏 ----------
+var toolbar = E('div', { 'style': 'margin-bottom:15px; display:flex; gap:8px; flex-wrap:wrap;' }, [
+E('button', { 'class': 'cbi-button cbi-button-action', 'click': ui.createHandlerFn(this, 'handleReloadNginx') }, _('重载 Nginx')),
+E('button', { 'class': 'cbi-button cbi-button-neutral', 'click': ui.createHandlerFn(this, 'handleReloadPage') }, _('重新读取')),
+E('button', { 'class': 'cbi-button cbi-button-apply', 'click': ui.createHandlerFn(this, 'handleOpenPlayer') }, _('打开播放器'))
+]);
 
-        var mediaSection = E('div', { 'class': 'cbi-section' }, [
-            E('h3', _('多媒体 HTTP 服务')),
-            E('div', { 'class': 'cbi-map-descr' }, _('控制播放器所在 nginx 服务块的监听端口和网站根目录')),
+// ---------- tab 栏 ----------
+var tabBtnBase = 'background:#f0f0f0; color:#444; border:1px solid #ccc; padding:6px 14px; border-radius:4px; cursor:pointer; font-size:13px;';
+var tabBtnActive = 'background:#4a9eff; color:#fff; border-color:#4a9eff;';
+var tabBar = E('div', { 'style': 'display:flex; gap:6px; margin-bottom:15px;' }, [
+E('button', { 'class': 'tab-btn', 'data-tab': 'main', 'style': tabBtnBase + tabBtnActive,
+'click': function() { self.switchTab('main'); } }, _('主服务') + ' (' + mainUciBlocks.length + ')'),
+E('button', { 'class': 'tab-btn', 'data-tab': 'media', 'style': tabBtnBase,
+'click': function() { self.switchTab('media'); } }, _('媒体服务') + ' (' + mediaUciBlocks.length + ')'),
+E('button', { 'class': 'tab-btn', 'data-tab': 'extra', 'style': tabBtnBase,
+'click': function() { self.switchTab('extra'); } }, _('额外服务') + ' (' + extraBlocks.length + ')')
+]);
 
-            E('div', { 'class': 'cbi-value' }, [
-                E('label', { 'class': 'cbi-value-title', 'for': 'media-port' }, _('HTTP 端口')),
-                E('div', { 'class': 'cbi-value-field', 'style': 'display:flex; gap:8px; align-items:center; flex-wrap:wrap;' }, [
-                    E('input', { 'type': 'number', 'id': 'media-port', 'class': 'cbi-input-text',
-                        'value': mediaPort || 880, 'min': '1', 'max': '65535', 'style': 'width:120px;' }),
-                    E('button', { 'class': 'cbi-button cbi-button-action', 'click': ui.createHandlerFn(this, 'handleSaveMediaPort') }, _('保存端口')),
-                    E('button', { 'class': 'cbi-button cbi-button-apply', 'click': ui.createHandlerFn(this, 'handleOpenPlayer') }, _('打开 Web 页面'))
-                ])
-            ]),
+// ---------- 主服务面板 ----------
+var mainPanel = E('div', { 'class': 'tab-panel', 'data-tab': 'main', 'style': 'display:block;' }, [
+E('div', { 'class': 'cbi-map-descr', 'style': 'margin-bottom:10px;' }, _('80/443 端口，由 LuCI 系统使用，只读')),
+E('pre', { 'style': 'background:#f4f4f4; padding:10px; border-radius:4px; overflow-x:auto; white-space:pre-wrap; font-size:12px;' },
+mainUciBlocks.map(function(b) { return b.text; }).join('\n\n') || _('(无)'))
+]);
 
-            E('div', { 'class': 'cbi-value' }, [
-                E('label', { 'class': 'cbi-value-title', 'for': 'media-root-input' }, _('网站根目录')),
-                E('div', { 'class': 'cbi-value-field', 'style': 'display:flex; gap:8px; align-items:center; flex-wrap:wrap;' }, [
-                    E('input', { 'type': 'text', 'id': 'media-root-input', 'class': 'cbi-input-text',
-                        'value': mediaRoot, 'style': 'width:320px;' }),
-                    E('button', { 'class': 'cbi-button cbi-button-action', 'click': ui.createHandlerFn(this, 'handleSaveMediaRoot') }, _('保存路径'))
-                ])
-            ]),
+// ---------- 媒体服务面板 ----------
+var mediaPanel = E('div', { 'class': 'tab-panel', 'data-tab': 'media', 'style': 'display:none;' }, [
+E('div', { 'class': 'cbi-map-descr', 'style': 'margin-bottom:10px;' }, _('880 端口，可改端口和网站根目录，不可删除')),
+E('div', {}, mediaUciBlocks.length === 0
+? [E('div', { 'style': 'color:#888; padding:10px;' }, _('(无媒体服务)'))]
+: mediaUciBlocks.map(function(b) {
+var ports = getListenPorts(b.text);
+var port = ports[0] || '';
+var root = getUciRoot(b.text);
+return E('div', { 'style': 'border:1px solid #b8d4ff; border-radius:4px; padding:12px; margin-bottom:10px; background:#f0f7ff;' }, [
+E('div', { 'style': 'font-weight:600; margin-bottom:10px; color:#4a9eff;' }, _('UCI 块：') + b.name),
+E('div', { 'class': 'cbi-value' }, [
+E('label', { 'class': 'cbi-value-title' }, _('HTTP 端口')),
+E('div', { 'class': 'cbi-value-field', 'style': 'display:flex; gap:8px;' }, [
+E('input', { 'type': 'number', 'id': 'media-port-' + b.name, 'class': 'cbi-input-text',
+'value': port, 'min': '1', 'max': '65535', 'style': 'width:120px;' }),
+E('button', { 'class': 'cbi-button cbi-button-action',
+'click': function(ev) { self.handleSaveMediaPort(ev, b.name, port); } }, _('保存端口'))
+])
+]),
+E('div', { 'class': 'cbi-value' }, [
+E('label', { 'class': 'cbi-value-title' }, _('网站根目录')),
+E('div', { 'class': 'cbi-value-field', 'style': 'display:flex; gap:8px;' }, [
+E('input', { 'type': 'text', 'id': 'media-root-' + b.name, 'class': 'cbi-input-text',
+'value': root, 'placeholder': '(继承 locations 里的 root)', 'style': 'width:300px;' }),
+E('button', { 'class': 'cbi-button cbi-button-action',
+'click': function(ev) { self.handleSaveMediaRoot(ev, b.name); } }, _('保存路径'))
+])
+]),
+E('pre', { 'style': 'background:#fff; padding:8px; border-radius:3px; overflow-x:auto; white-space:pre-wrap; margin:10px 0 0 0; font-size:12px;' }, b.text)
+]);
+}))
+]);
 
-            E('div', { 'class': 'cbi-value' }, [
-                E('label', { 'class': 'cbi-value-title' }, _('访问地址')),
-                E('div', { 'class': 'cbi-value-field' }, [
-                    E('code', { 'style': 'color:#4a9eff;' }, 'http://' + window.location.hostname + ':' + (mediaPort || 880) + '/')
-                ])
-            ])
-        ]);
+// ---------- 额外服务面板 ----------
+var addExtraBody = E('div', { 'id': 'extra-add-body', 'style': 'display:none; padding:10px;' }, [
+E('div', { 'class': 'cbi-value' }, [
+E('label', { 'class': 'cbi-value-title', 'for': 'extra-port' }, _('监听端口')),
+E('div', { 'class': 'cbi-value-field' }, [E('input', { 'type': 'text', 'id': 'extra-port', 'class': 'cbi-input-text', 'value': '8082' })])
+]),
+E('div', { 'class': 'cbi-value' }, [
+E('label', { 'class': 'cbi-value-title', 'for': 'extra-server-name' }, _('服务器名称')),
+E('div', { 'class': 'cbi-value-field' }, [E('input', { 'type': 'text', 'id': 'extra-server-name', 'class': 'cbi-input-text', 'value': 'localhost' })])
+]),
+E('div', { 'class': 'cbi-value' }, [
+E('label', { 'class': 'cbi-value-title', 'for': 'extra-root' }, _('网站根目录')),
+E('div', { 'class': 'cbi-value-field' }, [E('input', { 'type': 'text', 'id': 'extra-root', 'class': 'cbi-input-text', 'value': '/mnt' })])
+]),
+E('div', { 'class': 'cbi-page-actions' }, [
+E('button', { 'class': 'cbi-button cbi-button-action', 'click': ui.createHandlerFn(this, 'handleAddExtra') }, _('添加'))
+])
+]);
 
-        var tabBtnBase = 'background:#f0f0f0; color:#444; border:1px solid #ccc; padding:6px 14px; border-radius:4px; cursor:pointer; font-size:13px;';
-        var tabBtnActive = 'background:#4a9eff; color:#fff; border-color:#4a9eff;';
-        var tabBar = E('div', { 'style': 'display:flex; gap:6px; margin-bottom:12px;' }, [
-            E('button', { 'class': 'tab-btn', 'data-tab': 'main', 'style': tabBtnBase + tabBtnActive,
-                'click': function() { self.switchTab('main'); } }, _('主服务') + ' (' + mainBlocks.length + ')'),
-            E('button', { 'class': 'tab-btn', 'data-tab': 'extra', 'style': tabBtnBase,
-                'click': function() { self.switchTab('extra'); } }, _('额外服务') + ' (' + extraBlocks.length + ')')
-        ]);
+var extraList = E('div', {}, extraBlocks.length === 0
+? [E('div', { 'style': 'color:#888; padding:10px;' }, _('(无额外服务)'))]
+: extraBlocks.map(function(b, idx) {
+return E('div', { 'style': 'border:1px solid #a5d6a7; border-radius:4px; padding:10px; margin-bottom:10px; background:#e8f5e9;' }, [
+E('div', { 'style': 'display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;' }, [
+E('strong', { 'style': 'color:#2e7d32;' }, _('额外服务 #%d').format(idx + 1)),
+E('button', { 'class': 'cbi-button cbi-button-remove', 'style': 'padding:2px 10px; font-size:12px;',
+'click': function(ev) { self.handleDeleteExtra(ev, idx); } }, _('删除'))
+]),
+E('pre', { 'style': 'background:#fff; padding:8px; border-radius:3px; overflow-x:auto; white-space:pre-wrap; margin:0; font-size:12px;' }, b.text)
+]);
+}));
 
-        function makeCard(item, isMain) {
-            var b = item.block, idx = item.idx;
-            var header = E('div', {
-                'style': 'display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:' + (isMain ? '#e6f0ff' : '#f5f5f5') + '; border-radius:4px; cursor:pointer; user-select:none;',
-                'click': function(ev) {
-                    if (ev.target.tagName === 'BUTTON') return;
-                    var body = ev.currentTarget.nextElementSibling;
-                    var arrow = ev.currentTarget.querySelector('.toggle-arrow');
-                    if (body) {
-                        var isHidden = body.style.display === 'none';
-                        body.style.display = isHidden ? 'block' : 'none';
-                        if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
-                    }
-                }
-            }, [
-                E('div', { 'style': 'display:flex; gap:8px; align-items:center;' }, [
-                    E('span', { 'class': 'toggle-arrow', 'style': 'font-size:10px; color:#888; width:12px; text-align:center;' }, '▶'),
-                    E('strong', { 'style': 'font-size:13px;' }, _('监听配置 #%d').format(idx + 1) + (isMain ? '  (' + _('主服务') + ')' : ''))
-                ]),
-                isMain ? E('span', { 'style': 'color:#4a9eff; font-size:12px;' }, _('端口和路径由上方面板管理'))
-                    : E('button', { 'class': 'cbi-button cbi-button-remove', 'style': 'padding:2px 10px; font-size:12px;',
-                        'click': function(ev) { ev.stopPropagation(); self.handleDelete(idx, ev); } }, _('删除'))
-            ]);
-            var body = E('div', {
-                'style': 'display:none; border:1px solid ' + (isMain ? '#b8d4ff' : '#ddd') + '; border-top:none; border-radius:0 0 4px 4px; padding:10px; background:#fff;'
-            }, [E('pre', { 'style': 'background:#fafafa; padding:8px; border-radius:3px; overflow-x:auto; white-space:pre-wrap; margin:0; font-size:12px;' }, b.text)]);
-            return E('div', { 'class': 'block-card', 'data-tab': isMain ? 'main' : 'extra',
-                'style': 'display:' + (isMain ? 'block' : 'none') + '; margin-bottom:10px;' }, [header, body]);
-        }
+var extraPanel = E('div', { 'class': 'tab-panel', 'data-tab': 'extra', 'style': 'display:none;' }, [
+E('div', { 'class': 'cbi-map-descr', 'style': 'margin-bottom:10px;' }, _('存储在 /etc/nginx/conf.d/extra.conf，可随意增删')),
+extraList,
+E('div', { 'class': 'cbi-section', 'style': 'margin-top:15px; border:1px solid #a5d6a7; border-radius:4px;' }, [
+E('div', { 'style': 'display:flex; gap:8px; align-items:center; cursor:pointer; user-select:none; padding:8px 12px; background:#e8f5e9;',
+'click': function() { self.toggleSection('extra-add-body'); } }, [
+E('span', { 'id': 'arrow-extra-add-body', 'style': 'font-size:10px; color:#4a9eff; width:12px; text-align:center;' }, '▶'),
+E('strong', { 'style': 'font-size:13px; color:#2e7d32;' }, _('+ 添加额外服务')),
+E('span', { 'style': 'color:#888; font-size:12px; margin-left:6px;' }, _('（点击展开）'))
+]),
+addExtraBody
+])
+]);
 
-        var addFormBody = E('div', { 'id': 'add-form-body', 'style': 'display:none; padding:10px;' }, [
-            E('div', { 'class': 'cbi-value' }, [
-                E('label', { 'class': 'cbi-value-title', 'for': 'port' }, _('监听端口')),
-                E('div', { 'class': 'cbi-value-field' }, [E('input', { 'type': 'text', 'id': 'port', 'class': 'cbi-input-text', 'value': '8081' })])
-            ]),
-            E('div', { 'class': 'cbi-value' }, [
-                E('label', { 'class': 'cbi-value-title', 'for': 'server_name' }, _('服务器名称')),
-                E('div', { 'class': 'cbi-value-field' }, [E('input', { 'type': 'text', 'id': 'server_name', 'class': 'cbi-input-text', 'value': 'localhost' })])
-            ]),
-            E('div', { 'class': 'cbi-value' }, [
-                E('label', { 'class': 'cbi-value-title', 'for': 'root' }, _('网站根目录')),
-                E('div', { 'class': 'cbi-value-field' }, [E('input', { 'type': 'text', 'id': 'root', 'class': 'cbi-input-text', 'value': '/mnt' })])
-            ]),
-            E('div', { 'class': 'cbi-value' }, [
-                E('label', { 'class': 'cbi-value-title', 'for': 'autoindex' }, _('开启目录浏览')),
-                E('div', { 'class': 'cbi-value-field' }, [E('input', { 'type': 'checkbox', 'id': 'autoindex', 'checked': true })])
-            ]),
-            E('div', { 'class': 'cbi-value' }, [
-                E('label', { 'class': 'cbi-value-title', 'for': 'charset' }, _('字符编码')),
-                E('div', { 'class': 'cbi-value-field' }, [E('input', { 'type': 'text', 'id': 'charset', 'class': 'cbi-input-text', 'value': 'utf-8' })])
-            ]),
-            E('div', { 'class': 'cbi-page-actions' }, [
-                E('button', { 'class': 'cbi-button cbi-button-action', 'click': ui.createHandlerFn(this, 'handleAddServer') }, _('添加此监听配置'))
-            ])
-        ]);
-
-        var addFormCard = E('div', { 'class': 'block-card', 'data-tab': 'extra',
-            'style': 'display:none; margin-bottom:10px; border:1px solid #a5d6a7; border-radius:4px;' }, [
-            E('div', { 'style': 'display:flex; gap:8px; align-items:center; cursor:pointer; user-select:none; padding:8px 12px; background:#e8f5e9; border-radius:4px;',
-                'click': function() { self.toggleSection('add-form-body'); } }, [
-                E('span', { 'id': 'arrow-add-form-body', 'style': 'font-size:10px; color:#4a9eff; width:12px; text-align:center;' }, '▶'),
-                E('strong', { 'style': 'font-size:13px; color:#2e7d32;' }, _('+ 添加新监听端口')),
-                E('span', { 'style': 'color:#888; font-size:12px; margin-left:6px;' }, _('（点击展开）'))
-            ]),
-            addFormBody
-        ]);
-
-        var blockListContainer = E('div', {}, []);
-        mainBlocks.forEach(function(m) { blockListContainer.appendChild(makeCard(m, true)); });
-        extraBlocks.forEach(function(m) { blockListContainer.appendChild(makeCard(m, false)); });
-        blockListContainer.appendChild(addFormCard);
-
-        var blockList = E('div', { 'class': 'cbi-section' }, [
-            E('h3', _('已配置的监听端口')), tabBar, blockListContainer
-        ]);
-
-        var rawBody = E('div', { 'id': 'raw-body', 'style': 'display:none;' }, [
-            E('pre', { 'style': 'background:#f4f4f4; padding:10px; border-radius:4px; overflow-x:auto; white-space:pre-wrap; max-height:400px;' }, content || _('(文件为空)'))
-        ]);
-        var rawView = E('div', { 'class': 'cbi-section' }, [
-            E('div', { 'style': 'display:flex; gap:8px; align-items:center; cursor:pointer; user-select:none; padding:6px 0;',
-                'click': function() { self.toggleSection('raw-body'); } }, [
-                E('span', { 'id': 'arrow-raw-body', 'style': 'font-size:10px; color:#888; width:12px; text-align:center;' }, '▶'),
-                E('h3', { 'style': 'margin:0; display:inline;' }, _('当前文件内容')),
-                E('span', { 'style': 'color:#888; font-size:12px; margin-left:6px;' }, _('（点击展开）'))
-            ]),
-            rawBody
-        ]);
-
-        return E('div', { 'class': 'cbi-map' }, [
-            E('h2', _('Nginx 配置管理')),
-            E('div', { 'class': 'cbi-map-descr' }, _('直接管理 /etc/nginx/conf.d/nginx.conf 文件')),
-            toolbar, mediaSection, blockList, rawView
-        ]);
-    }
+return E('div', { 'class': 'cbi-map' }, [
+E('h2', _('Nginx 配置管理')),
+E('div', { 'class': 'cbi-map-descr' }, _('主服务/媒体服务：UCI 配置；额外服务：独立文件')),
+toolbar,
+tabBar,
+mainPanel,
+mediaPanel,
+extraPanel
+]);
+}
 });
