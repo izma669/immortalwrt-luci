@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>多媒体文件管理器</title>
+<title>媒体播放器</title>
 <script src="/mpegts.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -11,18 +11,13 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
 #app{display:flex;height:100%;overflow:hidden}
 #sidebar{width:280px;background:#1a1a1a;display:flex;flex-direction:column;border-right:1px solid #2a2a2a;min-height:0}
 #sidebar header{padding:10px 12px;background:#222;border-bottom:1px solid #2a2a2a;display:flex;gap:8px;align-items:center;flex-shrink:0}
-
-#upbtn{background:#2f2f2f;border:1px solid #3a3a3a;color:#ccc;height:32px;padding:0 12px;border-radius:6px;cursor:pointer;font-size:13px;flex-shrink:0;display:flex !important;align-items:center;justify-content:center;white-space:nowrap}
-#upbtn.hidden{display:flex !important;opacity:0.4;cursor:not-allowed}
-
-
-
+#upbtn{background:#2f2f2f;border:1px solid #3a3a3a;color:#ccc;height:32px;padding:0 12px;border-radius:6px;cursor:pointer;font-size:12px;flex-shrink:0;display:flex !important;align-items:center;justify-content:center;white-space:nowrap}
 #upbtn:hover{background:#3a3a3a;color:#fff}
-#upbtn.hidden{display:none}
+#upbtn.hidden{display:flex !important;opacity:0.4;cursor:not-allowed}
 #dirname{flex:1;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #count{background:#333;color:#aaa;font-size:12px;padding:2px 8px;border-radius:10px;flex-shrink:0}
 #playlist{flex:1 1 0;overflow-y:auto;list-style:none;min-height:0}
-#playlist li{padding:8px 14px;font-size:13px;color:#bbb;cursor:pointer;display:flex;gap:10px;align-items:center;border-bottom:1px solid #222;transition:background .1s;position:relative}
+#playlist li{padding:8px 14px;font-size:13px;color:#bbb;cursor:pointer;display:flex;gap:10px;align-items:center;border-bottom:1px solid #222}
 #playlist li:hover{background:#252525;color:#fff}
 #playlist li.dir{color:#ffd166}
 #playlist li.media.active,#playlist li.image.active,#playlist li.doc.active,#playlist li.text.active{background:#1e3a5f;color:#4a9eff;border-left:3px solid #4a9eff;padding-left:11px}
@@ -41,29 +36,28 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
 #playlist li.cue-child{padding-left:46px;color:#b8b8ff;font-size:12.5px}
 #playlist li.cue-child .idx{color:#666}
 #playlist li.cue-child .sz{color:#555}
-#playlist li.cue-child:hover{background:#282840}
 #playlist li.cue-child.active{background:#1e3a5f}
-#playlist li.cue-child.active .name{color:#4a9eff}
 #playlist li .playing-icon{display:inline-block;color:#4a9eff;animation:npPulse 1.3s ease-in-out infinite;margin-right:2px}
 
-#main{flex:1 1 0;background:#000;display:flex;flex-direction:column;min-width:0;min-height:0;height:100%}
+#main{flex:1 1 0;background:#000;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
 #video-wrap{flex:1 1 0;background:#000;display:flex;align-items:center;justify-content:center;position:relative;min-height:0;overflow:hidden}
 
 #video{width:100%;height:100%;object-fit:contain;background:#000;position:relative;z-index:2}
 
-/* ===== 音频模式：video 移出屏幕 ===== */
+/* ★ 音频模式：video 完全移出屏幕，不显示任何原生控件 */
 #video-wrap.audio-mode #video{
-  position:absolute;
-  left:-9999px;
-  top:-9999px;
-  width:100px;
-  height:100px;
-  opacity:0.001;
-  pointer-events:none;
+  position:absolute !important;
+  left:-99999px !important;
+  top:-99999px !important;
+  width:10px !important;
+  height:10px !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+  visibility:hidden !important;
 }
 
-#audio-bg{position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;object-fit:contain;z-index:1;display:none;pointer-events:none;transition:opacity .8s ease;background:#000}
-
+/* 封面图 */
+#audio-bg{position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;object-fit:contain;z-index:1;display:none;pointer-events:none;background:#000}
 #audio-bg.on{display:block}
 
 #audio-bg-info{position:absolute;bottom:70px;left:20px;color:#ddd;font-size:12px;background:rgba(0,0,0,.55);padding:5px 10px;border-radius:5px;z-index:6;display:none;pointer-events:none}
@@ -76,55 +70,54 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
 #nowplaying{position:absolute;top:0;left:0;right:0;padding:10px 16px 14px;background:linear-gradient(180deg,rgba(0,0,0,.92),rgba(0,0,0,.65) 60%,transparent);font-size:14px;color:#fff;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:7;font-weight:500;display:flex;align-items:center;gap:8px}
 #nowplaying .np-icon{display:inline-block;color:#4a9eff;animation:npPulse 1.3s ease-in-out infinite;flex-shrink:0}
 #nowplaying .np-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-#nowplaying .np-badge{display:inline-block;background:#4a9eff;color:#fff;font-size:11px;padding:2px 7px;border-radius:3px;margin-left:6px;font-weight:600;flex-shrink:0;letter-spacing:.5px}
+#nowplaying .np-badge{display:inline-block;background:#4a9eff;color:#fff;font-size:11px;padding:2px 7px;border-radius:3px;margin-left:6px;font-weight:600;flex-shrink:0}
 @keyframes npPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(1.2)}}
 
-/* 文本编码选择器 */
 #enc-sel{position:absolute;bottom:70px;right:16px;height:42px;border-radius:6px;font-size:12px;padding:0 8px;background:rgba(30,30,30,.85);color:#ddd;display:none;cursor:pointer;z-index:20}
 #enc-sel option{background:#1e1e1e;color:#ddd}
-#video-wrap:hover #enc-sel{opacity:.9}
 
-/* ===== 音频模式自定义控制条 ===== */
+/* ★ 音频模式自定义控制条 */
 #audio-ctrl{
   position:absolute;
   bottom:0;left:0;right:0;
-  height:52px;
+  height:56px;
   padding-bottom:env(safe-area-inset-bottom,0px);
-  background:linear-gradient(to top,rgba(0,0,0,.85) 0%,rgba(0,0,0,.6) 60%,rgba(0,0,0,0) 100%);
+
+background:linear-gradient(to top,rgba(0,0,0,.55) 0%,rgba(0,0,0,.15) 60%,transparent 100%);
+
   display:none;
   align-items:center;
   gap:12px;
-  padding-left:16px;
-  padding-right:16px;
+  padding-left:18px;
+  padding-right:18px;
   z-index:10;
-  -webkit-backdrop-filter:blur(8px);
-  backdrop-filter:blur(8px);
 }
 #video-wrap.audio-mode #audio-ctrl{display:flex}
 
 #audio-ctrl button{
   background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;
-  padding:6px;flex-shrink:0;line-height:1;-webkit-tap-highlight-color:transparent;
+  padding:6px 8px;flex-shrink:0;line-height:1;
   transition:color .15s;display:flex;align-items:center;justify-content:center;
 }
 #audio-ctrl button:hover{color:#4a9eff}
 #audio-ctrl button:active{transform:scale(0.92)}
-#audio-ctrl .ac-time{color:#ddd;font-size:12px;font-variant-numeric:tabular-nums;flex-shrink:0;min-width:42px;text-align:center;letter-spacing:.3px}
+#audio-ctrl .ac-time{color:#ddd;font-size:12px;font-variant-numeric:tabular-nums;flex-shrink:0;min-width:44px;text-align:center;letter-spacing:.3px}
 
-#audio-ctrl input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;height:24px}
-#audio-ctrl input[type=range]::-webkit-slider-runnable-track{height:3px;background:rgba(255,255,255,.25);border-radius:2px}
-#audio-ctrl input[type=range]::-moz-range-track{height:3px;background:rgba(255,255,255,.25);border-radius:2px}
-#audio-ctrl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;background:#fff;border-radius:50%;margin-top:-5.5px;border:none;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+#audio-ctrl input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  background:transparent;cursor:pointer;height:24px;flex:1;min-width:0;
+}
+#audio-ctrl input[type=range]::-webkit-slider-runnable-track{height:4px;background:rgba(255,255,255,.3);border-radius:2px}
+#audio-ctrl input[type=range]::-moz-range-track{height:4px;background:rgba(255,255,255,.3);border-radius:2px}
+#audio-ctrl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;background:#fff;border-radius:50%;margin-top:-5px;border:none;box-shadow:0 1px 3px rgba(0,0,0,.5)}
 #audio-ctrl input[type=range]::-moz-range-thumb{width:14px;height:14px;background:#fff;border-radius:50%;border:none;box-shadow:0 1px 3px rgba(0,0,0,.5)}
-#audio-ctrl .ac-seek{flex:1;min-width:0}
+#audio-ctrl #ac-vol{flex:0 0 70px;width:70px;max-width:70px}
 
-/* ===== 信息栏 ===== */
 #info-panel{padding:8px 14px;background:#1a1a1a;border-top:1px solid #2a2a2a;font-size:12px;color:#999;display:flex;gap:16px;flex-wrap:wrap;min-height:32px;align-items:center;flex-shrink:0}
 #info-panel .k{color:#666}
 #info-panel .v{color:#ccc;font-variant-numeric:tabular-nums}
 #info-panel .hl{color:#4a9eff}
 
-/* ===== 播放模式栏 ===== */
 #mode-bar{padding:8px 12px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));background:#222;border-top:1px solid #2a2a2a;display:flex;gap:6px;align-items:center;flex-wrap:wrap;flex-shrink:0}
 #mode-bar .label{font-size:12px;color:#666;margin-right:6px}
 #mode-bar button{background:#2f2f2f;border:1px solid #3a3a3a;color:#aaa;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer}
@@ -135,32 +128,6 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
 ::-webkit-scrollbar-track{background:#151515}
 ::-webkit-scrollbar-thumb{background:#333;border-radius:4px}
 
-/* ===== 全屏 ===== */
-#video-wrap:fullscreen,#video-wrap:-webkit-full-screen{width:100vw!important;height:100vh!important;background:#000;display:flex;align-items:center;justify-content:center}
-#video-wrap:fullscreen #video,#video-wrap:-webkit-full-screen #video,
-#video-wrap:fullscreen #preview,#video-wrap:-webkit-full-screen #preview{width:100%!important;height:100%!important;max-width:100vw!important;max-height:100vh!important;object-fit:contain}
-#video-wrap:fullscreen.audio-mode #video,
-#video-wrap:-webkit-full-screen.audio-mode #video{
-  position:absolute !important;
-  left:-9999px !important;
-  top:-9999px !important;
-  width:100px !important;
-  height:100px !important;
-  opacity:0.001 !important;
-}
-#video-wrap:fullscreen.audio-mode #audio-bg,
-#video-wrap:-webkit-full-screen.audio-mode #audio-bg{
-  top:0!important;left:0!important;right:0!important;bottom:0!important;
-  width:100%!important;height:100%!important;
-}
-#video-wrap:fullscreen.audio-mode #audio-ctrl,
-#video-wrap:-webkit-full-screen.audio-mode #audio-ctrl{
-  bottom:0;
-  padding-bottom:env(safe-area-inset-bottom,0px);
-}
-#video-wrap:fullscreen #pdf-preview,#video-wrap:-webkit-full-screen #pdf-preview,
-#video-wrap:fullscreen #text-preview,#video-wrap:-webkit-full-screen #text-preview{width:100%!important;height:100%!important}
-
 @media(max-width:768px){
   #app{flex-direction:column}
   #sidebar{width:100%;height:38vh;min-height:150px;border-right:none;border-bottom:1px solid #2a2a2a}
@@ -168,21 +135,13 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
   #info-panel{font-size:11px;gap:10px}
   #mode-bar{padding:6px 10px;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px))}
 }
-@media(min-width:769px) and (max-width:1200px){
-  #sidebar{width:220px}
-  #playlist li{padding:7px 10px;font-size:12.5px}
-  #playlist li .sz{display:none}
-}
 </style>
 </head>
 <body>
 <div id="app">
   <aside id="sidebar">
     <header>
-      
-<button id="upbtn" title="返回上级目录">← 返回上级目录</button>
-
-
+      <button id="upbtn" title="返回上级目录">← 返回上级目录</button>
       <h1 id="dirname">加载中...</h1>
       <span id="count">0</span>
     </header>
@@ -200,9 +159,13 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
       <div id="audio-ctrl">
         <button id="ac-play" title="播放/暂停">▶</button>
         <span id="ac-cur" class="ac-time">0:00</span>
-        <input type="range" id="ac-seek" class="ac-seek" min="0" max="1000" value="0" step="1">
+        <input type="range" id="ac-seek" min="0" max="1000" value="0" step="1">
+
         <span id="ac-dur" class="ac-time">0:00</span>
+        <button id="ac-mute" title="静音" style="font-size:16px;">🔊</button>
+        <input type="range" id="ac-vol" min="0" max="100" value="100" step="1" style="width:70px;flex:0 0 70px;" title="音量">
         <button id="ac-fs" title="全屏">⛶</button>
+
       </div>
 
       <select id="enc-sel" title="文本编码">
@@ -328,6 +291,14 @@ var bgInfoHideTimer=null;
 var seeking=false;
 
 var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+// iOS 平台隐藏音量控件（iOS 强制用物理按键，网页控件无效）
+if(isIOS){
+  var _am=document.getElementById('ac-mute');
+  var _av=document.getElementById('ac-vol');
+  if(_am)_am.style.display='none';
+  if(_av)_av.style.display='none';
+}
+
 var TEXT_PREVIEW_MAX=2*1024*1024;
 var BG_INTERVAL=8000;
 
@@ -392,9 +363,9 @@ var dirName=decodeURIComponent(dirPath.replace(/\/$/,'').split('/').pop()||'根�
 dirnameEl.textContent=dirName;
 document.title=dirName+' - 媒体播放器';
 
-if(dirPath === '/'){upBtn.classList.add('hidden');upBtn.onclick=null}else{upBtn.classList.remove('hidden');upBtn.onclick=function(){location.href='../'}}
+if(dirPath === '/'){upBtn.classList.add('hidden');upBtn.onclick=null}
+else{upBtn.classList.remove('hidden');upBtn.onclick=function(){location.href='../'}}
 
-// ---------- 全屏 ----------
 function isRealFullscreen(){return!!(document.fullscreenElement||document.webkitFullscreenElement)}
 function exitRealFullscreen(){var fn=document.exitFullscreen||document.webkitExitFullscreen;if(fn)try{fn.call(document)}catch(e){}}
 function requestRealFullscreen(el){var fn=el.requestFullscreen||el.webkitRequestFullscreen;if(fn)return fn.call(el)}
@@ -402,13 +373,20 @@ function toggleFullscreen(){
   if(isRealFullscreen()){exitRealFullscreen();return;}
   if(videoWrap.requestFullscreen||videoWrap.webkitRequestFullscreen){requestRealFullscreen(videoWrap);return;}
   if(isIOS && videoEl.webkitEnterFullscreen){videoEl.webkitEnterFullscreen();return;}
-  notify('此设备不支持全屏');
 }
+
+
+var acMuteEl=document.getElementById('ac-mute');
+var acVolEl=document.getElementById('ac-vol');
+acMuteEl.onclick=function(e){e.stopPropagation();videoEl.muted=!videoEl.muted;acMuteEl.textContent=videoEl.muted?'🔇':'🔊'};
+acVolEl.oninput=function(e){e.stopPropagation();videoEl.volume=acVolEl.value/100;videoEl.muted=(videoEl.volume===0);acMuteEl.textContent=videoEl.muted?'🔇':'🔊'};
+videoEl.addEventListener('volumechange',function(){acVolEl.value=Math.round(videoEl.volume*100);acMuteEl.textContent=videoEl.muted?'🔇':'🔊'});
+
 acFsEl.onclick=function(e){e.stopPropagation();toggleFullscreen()};
 videoWrap.addEventListener('dblclick',function(e){var t=e.target.tagName;if(t==='VIDEO'||t==='IMG'||t==='PRE'||t==='IFRAME'||e.target===videoWrap)toggleFullscreen()});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isRealFullscreen())exitRealFullscreen()});
 
-// ---------- 音频控制条 ----------
+// ★ 音频控制条
 function acUpdatePlay(){acPlayEl.textContent = videoEl.paused ? '▶' : '⏸'}
 function acUpdateTime(){
   if(seeking) return;
@@ -479,12 +457,10 @@ function findBgImages(audioName){
     else if(COVER_NAMES.test(nBase)) covers.push(it);
     else others.push(it);
   });
-  // 打乱 others
   for(var i=others.length-1;i>0;i--){
     var j=Math.floor(Math.random()*(i+1));
     var t=others[i]; others[i]=others[j]; others[j]=t;
   }
-  // 关键：同名图片放最前，然后 cover 类，然后其它图片，全部拼起来轮播
   return exact.concat(covers, others);
 }
 
@@ -506,13 +482,17 @@ function setBgImage(url){
 function startAudioBackground(audioName){
   stopAudioBackground();
   var imgs=findBgImages(audioName);
-  if(imgs.length===0) return;
+  videoWrap.classList.add('audio-mode');
+  if(imgs.length===0){
+    videoEl.removeAttribute('controls');
+    acUpdatePlay(); acUpdateTime();
+    return;
+  }
   bgImages=imgs;
   bgIdx=0;
   audioBgEl.src=imgs[0].url;
   audioBgEl.style.opacity='1';
   audioBgEl.classList.add('on');
-  videoWrap.classList.add('audio-mode');
   videoEl.removeAttribute('controls');
   acUpdatePlay();
   acUpdateTime();
@@ -635,7 +615,7 @@ fetch('/api/dir'+dirPath).then(function(r){if(!r.ok)throw new Error('HTTP '+r.st
       currentIndex=dirs.length;
       var first=listItems[currentIndex];
       if(isAudioOnly(first.name)){
-        destroyPlayer();hideAllViews();
+        hideAllViews();
         videoEl.style.display='block';
         videoEl.src=first.url;
         setNowPlaying('▶',first.name,'');
@@ -780,9 +760,7 @@ function showImageOnly(idx){
   setSize(it.size);clearInfo();
   setI('i-container','图片');
 }
-function previewImage(idx){
-  showImageOnly(idx);
-}
+function previewImage(idx){showImageOnly(idx);}
 
 function previewPDF(idx){
   var it=listItems[idx];if(!it||it.kind!=='doc')return;
@@ -840,13 +818,6 @@ function playNextAuto(){
   if(playMode==='repeat-all')for(var k=0;k<listItems.length;k++)if(listItems[k].kind==='media'){playIndex(k);return}
 }
 videoEl.addEventListener('error',function(){if(videoEl.src&&!mpegtsPlayer)setTimeout(playNextAuto,500)});
-
-function notify(msg){
-  var el=document.createElement('div');
-  el.style.cssText='position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(30,100,200,.92);color:#fff;padding:10px 20px;border-radius:6px;font-size:13px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.5)';
-  el.textContent=msg;document.body.appendChild(el);
-  setTimeout(function(){el.style.transition='opacity .3s';el.style.opacity='0';setTimeout(function(){el.remove()},350)},2000);
-}
 
 document.addEventListener('keydown',function(e){
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
