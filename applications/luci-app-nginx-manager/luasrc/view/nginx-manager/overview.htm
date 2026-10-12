@@ -22,20 +22,22 @@ if http.getenv("REQUEST_METHOD") == "POST" then
                 local content = f:read("*a")
                 f:close()
 
-content = content:gsub("root%s+/www;", "___WWW_PLACEHOLDER___")
-content = content:gsub("root%s+[^;]+;", "root " .. new_root .. ";")
-content = content:gsub("___WWW_PLACEHOLDER___", "root /www;")
+                content = content:gsub("root%s+/www;", "___WWW_PLACEHOLDER___")
+                content = content:gsub("root%s+[^;]+;", "root " .. new_root .. ";")
+                content = content:gsub("___WWW_PLACEHOLDER___", "root /www;")
 
--- 新增：同步替换 /api/dir/ 的 alias
-local alias_root = new_root
-if not alias_root:match("/$") then alias_root = alias_root .. "/" end
-content = content:gsub("alias%s+[^;]+;", "alias " .. alias_root .. ";")
+                -- 新增：同步替换 /api/dir/ 的 alias
+                local alias_root = new_root
+                if not alias_root:match("/$") then alias_root = alias_root .. "/" end
+                content = content:gsub("alias%s+[^;]+;", "alias " .. alias_root .. ";")
 
                 f = io.open("/etc/nginx/media.locations", "w")
                 if f then f:write(content); f:close() end
             end
         end
     end
+
+
     sys.exec("/etc/init.d/nginx reload")
     http.redirect(http.getenv("REQUEST_URI") or "/cgi-bin/luci/admin/services/nginx-manager")
     return
