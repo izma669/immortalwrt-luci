@@ -58,9 +58,16 @@ function do_save()
             if f then
                 local content = f:read("*a")
                 f:close()
-                content = content:gsub("root%s+/www;", "__KEEP__/www;")
-                content = content:gsub("root%s+[^;]+;", "root " .. new_root .. ";")
-                content = content:gsub("__KEEP__/www;", "root /www;")
+
+content = content:gsub("root%s+/www;", "__KEEP__/www;")
+content = content:gsub("root%s+[^;]+;", "root " .. new_root .. ";")
+content = content:gsub("__KEEP__/www;", "root /www;")
+
+-- 新增：同步替换 /api/dir/ 的 alias 路径
+local alias_root = new_root
+if not alias_root:match("/$") then alias_root = alias_root .. "/" end
+content = content:gsub("alias%s+[^;]+;", "alias " .. alias_root .. ";")
+
                 f = io.open("/etc/nginx/media.locations", "w")
                 if f then f:write(content); f:close() end
             end
