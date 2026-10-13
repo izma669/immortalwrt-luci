@@ -2,9 +2,10 @@
 local http = require "luci.http"
 local sys = require "luci.sys"
 
--- ========== POST 处理 ==========
+-- ========== POST 处理逻辑 ==========
 if http.getenv("REQUEST_METHOD") == "POST" then
     local action = http.formvalue("action") or ""
+    
     if action == "change_port" then
         local new_port = http.formvalue("new_port")
         if new_port and new_port:match("^%d+$") then
@@ -21,23 +22,23 @@ if http.getenv("REQUEST_METHOD") == "POST" then
             if f then
                 local content = f:read("*a")
                 f:close()
-
+                
                 content = content:gsub("root%s+/www;", "___WWW_PLACEHOLDER___")
                 content = content:gsub("root%s+[^;]+;", "root " .. new_root .. ";")
                 content = content:gsub("___WWW_PLACEHOLDER___", "root /www;")
-
-                -- 新增：同步替换 /api/dir/ 的 alias
+                
+                -- 同步替换 /api/dir/ 的 alias
                 local alias_root = new_root
                 if not alias_root:match("/$") then alias_root = alias_root .. "/" end
+                alias_root = alias_root:gsub("%%", "%%%%") -- 转义 %
                 content = content:gsub("alias%s+[^;]+;", "alias " .. alias_root .. ";")
-
+                
                 f = io.open("/etc/nginx/media.locations", "w")
                 if f then f:write(content); f:close() end
             end
         end
     end
-
-
+    
     sys.exec("/etc/init.d/nginx reload")
     http.redirect(http.getenv("REQUEST_URI") or "/cgi-bin/luci/admin/services/nginx-manager")
     return
@@ -47,23 +48,20 @@ end
 if http.formvalue("ajax") == "browse" then
     local path = http.formvalue("path") or "/mnt"
     if not path:match("^/mnt") then path = "/mnt" end
+    path = path:gsub("'", "'\\''") -- 注入保护
+    
     local out = sys.exec("ls -1p '" .. path .. "' 2>/dev/null | grep '/$' | sed 's|/$||'")
     local dirs = {}
-    for name in out:gmatch("[^\n]+") do table.insert(dirs, name) end
-    local json = "["
-    local first = true
-    for _, name in ipairs(dirs) do
-        if not first then json = json .. "," end
-        json = json .. '"' .. name:gsub('"', '\\"') .. '"'
-        first = false
+    for name in out:gmatch("[^\n]+") do 
+        table.insert(dirs, name) 
     end
-    json = json .. "]"
+    
     http.prepare_content("application/json")
-    http.write(json)
+    http.write_json(dirs)
     return
 end
 
--- ========== 读 UCI ==========
+-- ========== 读取 UCI 配置 ==========
 local uci_text = ""
 local fh = io.open("/etc/config/nginx", "r")
 if fh then
