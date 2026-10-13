@@ -2,7 +2,66 @@
 local http = require "luci.http"
 local sys = require "luci.sys"
 
--- 读取 UCI 配置（仅用于展示 80/443 只读信息）
+-- ========== POST 处理逻辑 ==========
+if http.getenv("REQUEST_METHOD") == "POST" then
+    local action = http.formvalue("action") or ""
+    
+    if action == "change_port" then
+        local new_port = http.formvalue("new_port")
+        if new_port and new_port:match("^%d+$") then
+            local mn = http.formvalue("media_name") or "_media"
+            sys.exec("uci -q delete nginx." .. mn .. ".listen")
+            sys.exec("uci add_list nginx." .. mn .. ".listen='" .. new_port .. " default_server'")
+            sys.exec("uci add_list nginx." .. mn .. ".listen='[::]:" .. new_port .. " default_server'")
+            sys.exec("uci commit nginx")
+        end
+    elseif action == "change_root" then
+        local new_root = http.formvalue("new_root")
+        if new_root and new_root:match("^/") then
+            local f = io.open("/etc/nginx/media.locations", "r")
+            if f then
+                local content = f:read("*a")
+                f:close()
+                
+                content = content:gsub("root%s+/www;", "___WWW_PLACEHOLDER___")
+                content = content:gsub("root%s+[^;]+;", "root " .. new_root .. ";")
+                content = content:gsub("___WWW_PLACEHOLDER___", "root /www;")
+                
+                -- 同步替换 /api/dir/ 的 alias
+                local alias_root = new_root
+                if not alias_root:match("/$") then alias_root = alias_root .. "/" end
+                alias_root = alias_root:gsub("%%", "%%%%") -- 转义 %
+                content = content:gsub("alias%s+[^;]+;", "alias " .. alias_root .. ";")
+                
+                f = io.open("/etc/nginx/media.locations", "w")
+                if f then f:write(content); f:close() end
+            end
+        end
+    end
+    
+    sys.exec("/etc/init.d/nginx reload")
+    http.redirect(http.getenv("REQUEST_URI") or "/cgi-bin/luci/admin/services/nginx-manager")
+    return
+end
+
+-- ========== AJAX：目录浏览 ==========
+if http.formvalue("ajax") == "browse" then
+    local path = http.formvalue("path") or "/mnt"
+    if not path:match("^/mnt") then path = "/mnt" end
+    path = path:gsub("'", "'\\''") -- 注入保护
+    
+    local out = sys.exec("ls -1p '" .. path .. "' 2>/dev/null | grep '/$' | sed 's|/$||'")
+    local dirs = {}
+    for name in out:gmatch("[^\n]+") do 
+        table.insert(dirs, name) 
+    end
+    
+    http.prepare_content("application/json")
+    http.write_json(dirs)
+    return
+end
+
+-- ========== 读取 UCI 配置 ==========
 local uci_text = ""
 local fh = io.open("/etc/config/nginx", "r")
 if fh then
@@ -37,7 +96,7 @@ for line in uci_text:gmatch("[^\n]+") do
     end
 end
 
-local http_server, https_server
+local http_server, https_server, media_server
 for _, s in ipairs(servers) do
     local has_443 = false
     local has_80 = false
@@ -45,21 +104,38 @@ for _, s in ipairs(servers) do
         if l:match("^443") or l:match("^%[::%]:443") then has_443 = true end
         if l:match("^80") or l:match("^%[::%]:80") then has_80 = true end
     end
-    if has_443 then https_server = s
-    elseif has_80 then http_server = s end
+    if has_443 then
+        https_server = s
+    elseif has_80 then
+        http_server = s
+    elseif not media_server then
+        media_server = s
+    end
 end
 
--- 读取 media.conf 获取媒体服务端口和根目录
 local media_port = "880"
+if media_server then
+    for _, l in ipairs(media_server.listens) do
+        local p = l:match("^(%d+)")
+        if p then media_port = p; break end
+    end
+end
+
 local media_root = "/mnt"
-fh = io.open("/etc/nginx/conf.d/media.conf", "r")
+fh = io.open("/etc/nginx/media.locations", "r")
 if fh then
     local content = fh:read("*a")
     fh:close()
-    local p = content:match("listen%s+(%d+)%s+default_server")
-    if p then media_port = p end
-    local r = content:match("location%s+/%s*{%s*root%s+([^;]+);")
-    if r then media_root = r end
+    local in_root = false
+    for line in content:gmatch("[^\n]+") do
+        if line:match("^%s*location%s+/%s*{") then
+            in_root = true
+        elseif in_root then
+            local r = line:match("^%s*root%s+([^;]+);")
+            if r then media_root = r; break end
+            if line:match("^%s*}") then in_root = false end
+        end
+    end
 end
 
 local uci_enable = "1"
@@ -101,10 +177,14 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
 
 <div class="nm-wrap">
     <h2 style="font-size:22px;color:#1f2d3d;margin:0 0 8px 0;">Nginx 配置管理</h2>
-    <div style="color:#666;font-size:13px;margin-bottom:20px;">直接管理 /etc/nginx/conf.d/media.conf 媒体服务，不影响 80/443 管理端口。</div>
+    <div style="color:#666;font-size:13px;margin-bottom:20px;">直接管理 /etc/config/nginx 和 /etc/nginx/media.locations，保存后立即生效。</div>
 
     <div style="margin-bottom:20px;">
-        <button type="button" class="nm-btn" onclick="location.reload()">🔃 刷新页面</button>
+        <form method="post" style="display:inline;">
+            <input type="hidden" name="action" value="reload">
+            <button type="submit" class="nm-btn">🔄 重载 Nginx</button>
+        </form>
+        <button type="button" class="nm-btn gray" onclick="location.reload()" style="margin-left:8px;">🔃 刷新页面</button>
         <a href="/cgi-bin/luci/admin/system/ttyd" target="_blank" class="nm-btn green" style="margin-left:8px;">💻 打开终端</a>
     </div>
 
@@ -121,7 +201,7 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
 
     <% if http_server then %>
     <div class="nm-card">
-        <div class="nm-head">🌐 HTTP 服务（只读，系统保留）</div>
+        <div class="nm-head">🌐 HTTP 服务（只读）</div>
         <div class="nm-row">
             <div class="nm-label">监听地址</div>
             <div class="nm-field"><span class="nm-ro"><%= table.concat(http_server.listens, "　") %></span></div>
@@ -135,7 +215,7 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
 
     <% if https_server then %>
     <div class="nm-card">
-        <div class="nm-head">🔒 HTTPS 服务（只读，系统保留）</div>
+        <div class="nm-head">🔒 HTTPS 服务（只读）</div>
         <div class="nm-row">
             <div class="nm-label">监听地址</div>
             <div class="nm-field"><span class="nm-ro"><%= table.concat(https_server.listens, "　") %></span></div>
@@ -156,10 +236,11 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
     <% end %>
 
     <div class="nm-card">
-        <div class="nm-head">🎬 媒体服务（独立配置）</div>
+        <div class="nm-head">🎬 媒体服务（可修改）</div>
 
-        <form method="post" action="<%=luci.dispatcher.build_url('admin/services/nginx-manager/save')%>">
+        <form method="post">
             <input type="hidden" name="action" value="change_port">
+            <input type="hidden" name="media_name" value="<%= media_server and media_server.name or "_media" %>">
             <div class="nm-row">
                 <div class="nm-label">HTTP 端口</div>
                 <div class="nm-field">
@@ -170,7 +251,7 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
             </div>
         </form>
 
-        <form method="post" action="<%=luci.dispatcher.build_url('admin/services/nginx-manager/save')%>">
+        <form method="post">
             <input type="hidden" name="action" value="change_root">
             <div class="nm-row">
                 <div class="nm-label">网站根目录</div>
@@ -183,7 +264,7 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
         </form>
 
         <div class="nm-row" style="background:#fbfcfe;color:#95a5b8;font-size:12.5px;font-style:italic;">
-            💡 配置自动写入 /etc/nginx/conf.d/media.conf，并自动清理旧文件，无需手动干预。
+            💡 默认 /mnt，保存后写入 /etc/nginx/media.locations
         </div>
     </div>
 </div>
