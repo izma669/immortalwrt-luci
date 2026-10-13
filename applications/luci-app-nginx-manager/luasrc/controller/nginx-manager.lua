@@ -16,27 +16,29 @@ function index()
           post("do_save")).leaf = true
 end
 
+-- AJAX 目录浏览
 function browse_dir()
     local http = require "luci.http"
     local sys = require "luci.sys"
     local path = http.formvalue("path") or "/mnt"
+    
+    -- 安全校验：只允许 /mnt 开头的路径
     if not path:match("^/mnt") then path = "/mnt" end
+    
+    -- 防止命令注入
     local safe = path:gsub("'", "'\\''")
+    
     local out = sys.exec("ls -1p '" .. safe .. "' 2>/dev/null | grep '/$' | sed 's|/$||'")
     local dirs = {}
-    for name in out:gmatch("[^\n]+") do table.insert(dirs, name) end
-    local json = "["
-    local first = true
-    for _, name in ipairs(dirs) do
-        if not first then json = json .. "," end
-        json = json .. '"' .. name:gsub('"', '\\"') .. '"'
-        first = false
+    for name in out:gmatch("[^\n]+") do 
+        table.insert(dirs, name) 
     end
-    json = json .. "]"
+    
     http.prepare_content("application/json")
-    http.write(json)
+    http.write_json(dirs)
 end
 
+-- 保存配置逻辑
 function do_save()
     local http = require "luci.http"
     local sys = require "luci.sys"
@@ -58,18 +60,24 @@ function do_save()
             if f then
                 local content = f:read("*a")
                 f:close()
-
-content = content:gsub("root%s+/www;", "__KEEP__/www;")
-content = content:gsub("root%s+[^;]+;", "root " .. new_root .. ";")
-content = content:gsub("__KEEP__/www;", "root /www;")
-
--- 新增：同步替换 /api/dir/ 的 alias 路径
-local alias_root = new_root
-if not alias_root:match("/$") then alias_root = alias_root .. "/" end
-content = content:gsub("alias%s+[^;]+;", "alias " .. alias_root .. ";")
-
+                
+                -- 保护 /www 静态资源路径不被替换
+                content = content:gsub("root%s+/www;", "___WWW_PLACEHOLDER___")
+                content = content:gsub("root%s+[^;]+;", "root " .. new_root .. ";")
+                content = content:gsub("___WWW_PLACEHOLDER___", "root /www;")
+                
+                -- 同步替换 /api/dir/ 的 alias
+                local alias_root = new_root
+                if not alias_root:match("/$") then alias_root = alias_root .. "/" end
+                -- 转义 gsub 替换字符串中的 % 字符，防止崩溃
+                alias_root = alias_root:gsub("%%", "%%%%")
+                content = content:gsub("alias%s+[^;]+;", "alias " .. alias_root .. ";")
+                
                 f = io.open("/etc/nginx/media.locations", "w")
-                if f then f:write(content); f:close() end
+                if f then 
+                    f:write(content)
+                    f:close() 
+                end
             end
         end
     end
