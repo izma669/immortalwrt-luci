@@ -43,7 +43,8 @@ if http.getenv("REQUEST_METHOD") == "POST" then
     http.redirect(http.getenv("REQUEST_URI") or "/cgi-bin/luci/admin/services/nginx-manager")
     return
 end
-
+%> 
+    
 -- ========== AJAX：目录浏览 ==========
 if http.formvalue("ajax") == "browse" then
     local path = http.formvalue("path") or "/mnt"
