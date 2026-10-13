@@ -113,16 +113,27 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
 
 /* ★ 底部整合信息栏（提亮版颜色） */
 #info-panel{padding:8px 14px;background:#1a1a1a;border-top:1px solid #2a2a2a;font-size:12px;color:#ccc;display:flex;gap:16px;flex-wrap:wrap;min-height:32px;align-items:center;flex-shrink:0}
-#info-panel .k{color:#aaa} /* 标签提亮 */
-#info-panel .v{color:#fff;font-variant-numeric:tabular-nums} /* 数值提亮为纯白 */
+#info-panel .k{color:#aaa}
+#info-panel .v{color:#fff;font-variant-numeric:tabular-nums}
 #info-panel .hl{color:#4a9eff}
 
 /* 播放模式组样式重置为内联 */
 #mode-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:transparent;border:none;padding:0;min-height:auto;}
-#mode-bar .label{font-size:12px;color:#aaa;margin-right:2px} /* 标签提亮 */
-#mode-bar button{background:#2f2f2f;border:1px solid #3a3a3a;color:#ddd;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer} /* 按钮文字提亮 */
+#mode-bar .label{font-size:12px;color:#aaa;margin-right:2px}
+#mode-bar button{background:#2f2f2f;border:1px solid #3a3a3a;color:#ddd;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer}
 #mode-bar button:hover{background:#3a3a3a;color:#fff}
 #mode-bar button.active{background:#1e3a5f;border-color:#4a9eff;color:#4a9eff}
+#dlna-cast-btn { margin-left: 10px; background: #1e3a5f; border-color: #4a9eff; color: #4a9eff; }
+
+/* ★ DLNA 投屏弹窗样式 */
+#dlna-modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:99999; align-items:center; justify-content:center; }
+#dlna-modal .box { background:#1a1a1a; border:1px solid #333; border-radius:12px; width:400px; max-width:90vw; }
+#dlna-modal .hdr { padding:16px 20px; background:#222; font-size:15px; color:#fff; border-bottom:1px solid #333; }
+#dlna-modal .lst { max-height:300px; overflow-y:auto; padding:10px; }
+#dlna-modal .it { padding:12px; cursor:pointer; background:#2a2a2a; margin-bottom:5px; border-radius:6px; color:#ddd; font-size:14px; display:flex; align-items:center; gap:10px; }
+#dlna-modal .it:hover { background:#1e3a5f; color:#4a9eff; }
+#dlna-modal .ftr { padding:12px 20px; background:#222; border-top:1px solid #333; text-align:right; }
+#dlna-modal .ftr button { background:#333; border:none; color:#ccc; padding:6px 16px; border-radius:6px; cursor:pointer; }
 
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-track{background:#151515}
@@ -135,52 +146,16 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
   #info-panel{font-size:11px;gap:8px}
 }
 
-/* =========================================
-   ★ 适配手机横屏（特别是 iPhone 8 Plus 这类 736px 宽度的设备）
-   强制变为左右分栏，让左侧看列表，右侧看视频
-   ========================================= */
+/* ★ 适配手机横屏 */
 @media (max-width: 900px) and (orientation: landscape) {
-    #app {
-        flex-direction: row !important; /* 强制横排 */
-    }
-    
-    #sidebar {
-        width: 35% !important;       /* 左侧列表占 35% 宽度 */
-        height: 100vh !important;    /* 高度撑满全屏 */
-        min-height: 0 !important;
-        border-right: 1px solid #2a2a2a !important; /* 右侧分隔线 */
-        border-bottom: none !important;
-    }
-    
-    #main {
-        height: 100vh;
-        flex: 1 1 0; /* 右侧视频占剩余 65% */
-    }
-
-    /* 横屏高度有限，信息栏尽量紧凑，给视频留出更多空间 */
-    #info-panel {
-        font-size: 11px;
-        gap: 10px;
-        padding: 4px 10px;
-        min-height: auto;
-    }
-    #mode-bar button {
-        padding: 2px 6px;
-        font-size: 10.5px;
-    }
-
-    /* 左侧列表紧凑一点，方便手指点击且不浪费空间 */
-    #sidebar header {
-        padding: 6px 10px;
-    }
-    #playlist li {
-        padding: 7px 10px;
-        font-size: 12.5px;
-    }
-    #upbtn {
-        height: 28px;
-        padding: 0 10px;
-    }
+    #app { flex-direction: row !important; }
+    #sidebar { width: 35% !important; height: 100vh !important; min-height: 0 !important; border-right: 1px solid #2a2a2a !important; border-bottom: none !important; }
+    #main { height: 100vh; flex: 1 1 0; }
+    #info-panel { font-size: 11px; gap: 10px; padding: 4px 10px; min-height: auto; }
+    #mode-bar button { padding: 2px 6px; font-size: 10.5px; }
+    #sidebar header { padding: 6px 10px; }
+    #playlist li { padding: 7px 10px; font-size: 12.5px; }
+    #upbtn { height: 28px; padding: 0 10px; }
 }
 </style>
 </head>
@@ -226,25 +201,45 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
       <div id="nowplaying"></div>
     </div>
     
-    <!-- ★ 信息栏：整合为一行 (播放模式 + 浏览器内核检测 + 分辨率) -->
+    <!-- ★ 信息栏：整合为一行 (播放模式 + DLNA投屏 + 浏览器内核检测 + 分辨率) -->
     <div id="info-panel">
-      <!-- 播放模式排在最前面 -->
       <div id="mode-bar">
         <span class="label">播放模式：</span>
         <button data-mode="sequential">顺序</button>
         <button data-mode="repeat-all">列表循环</button>
         <button data-mode="repeat-one">单曲循环</button>
         <button data-mode="random">随机</button>
+        <!-- DLNA 投屏按钮 -->
+        <button type="button" id="dlna-cast-btn">📺 投屏</button>
       </div>
       
-      <!-- 浏览器内核检测 -->
       <span><span class="k">浏览器内核检测：</span><span class="v hl" id="i-browser" style="color:#4a9eff;font-weight:bold;">-</span></span>
-      
-      <!-- 分辨率 -->
       <span><span class="k">分辨率：</span><span class="v" id="i-res">-</span></span>
     </div>
   </main>
 </div>
+
+<!-- ★ DLNA 投屏弹窗（含手动输入IP） -->
+<div id="dlna-modal">
+    <div class="box">
+        <div class="hdr">📺 选择投屏设备</div>
+        
+        <!-- 设备列表展示区 -->
+        <div class="lst" id="dlna-device-list" style="text-align:center; color:#888; padding:20px;">正在搜索...</div>
+        
+        <!-- ★ 手动输入 IP 区域（默认隐藏） -->
+        <div id="manual-ip-area" style="display:none; padding: 15px 20px; border-top: 1px solid #333; background: #151515;">
+            <div style="color:#f28b82; font-size:12px; margin-bottom:8px;">未自动发现设备，请手动输入电视IP：</div>
+            <div style="display:flex; gap:8px;">
+                <input type="text" id="manual-tv-ip" placeholder="例如: 192.168.0.120" style="flex:1; padding:8px 10px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; font-size:13px;">
+                <button type="button" class="nm-btn green" onclick="manualCast()" style="margin:0;">开始投屏</button>
+            </div>
+        </div>
+
+        <div class="ftr"><button onclick="document.getElementById('dlna-modal').style.display='none'">取消</button></div>
+    </div>
+</div>
+
 <script>
 (function(){
 'use strict';
@@ -330,46 +325,25 @@ var videoWrap=document.getElementById('video-wrap');
     var kernel = '未知';
     var warning = '';
 
-    // 1. 检测操作系统
-    if (/iPhone|iPad|iPod/.test(platform) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
-        os = 'iOS/iPadOS';
-    } else if (/Android/.test(ua)) {
-        os = 'Android';
-    } else if (/Windows/.test(ua)) {
-        os = 'Windows';
-    } else if (/Mac/.test(ua)) {
-        os = 'macOS';
-    } else if (/Linux/.test(ua)) {
-        os = 'Linux';
-    }
+    if (/iPhone|iPad|iPod/.test(platform) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1)) { os = 'iOS/iPadOS'; }
+    else if (/Android/.test(ua)) { os = 'Android'; }
+    else if (/Windows/.test(ua)) { os = 'Windows'; }
+    else if (/Mac/.test(ua)) { os = 'macOS'; }
+    else if (/Linux/.test(ua)) { os = 'Linux'; }
 
-    // 2. 检测内核
     if (/AppleWebKit/.test(ua)) {
-        if (/Chrome/.test(ua) || /CriOS/.test(ua)) {
-            kernel = (os === 'iOS/iPadOS') ? 'WebKit (iOS Chrome)' : 'Blink (Chrome)';
-        } else if (/Safari/.test(ua)) {
-            kernel = 'WebKit (Safari)';
-        } else {
-            kernel = 'WebKit';
-        }
-    } else if (/Gecko/.test(ua) && /Firefox/.test(ua)) {
-        kernel = 'Gecko (Firefox)';
-    } else if (/Trident/.test(ua)) {
-        kernel = 'Trident (IE)';
-    }
+        if (/Chrome/.test(ua) || /CriOS/.test(ua)) { kernel = (os === 'iOS/iPadOS') ? 'WebKit (iOS Chrome)' : 'Blink (Chrome)'; }
+        else if (/Safari/.test(ua)) { kernel = 'WebKit (Safari)'; }
+        else { kernel = 'WebKit'; }
+    } else if (/Gecko/.test(ua) && /Firefox/.test(ua)) { kernel = 'Gecko (Firefox)'; }
+    else if (/Trident/.test(ua)) { kernel = 'Trident (IE)'; }
 
-    // 3. 给出针对 iOS 的音频解码警告
-    if (os === 'iOS/iPadOS') {
-        warning = ' (注意：iOS硬件解码不支持MP4/MP3音频，请转码AAC)';
-    }
+    if (os === 'iOS/iPadOS') { warning = ' (注意：iOS硬件解码不支持MP4/MP3音频，请转码AAC)'; }
 
     var el = document.getElementById('i-browser');
     if (el) {
         el.textContent = os + ' / ' + kernel + warning;
-        // 如果是 iOS，用橙色警告颜色提示
-        if (os === 'iOS/iPadOS') {
-            el.style.color = '#f28b82';
-        }
+        if (os === 'iOS/iPadOS') { el.style.color = '#f28b82'; }
     }
 })();
 
@@ -388,7 +362,6 @@ var bgInfoHideTimer=null;
 var seeking=false;
 
 var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-// iOS 平台隐藏音量控件（iOS 强制用物理按键，网页控件无效）
 if(isIOS){
   var _am=document.getElementById('ac-mute');
   var _av=document.getElementById('ac-vol');
@@ -540,6 +513,181 @@ function getCueBadge(idx){
 var modeBtns=document.querySelectorAll('#mode-bar button[data-mode]');
 modeBtns.forEach(function(b){b.onclick=function(){playMode=b.getAttribute('data-mode');modeBtns.forEach(function(x){x.classList.toggle('active',x===b)})}});
 document.querySelector('#mode-bar button[data-mode="sequential"]').classList.add('active');
+
+
+
+// ★ DLNA 投屏逻辑（自动搜索 + 手动输入 IP）
+document.getElementById('dlna-cast-btn').onclick = function() {
+    var it = listItems[currentIndex];
+    if (!it || it.kind !== 'media') {
+        alert('请先点击左侧列表选择一个视频进行播放，然后再投屏！');
+        return;
+    }
+    
+    var modal = document.getElementById('dlna-modal');
+    var list = document.getElementById('dlna-device-list');
+    var manualArea = document.getElementById('manual-ip-area');
+    
+    modal.style.display = 'flex';
+    manualArea.style.display = 'none';  // 隐藏手动输入区
+    list.innerHTML = '正在搜索局域网内的 DLNA 设备...';
+    
+    var apiBase = '/cgi-bin/luci/dlna';
+    
+    // 1. 尝试自动发现设备
+    fetch(apiBase + '/discover')
+        .then(function(r) { 
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json(); 
+        })
+        .then(function(devices) {
+            list.innerHTML = '';
+            if (!devices || devices.length === 0) {
+                // ★ 自动搜索无结果：显示提示并展开手动输入区
+                list.innerHTML = '<div style="color:#e67e22; padding:15px;">未自动发现任何设备</div>';
+                manualArea.style.display = 'block';
+                document.getElementById('manual-tv-ip').focus();
+                return;
+            }
+            
+            // 搜索到设备，渲染列表
+            devices.forEach(function(dev) {
+                var div = document.createElement('div');
+                div.className = 'it';
+                div.innerHTML = '📺 ' + dev.name;
+                div.onclick = function() {
+                    var videoUrl = window.location.origin + it.url;
+                    list.innerHTML = '正在发送投屏指令...';
+                    
+                    fetch(apiBase + '/cast', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: 'control_url=' + encodeURIComponent(dev.control_url) + '&video_url=' + encodeURIComponent(videoUrl)
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (res.status === 'success') {
+                            list.innerHTML = '<div style="color:#2ecc71; padding:10px;">✓ 投屏成功，电视即将播放！</div>';
+                            setTimeout(function() { modal.style.display = 'none'; }, 1500);
+                        } else {
+                            list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 失败: ' + (res.message || '未知错误') + '</div>';
+                        }
+                    })
+                    .catch(function() {
+                        list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求失败</div>';
+                    });
+                };
+                list.appendChild(div);
+            });
+        })
+        .catch(function(err) {
+            // 即使请求出错，也提供手动输入的机会
+            list.innerHTML = '<div style="color:#e74c3c; padding:15px;">搜索请求失败，请尝试手动投屏</div>';
+            manualArea.style.display = 'block';
+            document.getElementById('manual-tv-ip').focus();
+        });
+};
+
+
+
+
+// ★ 手动投屏（支持 IP:端口 强制投送）
+window.manualCast = function() {
+    var it = listItems[currentIndex];
+    if (!it || it.kind !== 'media') { alert('请先选择视频播放'); return; }
+    
+    var inputVal = document.getElementById('manual-tv-ip').value.trim();
+    if (!inputVal) { alert('请输入电视的 IP 或 IP:端口'); return; }
+    
+    var ip = inputVal;
+    var port = "9197"; // 默认给一个常见端口
+    var hasPort = false;
+    
+    if (inputVal.indexOf(':') > -1) {
+        var parts = inputVal.split(':');
+        ip = parts[0];
+        port = parts[1];
+        hasPort = true;
+    }
+    
+    if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+        alert('IP 格式不正确，例如 192.168.0.138 或 192.168.0.138:9197'); return;
+    }
+    
+    var list = document.getElementById('dlna-device-list');
+    var videoUrl = window.location.origin + it.url;
+    
+    if (hasPort) {
+        // ★ 用户明确指定了端口：直接构造常见路径强制发送，跳过探测
+        list.innerHTML = '正在强制投送到 ' + ip + ':' + port + ' ...';
+        var paths = [
+            '/AVTransport/control', 
+            '/upnp/control/AVTransport', 
+            '/control/AVTransport'
+        ];
+        var idx = 0;
+        function tryNextPath() {
+            if (idx >= paths.length) {
+                list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 尝试了所有路径均失败，请确认该端口是 DLNA 控制端口</div>';
+                return;
+            }
+            var control_url = 'http://' + ip + ':' + port + paths[idx];
+            list.innerHTML = '正在尝试 ' + control_url + ' ...';
+            doCast(control_url, videoUrl, list, function(success) {
+                if (success) return; 
+                idx++;
+                tryNextPath();
+            });
+        }
+        tryNextPath();
+    } else {
+        // 没带端口：尝试用后端探测
+        list.innerHTML = '正在探测 ' + ip + ' 的 DLNA 端口...';
+        fetch('/cgi-bin/luci/dlna/probe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'ip=' + encodeURIComponent(ip)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.status === 'success') {
+                list.innerHTML = '找到端口，正在投送...';
+                doCast(res.control_url, videoUrl, list);
+            } else {
+                list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 探测失败，建议输入 "IP:端口" 强制投送。<br>常见的端口：9197, 49152, 2869, 10243</div>';
+            }
+        })
+        .catch(function() {
+            list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求后端失败</div>';
+        });
+    }
+};
+
+// 发送投屏指令的辅助函数
+function doCast(control_url, videoUrl, listEl, callback) {
+    fetch('/cgi-bin/luci/dlna/cast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'control_url=' + encodeURIComponent(control_url) + '&video_url=' + encodeURIComponent(videoUrl)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.status === 'success') {
+            listEl.innerHTML = '<div style="color:#2ecc71; padding:10px;">✓ 投屏成功！电视即将播放</div>';
+            setTimeout(function() { document.getElementById('dlna-modal').style.display='none'; }, 2000);
+            if (callback) callback(true);
+        } else {
+            listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 发送失败: ' + (res.message || '') + '</div>';
+            if (callback) callback(false);
+        }
+    })
+    .catch(function() {
+        listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求失败</div>';
+        if (callback) callback(false);
+    });
+}
+
+
 
 var COVER_NAMES=/^(cover|front|folder|album|poster|thumb|default|artwork|cd|disc|scan)$/i;
 
