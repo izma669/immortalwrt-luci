@@ -1,5 +1,4 @@
 #!/usr/bin/lua
--- 媒体服务器后台守护进程（负责被动监听 DLNA 广播，提取设备信息）
 local nixio = require "nixio"
 local sys = require "luci.sys"
 
@@ -7,11 +6,19 @@ local sock = nixio.socket("inet", "dgram")
 if not sock then os.exit(1) end
 sock:setopt("socket", "reuseaddr", 1)
 sock:setopt("socket", "broadcast", 1)
-local ok = pcall(function() sock:bind("0.0.0.0", 1900) end)
-if not ok then os.exit(1) end
+
+-- 绑定 1900 端口
+sock:bind("0.0.0.0", 1900)
+
+-- ★ 核心修复：显式加入多播组，去和 miniDLNA 抢数据
+pcall(function() 
+    sock:setopt("ip", "add_membership", "239.255.255.250", "0.0.0.0") 
+end)
+
+-- ★ 核心修复：设置 3 秒超时，防止死等卡死
+sock:settimeout(3)
 
 local devices = {}
--- 兼容旧缓存
 local f = io.open("/tmp/dlna_devices.json", "r")
 if f then
     local content = f:read("*a")
@@ -45,7 +52,8 @@ while true do
                 if url:find(loc, 1, true) then exists = true break end
             end
             if not exists then
-                local xml = sys.exec("curl -s --connect-timeout 2 '" .. loc .. "'")
+                -- 给 curl 加超时，防止解析 xml 时卡死
+                local xml = sys.exec("curl -s --connect-timeout 2 --max-time 3 '" .. loc .. "'")
                 local name = xml:match("<[fF]riendlyName>(.-)</[fF]riendlyName>") or "未知设备"
                 local ctrl = xml:match("<[cC]ontrolURL>(.-)</[cC]ontrolURL>")
                 if ctrl then
