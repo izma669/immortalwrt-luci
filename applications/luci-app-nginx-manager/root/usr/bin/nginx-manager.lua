@@ -8,22 +8,23 @@ sock:setopt("socket", "reuseaddr", 1)
 sock:setopt("socket", "broadcast", 1)
 
 -- 绑定 1900 端口
-sock:bind("0.0.0.0", 1900)
+local ok = pcall(function() sock:bind("0.0.0.0", 1900) end)
+if not ok then os.exit(1) end
 
--- ★ 核心修复：显式加入多播组，去和 miniDLNA 抢数据
+-- ★ 核心修复：加入多播组，和 miniDLNA 抢数据
 pcall(function() 
     sock:setopt("ip", "add_membership", "239.255.255.250", "0.0.0.0") 
 end)
 
--- ★ 核心修复：设置 3 秒超时，防止死等卡死
-sock:settimeout(3)
+-- ★ 核心修复：用 rcvtimeo 设置 3 秒超时（替代不存在的 settimeout）
+sock:setopt("socket", "rcvtimeo", 3)
 
 local devices = {}
 local f = io.open("/tmp/dlna_devices.json", "r")
 if f then
     local content = f:read("*a")
     f:close()
-    for url, name in content:gmatch('"url":"(.-)","name":"(.-)"') do
+    for url, name in content:gsub('"url":"(.-)","name":"(.-)"') do
         devices[url] = name
     end
 end
@@ -52,7 +53,6 @@ while true do
                 if url:find(loc, 1, true) then exists = true break end
             end
             if not exists then
-                -- 给 curl 加超时，防止解析 xml 时卡死
                 local xml = sys.exec("curl -s --connect-timeout 2 --max-time 3 '" .. loc .. "'")
                 local name = xml:match("<[fF]riendlyName>(.-)</[fF]riendlyName>") or "未知设备"
                 local ctrl = xml:match("<[cC]ontrolURL>(.-)</[cC]ontrolURL>")
