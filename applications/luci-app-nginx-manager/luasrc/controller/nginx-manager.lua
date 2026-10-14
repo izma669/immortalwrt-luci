@@ -68,3 +68,24 @@ function dlna_cast()
 end
 
 -- 其他的 do_save, get_logs 等函数你路由器里本来就有，不需要重复写，LuCI 会自动合并
+
+-- ★ 补漏：封面获取函数（解决重刷后封面功能失效）
+function dlna_cover()
+    local http = require "luci.http"
+    local sys = require "luci.sys"
+    local title = http.formvalue("title") or ""
+    local query = title:gsub("%[.-%]", ""):gsub("%(.-%)", ""):gsub("《.-》", "")
+    query = query:gsub("^%d+%s*", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if query == "" then query = title end
+    local cmd = string.format([[curl -s -G -k --connect-timeout 5 --max-time 10 'https://itunes.apple.com/search' --data-urlencode 'term=%s' --data-urlencode 'entity=song' --data-urlencode 'limit=1']], query:gsub("'", "'\\''"))
+    local json_str = sys.exec(cmd)
+    local artwork = json_str:match('"artworkUrl100":"([^"]+)"')
+    if artwork then
+        artwork = artwork:gsub("100x100", "600x600")
+        http.prepare_content("application/json")
+        http.write_json({status = "success", url = artwork})
+    else
+        http.prepare_content("application/json")
+        http.write_json({status = "error", message = "未找到封面"})
+    end
+end
