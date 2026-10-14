@@ -7,7 +7,7 @@ m = Map("owntone")
 m.title = translate("Music Remote Center")
 m.description = translate("Music Remote Center is a DAAP (iTunes Remote), MPD (Music Player Daemon) and RSP (Roku) media server.")
 
--- 1. 正在播放状态框 (保留在顶部全局)
+-- 1. 正在播放状态框
 m:section(SimpleSection).template = "owntone/owntone_status"
 
 -- ==================== 标签页定义 ====================
@@ -22,7 +22,6 @@ s:tab("advanced", translate("高级设置"))
 s:tab("logs",     translate("日志查看"))
 
 -- ==================== 播放控制选项 ====================
--- ★ 移动到这里：物理声卡音量滑块 + 当前声卡信息
 local snd_vol = s:taboption("playback", DummyValue, "_snd_vol", translate("物理声卡音量控制"))
 snd_vol.rawhtml = true
 snd_vol.default = [[
@@ -95,11 +94,8 @@ autoplay_repeat.default = "0"
 autoplay_repeat.rmempty = false
 autoplay_repeat:depends("autoplay", "1")
 
-
 -- ==================== 定时控制音量 ====================
--- ===== 定时音量调整（自定义 HTML 实现横向排列） =====
 for i = 1, 4 do
-    -- 构建时间选项
     local time_opts = '<option value="">(未设置)</option>'
     for h = 0, 23 do
         for m = 0, 50, 10 do
@@ -108,7 +104,6 @@ for i = 1, 4 do
         end
     end
 
-    -- 构建音量选项
     local vol_opts = '<option value="">(未设置)</option>'
     for v = 0, 100, 1 do
         vol_opts = vol_opts .. string.format('<option value="%d">%d%%</option>', v, v)
@@ -145,7 +140,6 @@ for i = 1, 4 do
     row_opt.default = html
 end
 
--- ===== 应用定时音量设置（HTML 按钮 + AJAX，脱离 CBI 验证） =====
 local apply_btn = s:taboption("schedule", DummyValue, "_apply_schedule", translate("应用定时音量设置"))
 apply_btn.rawhtml = true
 apply_btn.default = [[
@@ -153,7 +147,6 @@ apply_btn.default = [[
 <button type="button" class="cbi-button cbi-button-apply" onclick="applySchedule()">应用定时音量设置</button>
 <div id="schedule_status" style="color:#666;font-size:12px;margin-top:6px;"></div>
 <script type="text/javascript">
-// ★ 折叠控制函数
 function toggleScheduleRow(index) {
     var cb = document.getElementById('enable_time' + index);
     var fields = document.getElementById('schedule_fields_' + index);
@@ -161,18 +154,14 @@ function toggleScheduleRow(index) {
         fields.style.display = cb.checked ? 'flex' : 'none';
     }
 }
-
-// ★ 精准 ID 匹配，彻底解决错位问题
 function getFlagValue(suffix) {
     var el = document.getElementById(suffix);
     return (el && el.checked) ? '1' : '0';
 }
-
 function getInputValue(suffix) {
     var el = document.getElementById(suffix);
     return el ? el.value : '';
 }
-
 function setFlagValue(suffix, val) {
     var el = document.getElementById(suffix);
     if (el) {
@@ -183,12 +172,9 @@ function setFlagValue(suffix, val) {
         }
     }
 }
-
 function setInputValue(suffix, val) {
     var el = document.getElementById(suffix);
-    if (el) {
-        el.value = val;
-    }
+    if (el) el.value = val;
 }
 
 function applySchedule() {
@@ -199,13 +185,8 @@ function applySchedule() {
         params['target' + i]      = getInputValue('target' + i) || 'softvol';
         params['volume' + i]      = getInputValue('volume' + i);
     }
-
     var status = document.getElementById('schedule_status');
-    status.innerHTML = '<span style="color:#666;">提交中... 抓到的参数: ' +
-        'E1=' + params.enable_time1 + ' T1=' + params.time1 + ' V1=' + params.volume1 +
-        ' | E2=' + params.enable_time2 + ' T2=' + params.time2 + ' V2=' + params.volume2 +
-        '</span>';
-
+    status.innerHTML = '<span style="color:#666;">提交中...</span>';
     var xhr = new XMLHttpRequest();
     xhr.open('POST', '/cgi-bin/luci/admin/nas/owntone/apply_schedule', true);
     xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
@@ -229,7 +210,6 @@ function applySchedule() {
     xhr.send(body);
 }
 
-// ★ 核心修复：使用 setTimeout 替代 window.onload，适配 LuCI SPA 架构
 setTimeout(function() {
     try {
         var xhr = new XMLHttpRequest();
@@ -241,8 +221,6 @@ setTimeout(function() {
                     var res = JSON.parse(xhr.responseText);
                     if (res.success && res.tasks) {
                         for (var i = 1; i <= 4; i++) {
-                            // ★ 修复：Lua 数组转为 JSON 数组时下标从 0 开始，需要 i-1
-                            // 兼容返回对象或数组的两种情况
                             var t = res.tasks[i-1] || res.tasks[i] || { enable: '0', time: '', target: 'softvol', volume: '' };
                             setFlagValue('enable_time' + i, t.enable);
                             setInputValue('time' + i, t.time);
@@ -255,7 +233,7 @@ setTimeout(function() {
         };
         xhr.send();
     } catch(e) { console.log('sync_schedule error:', e); }
-}, 800); // 延迟 800ms 确保 LuCI DOM 渲染完毕
+}, 800);
 </script>
 
 ]]
@@ -277,6 +255,289 @@ directories = s:taboption("basic", Value, "directories", translate("Music Direct
 directories.default = "/opt/music"
 directories.rmempty = false
 
+-- ===== 目录选择器 + 数据库文件名辅助输入框 =====
+local dir_picker = s:taboption("basic", DummyValue, "_dir_picker", "")
+dir_picker.rawhtml = true
+dir_picker.default = [[
+<style>
+.owntone-dp-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+}
+.owntone-dp-modal {
+    background: #fff; border-radius: 6px; width: 90%; max-width: 520px;
+    max-height: 80vh; display: flex; flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+.owntone-dp-header {
+    background: #5b9bd5; color: #fff; padding: 12px 16px;
+    border-radius: 6px 6px 0 0; font-weight: bold;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 15px;
+}
+.owntone-dp-header .close {
+    cursor: pointer; font-size: 18px; line-height: 1; opacity: 0.85;
+    padding: 0 4px;
+}
+.owntone-dp-header .close:hover { opacity: 1; }
+.owntone-dp-path {
+    padding: 10px 16px; background: #f5f7fa; border-bottom: 1px solid #e0e6ed;
+    font-size: 13px; color: #333; word-break: break-all;
+}
+.owntone-dp-path b { color: #5b9bd5; }
+.owntone-dp-list {
+    flex: 1; overflow-y: auto; padding: 4px 0;
+    min-height: 200px; max-height: 55vh;
+}
+.owntone-dp-item {
+    padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 10px;
+    font-size: 14px; color: #333; border-bottom: 1px solid #f0f0f0;
+}
+.owntone-dp-item:hover { background: #eaf2fb; }
+.owntone-dp-item .icon { color: #f5b942; font-size: 16px; width: 20px; text-align: center; }
+.owntone-dp-item.parent .icon { color: #888; }
+.owntone-dp-empty {
+    padding: 30px 16px; text-align: center; color: #999; font-size: 13px;
+}
+.owntone-dp-footer {
+    padding: 12px 16px; border-top: 1px solid #e0e6ed;
+    display: flex; justify-content: flex-end; gap: 10px;
+}
+.owntone-dp-footer button {
+    padding: 8px 20px; border-radius: 4px; border: none; cursor: pointer;
+    font-size: 14px;
+}
+.owntone-dp-btn-cancel { background: #e0e0e0; color: #333; }
+.owntone-dp-btn-cancel:hover { background: #d0d0d0; }
+.owntone-dp-btn-select { background: #5cb85c; color: #fff; }
+.owntone-dp-btn-select:hover { background: #4cae4c; }
+.owntone-dp-trigger {
+    margin-left: 8px; padding: 5px 12px; font-size: 12px;
+    background: #5b9bd5; color: #fff; border: none; border-radius: 3px;
+    cursor: pointer; vertical-align: middle;
+}
+.owntone-dp-trigger:hover { background: #4a8ac4; }
+.owntone-dp-fnwrap {
+    margin-left: 10px; display: inline-flex; align-items: center; gap: 6px;
+    vertical-align: middle;
+}
+.owntone-dp-fnwrap label { font-size: 12px; color: #666; }
+.owntone-dp-fnwrap input {
+    width: 140px; height: 26px; padding: 2px 6px;
+    border: 1px solid #ccc; border-radius: 3px; font-size: 13px;
+}
+</style>
+
+<div id="owntone-dp-overlay" class="owntone-dp-overlay" style="display:none;">
+    <div class="owntone-dp-modal">
+        <div class="owntone-dp-header">
+            <span>📁 选择目录</span>
+            <span class="close" onclick="owntoneDpClose()">✕</span>
+        </div>
+        <div class="owntone-dp-path">当前位置：<b id="owntone-dp-path">/mnt</b></div>
+        <div class="owntone-dp-list" id="owntone-dp-list"></div>
+        <div class="owntone-dp-footer">
+            <button type="button" class="owntone-dp-btn-cancel" onclick="owntoneDpClose()">取消</button>
+            <button type="button" class="owntone-dp-btn-select" onclick="owntoneDpSelect()">✓ 选择此目录</button>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var currentPath = '/mnt';
+    var currentTarget = null;
+    // ★ 数据库路径拆分状态：目录 + 文件名
+    var dpState = { dir: '/mnt', name: 'songs.db' };
+
+    function normalizeStart(val) {
+        var p = (val || '').replace(/\/+$/, '');
+        if (!p || p.indexOf('/mnt') !== 0) return '/mnt';
+        return p;
+    }
+
+    // 从 db_path 值解析出 dir + name
+    function parseDbPath(val) {
+        if (!val) return;
+        var m = val.match(/^(.*)\/([^\/]+)$/);
+        if (m) {
+            dpState.dir  = m[1] || '/mnt';
+            dpState.name = m[2] || 'songs.db';
+            if (dpState.dir.indexOf('/mnt') !== 0) dpState.dir = '/mnt';
+        }
+    }
+
+    function getDbInput() {
+        var inputs = document.querySelectorAll('input[type="text"]');
+        for (var k = 0; k < inputs.length; k++) {
+            if (inputs[k].name && inputs[k].name.indexOf('.db_path') !== -1) return inputs[k];
+        }
+        return null;
+    }
+
+    function syncDbInput() {
+        var dbInput = getDbInput();
+        if (!dbInput) return;
+        dbInput.value = dpState.dir.replace(/\/+$/, '') + '/' + dpState.name;
+        var fnInput = document.getElementById('owntone_db_filename');
+        if (fnInput && fnInput.value !== dpState.name) fnInput.value = dpState.name;
+    }
+
+    window.owntoneDpOpen = function(inputEl) {
+        currentTarget = inputEl;
+        var isDb = inputEl.name && inputEl.name.indexOf('.db_path') !== -1;
+        if (isDb) {
+            currentPath = dpState.dir;
+        } else {
+            currentPath = normalizeStart(inputEl.value);
+        }
+        document.getElementById('owntone-dp-overlay').style.display = 'flex';
+        owntoneDpLoad(currentPath);
+    };
+
+    window.owntoneDpClose = function() {
+        document.getElementById('owntone-dp-overlay').style.display = 'none';
+        currentTarget = null;
+    };
+
+    window.owntoneDpSelect = function() {
+        if (currentTarget) {
+            var isDb = currentTarget.name && currentTarget.name.indexOf('.db_path') !== -1;
+            if (isDb) {
+                // 数据库路径：目录 + 当前文件名
+                dpState.dir = currentPath;
+                currentTarget.value = currentPath.replace(/\/+$/, '') + '/' + dpState.name;
+            } else {
+                // 音乐目录：直接用选中的目录
+                currentTarget.value = currentPath;
+            }
+            var evt = document.createEvent('HTMLEvents');
+            evt.initEvent('change', true, true);
+            currentTarget.dispatchEvent(evt);
+        }
+        owntoneDpClose();
+    };
+
+    window.owntoneDpLoad = function(path) {
+        var listEl = document.getElementById('owntone-dp-list');
+        var pathEl = document.getElementById('owntone-dp-path');
+        listEl.innerHTML = '<div class="owntone-dp-empty">加载中...</div>';
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/cgi-bin/luci/admin/nas/owntone/browse_dir', true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4) return;
+            if (xhr.status !== 200) {
+                listEl.innerHTML = '<div class="owntone-dp-empty">加载失败 (HTTP ' + xhr.status + ')</div>';
+                return;
+            }
+            var res;
+            try { res = JSON.parse(xhr.responseText); }
+            catch(e) { listEl.innerHTML = '<div class="owntone-dp-empty">解析响应失败</div>'; return; }
+            if (!res.success) {
+                listEl.innerHTML = '<div class="owntone-dp-empty">加载失败</div>';
+                return;
+            }
+            currentPath = res.path;
+            pathEl.textContent = res.path;
+
+            var html = '';
+            if (res.parent) {
+                html += '<div class="owntone-dp-item parent" onclick="owntoneDpLoad(\'' +
+                    res.parent.replace(/'/g, "\\'") + '\')">' +
+                    '<span class="icon">↩</span><span>.. (上级目录)</span></div>';
+            }
+            if (res.dirs && res.dirs.length > 0) {
+                for (var i = 0; i < res.dirs.length; i++) {
+                    var name = res.dirs[i];
+                    var full = res.path + '/' + name;
+                    html += '<div class="owntone-dp-item" onclick="owntoneDpLoad(\'' +
+                        full.replace(/'/g, "\\'") + '\')">' +
+                        '<span class="icon">📁</span><span>' + name + '</span></div>';
+                }
+            } else {
+                html += '<div class="owntone-dp-empty">（此目录下没有子目录）</div>';
+            }
+            listEl.innerHTML = html;
+        };
+        xhr.send('path=' + encodeURIComponent(path));
+    };
+
+    // 给 db_path / directories 注入按钮和文件名框
+    function attachPickers() {
+        var fields = ['db_path', 'directories'];
+        for (var i = 0; i < fields.length; i++) {
+            var suffix = '.' + fields[i];
+            var inputs = document.querySelectorAll('input[type="text"]');
+            for (var k = 0; k < inputs.length; k++) {
+                var el = inputs[k];
+                if (!el.name || el.name.indexOf(suffix) === -1) continue;
+                if (el.getAttribute('data-dp-attached') === '1') continue;
+                el.setAttribute('data-dp-attached', '1');
+
+                // 初始化 dpState（只对 db_path 做一次）
+                if (fields[i] === 'db_path') {
+                    parseDbPath(el.value);
+                }
+
+                // 加"选择目录"按钮
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'owntone-dp-trigger';
+                btn.textContent = '选择目录';
+                (function(inputEl, buttonEl) {
+                    buttonEl.onclick = function() { owntoneDpOpen(inputEl); };
+                })(el, btn);
+                if (el.parentNode) {
+                    el.parentNode.insertBefore(btn, el.nextSibling);
+                }
+
+                // 对 db_path 再加"文件名"输入框
+                if (fields[i] === 'db_path') {
+                    var wrap = document.createElement('span');
+                    wrap.className = 'owntone-dp-fnwrap';
+                    wrap.innerHTML = '<label>文件名：</label>' +
+                                     '<input type="text" id="owntone_db_filename">';
+                    if (btn.parentNode) {
+                        btn.parentNode.insertBefore(wrap, btn.nextSibling);
+                    }
+
+                    var fnInput = document.getElementById('owntone_db_filename');
+                    if (fnInput) {
+                        fnInput.value = dpState.name;
+                        // 用户改文件名 -> 更新 db_path
+                        fnInput.addEventListener('input', function() {
+                            dpState.name = fnInput.value || 'songs.db';
+                            syncDbInput();
+                        });
+                    }
+
+                    // 用户手动改 db_path -> 失焦时同步 dpState 和文件名输入框
+                    el.addEventListener('change', function() {
+                        parseDbPath(el.value);
+                        if (fnInput) fnInput.value = dpState.name;
+                    });
+                }
+            }
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attachPickers);
+    } else {
+        attachPickers();
+    }
+    setTimeout(attachPickers, 400);
+    setTimeout(attachPickers, 1000);
+    setTimeout(attachPickers, 2000);
+})();
+</script>
+]]
+
 -- ===== 自定义播放器名称 =====
 player_name = s:taboption("basic", Value, "player_name", translate("播放器名称"))
 player_name.default = "My Music on OpenWrt"
@@ -290,11 +551,9 @@ mpd_port.datatype = "port"
 mpd_port.rmempty = true
 mpd_port.description = translate("默认 6600。如果你用 MPD 客户端（如 MPDlux）遥控，可以把它暴露出来，方便修改。设为 0 可禁用 MPD。")
 
-
 readme = s:taboption("basic", DummyValue, "readme", translate("Readme"))
 readme.description = translate("About iOS Remote Pairing: <br />1. Open the web interface <br /> 2. Start iPhone Remote APP, go to Settings, Add Library<br />3. Enter the pair code in the web interface")
 
--- ===== 重启服务按钮（HTML + AJAX，独立提交） =====
 local restart_btn = s:taboption("basic", DummyValue, "_restart_btn", translate("重启Owntone服务器"))
 restart_btn.rawhtml = true
 restart_btn.default = [[
@@ -322,7 +581,6 @@ function restartOwntone() {
 ]]
 
 -- ==================== 高级设置 ====================
--- ===== 刷新并自动配置声卡 =====
 local snd_refresh = s:taboption("advanced", DummyValue, "_snd_refresh", translate("刷新并自动配置声卡"))
 snd_refresh.rawhtml = true
 snd_refresh.default = [[
@@ -381,21 +639,18 @@ snd_refresh.default = [[
 </script>
 ]]
 
--- ===== 重载USB声卡内核模块按钮 =====
 local reload_usb_btn = s:taboption("advanced", Button, "reload_usb_btn", translate("Reload USB Sound Loadable Kernel Module"))
 reload_usb_btn.inputstyle = "reload"
 function reload_usb_btn.write(self, section)
     sys.call("rmmod snd_usb_audio >/dev/null 2>&1; modprobe snd_usb_audio >/dev/null 2>&1")
 end
 
--- ===== 初始化所有声卡按钮 =====
 local alsa_init_btn = s:taboption("advanced", Button, "alsa_init_btn", translate("Initialize All Sound Cards"))
 alsa_init_btn.inputstyle = "reload"
 function alsa_init_btn.write(self, section)
     sys.call("alsactl init >/dev/null 2>&1")
 end
 
--- ===== ALSA 诊断 =====
 local diag = s:taboption("advanced", DummyValue, "_alsa_diag", translate("ALSA 诊断"))
 diag.rawhtml = true
 diag.cfgvalue = function(self, section)
