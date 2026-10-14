@@ -771,34 +771,86 @@ function setBgImage(url){
   },400);
 }
 
-function startAudioBackground(audioName){
-  stopAudioBackground();
-  var imgs=findBgImages(audioName);
-  videoWrap.classList.add('audio-mode');
-  if(imgs.length===0){
+
+
+
+// ★ 音频模式背景（支持自动联网获取封面）
+function startAudioBackground(audioName) {
+    stopAudioBackground();
+    var imgs = findBgImages(audioName);
+    videoWrap.classList.add('audio-mode');
+    
+    if (imgs.length === 0) {
+        // ★ 本地无图片：尝试联网获取封面
+        var baseName = audioName.replace(/\.[^.]+$/, ''); // 去掉扩展名
+        
+        // 假设文件命名格式为 "歌手 - 歌名" 或 "歌名 - 歌手"
+        var artist = '', title = baseName;
+        if (baseName.indexOf(' - ') > -1) {
+            var parts = baseName.split(' - ');
+            artist = parts[0]; // 通常第一个是歌手
+            title = parts.slice(1).join(' - '); // 支持歌名里带横杠
+        }
+        
+        // 去掉前面的数字序号（例如 "01 "）
+        title = title.replace(/^\d+\s*/, '');
+        artist = artist.replace(/^\d+\s*/, '');
+        
+        showBgInfo('正在联网获取封面...');
+        
+        fetch('/cgi-bin/luci/dlna/cover?artist=' + encodeURIComponent(artist) + '&title=' + encodeURIComponent(title))
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (res.status === 'success') {
+                    bgImages = [{name: '在线封面', url: res.url}];
+                    bgIdx = 0;
+                    audioBgEl.src = res.url;
+                    audioBgEl.style.opacity = '1';
+                    audioBgEl.classList.add('on');
+                    showBgInfo('📷 在线获取的封面');
+                } else {
+                    // 找不到封面时，显示默认背景
+                    videoEl.removeAttribute('controls');
+                    acUpdatePlay();
+                    acUpdateTime();
+                    showBgInfo('未能找到封面');
+                }
+            })
+            .catch(function() {
+                videoEl.removeAttribute('controls');
+                acUpdatePlay();
+                acUpdateTime();
+            });
+        
+        videoEl.removeAttribute('controls');
+        acUpdatePlay(); 
+        acUpdateTime();
+        return;
+    }
+    
+    // 下面是原有的逻辑，处理本地图片
+    bgImages = imgs;
+    bgIdx = 0;
+    audioBgEl.src = imgs[0].url;
+    audioBgEl.style.opacity = '1';
+    audioBgEl.classList.add('on');
     videoEl.removeAttribute('controls');
-    acUpdatePlay(); acUpdateTime();
-    return;
-  }
-  bgImages=imgs;
-  bgIdx=0;
-  audioBgEl.src=imgs[0].url;
-  audioBgEl.style.opacity='1';
-  audioBgEl.classList.add('on');
-  videoEl.removeAttribute('controls');
-  acUpdatePlay();
-  acUpdateTime();
-  var label;
-  if(imgs.length===1) label='📷 '+imgs[0].name;
-  else label='📷 '+imgs.length+' 张图片轮播';
-  showBgInfo(label);
-  if(imgs.length>1){
-    bgTimer=setInterval(function(){
-      bgIdx=(bgIdx+1)%bgImages.length;
-      setBgImage(bgImages[bgIdx].url);
-    },BG_INTERVAL);
-  }
+    acUpdatePlay();
+    acUpdateTime();
+    var label;
+    if (imgs.length === 1) label = '📷 ' + imgs[0].name;
+    else label = '📷 ' + imgs.length + ' 张图片轮播';
+    showBgInfo(label);
+    if (imgs.length > 1) {
+        bgTimer = setInterval(function() {
+            bgIdx = (bgIdx + 1) % bgImages.length;
+            setBgImage(bgImages[bgIdx].url);
+        }, BG_INTERVAL);
+    }
 }
+
+
+
 
 function stopAudioBackground(){
   if(bgTimer){clearInterval(bgTimer);bgTimer=null;}
