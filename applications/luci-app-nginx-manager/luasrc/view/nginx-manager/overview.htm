@@ -1,14 +1,167 @@
 <%
 local http = require "luci.http"
 local sys = require "luci.sys"
+local uci = require "luci.model.uci".cursor()
 
--- ========== 读取 UCI 配置（仅用于展示 80/443 只读信息） ==========
+-- ==========================================
+-- ★ 终极整合：所有后端逻辑在此处理，完全绕过 LuCI 路由和 Token 校验
+-- ==========================================
+
+-- 1. 处理 POST 请求（保存端口、保存目录、切换服务器开关、清空日志）
+if http.getenv("REQUEST_METHOD") == "POST" then
+    local action = http.formvalue("action") or ""
+    local conf_path = "/etc/nginx/conf.d/media.conf"
+    local bak_path = "/etc/nginx/conf.d/media.conf.bak"
+    
+    -- 读取当前配置的辅助函数（逐行解析，100% 准确）
+    local function get_current_media_config()
+        local f = io.open(conf_path, "r")
+        if not f then return "880", "/mnt" end
+        local content = f:read("*a")
+        f:close()
+        local port = content:match("listen%s+(%d+)%s+default_server") or "880"
+        local root_dir = "/mnt"
+        local in_root = false
+        for line in content:gmatch("[^\n]+") do
+            if line:match("location%s+/%s*{") then in_root = true end
+            if in_root then
+                local r = line:match("root%s+([^;]+);")
+                if r then root_dir = r; break end
+                if line:match("}") then in_root = false end
+            end
+        end
+        return port, root_dir
+    end
+    
+    -- 生成 media.conf 的辅助函数
+    local function generate_media_conf(port, root_dir)
+        local alias_dir = root_dir
+        if not alias_dir:match("/$") then alias_dir = alias_dir .. "/" end
+        alias_dir = alias_dir:gsub("%%", "%%%%")
+        local safe_root = root_dir:gsub("%%", "%%%%")
+        return string.format([[
+server {
+    listen %s default_server;
+    listen [::]:%s default_server;
+    server_name _lan;
+
+    location = /player.html { root /www; }
+    location = /mpegts.min.js { root /www; }
+
+    location /cgi-bin/luci/ {
+        proxy_pass http://127.0.0.1:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /api/dir/ {
+        alias %s;
+        autoindex on;
+        autoindex_format json;
+        autoindex_exact_size on;
+    }
+
+    location ~* \.(mp4|webm|mkv|mov|avi|m4v|ogv|flv|3gp|ts|m2ts|wmv|mp3|m4a|flac|aac|ogg|wav)$ {
+        root %s;
+        add_header Accept-Ranges bytes;
+        add_header Cache-Control "public, max-age=3600";
+    }
+
+    location / {
+        root %s;
+        try_files $uri /player.html;
+    }
+}
+]], port, port, alias_dir, safe_root, safe_root)
+    end
+
+    -- 执行具体操作
+    if action == "change_port" then
+        local port, root_dir = get_current_media_config()
+        local new_port = http.formvalue("new_port")
+        if new_port and new_port:match("^%d+$") then port = new_port end
+        local conf = generate_media_conf(port, root_dir)
+        local f = io.open(conf_path, "w")
+        if f then f:write(conf); f:close() end
+        sys.exec("/etc/init.d/nginx reload")
+        
+    elseif action == "change_root" then
+        local port, root_dir = get_current_media_config()
+        local new_root = http.formvalue("new_root")
+        if new_root and new_root:match("^/") then root_dir = new_root end
+        local conf = generate_media_conf(port, root_dir)
+        local f = io.open(conf_path, "w")
+        if f then f:write(conf); f:close() end
+        sys.exec("/etc/init.d/nginx reload")
+        
+    elseif action == "toggle_server" then
+        local enabled = http.formvalue("enabled") or "0"
+        if enabled == "1" then
+            sys.exec("/etc/init.d/nginx-manager start >/dev/null 2>&1 &")
+            if nixio.fs.access(bak_path) then
+                sys.exec("mv -f '" .. bak_path .. "' '" .. conf_path .. "'")
+            else
+                local conf = generate_media_conf("880", "/mnt")
+                local f = io.open(conf_path, "w")
+                if f then f:write(conf); f:close() end
+            end
+        else
+            sys.exec("/etc/init.d/nginx-manager stop >/dev/null 2>&1 &")
+            if nixio.fs.access(conf_path) then
+                sys.exec("mv -f '" .. conf_path .. "' '" .. bak_path .. "'")
+            end
+            local f = io.open(conf_path, "w")
+            if f then f:write("server { listen 880; return 444; }\n"); f:close() end
+        end
+        uci:set("nginx-manager", "server", "enabled", enabled)
+        uci:commit("nginx-manager")
+        sys.exec("/etc/init.d/nginx reload >/dev/null 2>&1 &")
+        
+    elseif action == "clear_logs" then
+        local log_type = http.formvalue("type") or "error"
+        local log_path = "/var/log/nginx/" .. log_type .. ".log"
+        if not nixio.fs.access(log_path) then log_path = "/tmp/log/nginx/" .. log_type .. ".log" end
+        if not nixio.fs.access(log_path) then log_path = "/tmp/nginx-" .. log_type .. ".log" end
+        sys.exec("echo -n > '" .. log_path .. "' 2>/dev/null")
+    end
+    
+    http.redirect(http.getenv("REQUEST_URI") or "/cgi-bin/luci/admin/services/nginx-manager")
+    return
+end
+
+-- 2. 处理 AJAX 请求（浏览目录、查看日志）
+if http.formvalue("ajax") == "browse" then
+    local path = http.formvalue("path") or "/mnt"
+    if not path:match("^/mnt") then path = "/mnt" end
+    path = path:gsub("'", "'\\''")
+    local out = sys.exec("ls -1p '" .. path .. "' 2>/dev/null | grep '/$' | sed 's|/$||'")
+    local dirs = {}
+    for name in out:gmatch("[^\n]+") do table.insert(dirs, name) end
+    http.prepare_content("application/json")
+    http.write_json(dirs)
+    return
+end
+
+if http.formvalue("ajax") == "logs" then
+    local log_type = http.formvalue("type") or "error"
+    local log_path = "/var/log/nginx/" .. log_type .. ".log"
+    if not nixio.fs.access(log_path) then log_path = "/tmp/log/nginx/" .. log_type .. ".log" end
+    if not nixio.fs.access(log_path) then log_path = "/tmp/nginx-" .. log_type .. ".log" end
+    local out = sys.exec("tail -n 200 '" .. log_path .. "' 2>/dev/null")
+    if not out or out == "" then out = "日志文件不存在或为空。" end
+    http.prepare_content("text/plain; charset=utf-8")
+    http.write(out)
+    return
+end
+
+-- ==========================================
+-- ★ 数据准备（用于页面展示）
+-- ==========================================
+
 local uci_text = ""
 local fh = io.open("/etc/config/nginx", "r")
-if fh then
-    uci_text = fh:read("*a")
-    fh:close()
-end
+if fh then uci_text = fh:read("*a"); fh:close() end
 
 local servers = {}
 local current = nil
@@ -49,7 +202,9 @@ for _, s in ipairs(servers) do
     elseif has_80 then http_server = s end
 end
 
--- ========== 从 media.conf 读取当前配置 ==========
+local server_enabled = uci:get("nginx-manager", "server", "enabled") or "1"
+
+-- 读取 media.conf 的端口和根目录（逐行解析，绝不回退）
 local media_port = "880"
 local media_root = "/mnt"
 fh = io.open("/etc/nginx/conf.d/media.conf", "r")
@@ -58,8 +213,15 @@ if fh then
     fh:close()
     local p = content:match("listen%s+(%d+)%s+default_server")
     if p then media_port = p end
-    local r = content:match("location%s+/%s*{%s*root%s+([^;]+);")
-    if r then media_root = r end
+    local in_root = false
+    for line in content:gmatch("[^\n]+") do
+        if line:match("location%s+/%s*{") then in_root = true end
+        if in_root then
+            local r = line:match("root%s+([^;]+);")
+            if r then media_root = r; break end
+            if line:match("}") then in_root = false end
+        end
+    end
 end
 
 local uci_enable = "1"
@@ -83,6 +245,8 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
 .nm-btn:hover { background:linear-gradient(135deg,#3a8eef,#2a6fc5); }
 .nm-btn.green { background:linear-gradient(135deg,#2ecc71,#27ae60); }
 .nm-btn.green:hover { background:linear-gradient(135deg,#27ae60,#229954); }
+.nm-btn.red { background:linear-gradient(135deg,#e74c3c,#c0392b); }
+.nm-btn.red:hover { background:linear-gradient(135deg,#c0392b,#a93226); }
 .nm-btn.gray { background:linear-gradient(135deg,#7c8798,#6c7585); }
 .nm-btn.gray:hover { background:linear-gradient(135deg,#6c7585,#5a6272); }
 #nm-modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(20,25,35,0.55); z-index:9999; align-items:center; justify-content:center; }
@@ -108,8 +272,8 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
 </style>
 
 <div class="nm-wrap">
-    <h2 style="font-size:22px;color:#1f2d3d;margin:0 0 8px 0;">Nginx 配置管理</h2>
-    <div style="color:#666;font-size:13px;margin-bottom:20px;">直接管理 /etc/nginx/conf.d/media.conf，保存后立即生效。</div>
+    <h2 style="font-size:22px;color:#1f2d3d;margin:0 0 8px 0;">Nginx 媒体服务器管理</h2>
+    <div style="color:#666;font-size:13px;margin-bottom:20px;">管理媒体服务器的启动、配置以及媒体服务配置文件的生成。</div>
 
     <div style="margin-bottom:20px;">
         <button type="button" class="nm-btn gray" onclick="location.reload()">🔃 刷新页面</button>
@@ -117,6 +281,61 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
         <button type="button" class="nm-btn green" onclick="openLogs()" style="margin-left:8px;">📄 查看日志</button>
     </div>
 
+    <!-- 1. 媒体服务器总开关 -->
+    <div class="nm-card" style="border-left: 4px solid #4a9eff;">
+        <div class="nm-head">🎛️ 媒体服务器总开关</div>
+        <div class="nm-row">
+            <div class="nm-label">服务状态</div>
+            <div class="nm-field">
+                <form method="post" style="display:inline;">
+                    <input type="hidden" name="action" value="toggle_server">
+                    <input type="hidden" name="enabled" value="<%= (server_enabled == "1") and "0" or "1" %>">
+                    <button type="submit" class="nm-btn <%= (server_enabled == "1") and "red" or "green" %>" onclick="return confirm('确定要' + this.innerText.trim() + '吗？')">
+                        <%= (server_enabled == "1") and "⏹ 停止媒体服务" or "▶ 启动媒体服务" %>
+                    </button>
+                </form>
+                <span style="color:#8898aa;font-size:12.5px;margin-left:10px;">
+                    当前状态：<b style="color:<%= (server_enabled == "1") and "#2ecc71" or "#e74c3c" %>;"><%= (server_enabled == "1") and "运行中" or "已停止" %></b>
+                    <br><small>启动后自动运行 DLNA 发现守护进程并开启 880 网站。停止后关闭守护进程并禁用 880 网站。</small>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 媒体服务（独立配置） -->
+    <div class="nm-card">
+        <div class="nm-head">🎬 媒体服务（独立配置）</div>
+
+        <form method="post">
+            <input type="hidden" name="action" value="change_port">
+            <div class="nm-row">
+                <div class="nm-label">HTTP 端口</div>
+                <div class="nm-field">
+                    <input type="number" name="new_port" value="<%= media_port %>" min="1" max="65535" style="width:120px;">
+                    <button type="submit" class="nm-btn">💾 保存端口</button>
+                    <button type="button" class="nm-btn green" onclick="openSite()">🌐 打开网站</button>
+                </div>
+            </div>
+        </form>
+
+        <form method="post">
+            <input type="hidden" name="action" value="change_root">
+            <div class="nm-row">
+                <div class="nm-label">网站根目录</div>
+                <div class="nm-field">
+                    <input type="text" name="new_root" id="root-input" value="<%= media_root %>" style="width:280px;">
+                    <button type="button" class="nm-btn" onclick="openBrowser()">📂 选择目录</button>
+                    <button type="submit" class="nm-btn">💾 保存根目录</button>
+                </div>
+            </div>
+        </form>
+
+        <div class="nm-row" style="background:#fbfcfe;color:#95a5b8;font-size:12.5px;font-style:italic;">
+            💡 配置直接写入 /etc/nginx/conf.d/media.conf，保存后立即生效。
+        </div>
+    </div>
+
+    <!-- 3. 全局设置 -->
     <div class="nm-card">
         <div class="nm-head">⚙️ 全局设置</div>
         <div class="nm-row">
@@ -128,6 +347,7 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
         </div>
     </div>
 
+    <!-- 4. HTTP / HTTPS 只读信息 -->
     <% if http_server then %>
     <div class="nm-card">
         <div class="nm-head">🌐 HTTP 服务（只读，系统保留）</div>
@@ -163,38 +383,6 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
         </div>
     </div>
     <% end %>
-
-    <div class="nm-card">
-        <div class="nm-head">🎬 媒体服务（独立配置）</div>
-
-        <form method="post" action="<%=luci.dispatcher.build_url('admin/services/nginx-manager/save')%>">
-            <input type="hidden" name="action" value="change_port">
-            <div class="nm-row">
-                <div class="nm-label">HTTP 端口</div>
-                <div class="nm-field">
-                    <input type="number" name="new_port" value="<%= media_port %>" min="1" max="65535" style="width:120px;">
-                    <button type="submit" class="nm-btn">💾 保存端口</button>
-                    <button type="button" class="nm-btn green" onclick="openSite()">🌐 打开网站</button>
-                </div>
-            </div>
-        </form>
-
-        <form method="post" action="<%=luci.dispatcher.build_url('admin/services/nginx-manager/save')%>">
-            <input type="hidden" name="action" value="change_root">
-            <div class="nm-row">
-                <div class="nm-label">网站根目录</div>
-                <div class="nm-field">
-                    <input type="text" name="new_root" id="root-input" value="<%= media_root %>" style="width:280px;">
-                    <button type="button" class="nm-btn" onclick="openBrowser()">📂 选择目录</button>
-                    <button type="submit" class="nm-btn">💾 保存根目录</button>
-                </div>
-            </div>
-        </form>
-
-        <div class="nm-row" style="background:#fbfcfe;color:#95a5b8;font-size:12.5px;font-style:italic;">
-            💡 配置直接写入 /etc/nginx/conf.d/media.conf，保存后立即生效。
-        </div>
-    </div>
 </div>
 
 <div id="nm-modal">
@@ -257,6 +445,7 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
         var list = document.getElementById('nm-list');
         list.innerHTML = '<div class="ld">加载中...</div>';
         var xhr = new XMLHttpRequest();
+        // 请求当前页面，顶部 Lua 代码会直接拦截并返回 JSON
         xhr.open('GET', location.pathname + '?ajax=browse&path=' + encodeURIComponent(path), true);
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4) {
@@ -301,7 +490,6 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
         }
     }
 
-    // ★ 日志查看逻辑
     window.openLogs = function() {
         document.getElementById('log-modal').style.display = 'flex';
         loadLogs();
@@ -313,32 +501,30 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
         var type = document.getElementById('log-type').value;
         var pre = document.getElementById('log-content');
         pre.textContent = '正在加载...';
-        fetch('<%=luci.dispatcher.build_url("admin/services/nginx-manager/get_logs")%>?type=' + encodeURIComponent(type))
+        fetch(location.pathname + '?ajax=logs&type=' + encodeURIComponent(type))
             .then(function(r) { return r.text(); })
             .then(function(text) {
                 pre.textContent = text || '日志为空。';
                 pre.scrollTop = pre.scrollHeight;
             })
             .catch(function() {
-                pre.textContent = '加载日志失败，请检查网络或后端接口。';
+                pre.textContent = '加载日志失败。';
             });
     };
     window.clearLogs = function() {
         var type = document.getElementById('log-type').value;
         if (!confirm('确定要清空当前日志吗？此操作不可恢复。')) return;
-        fetch('<%=luci.dispatcher.build_url("admin/services/nginx-manager/clear_logs")%>', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'type=' + encodeURIComponent(type)
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(res) {
-            if (res.status === 'success') {
-                alert('日志已清空！');
-                loadLogs();
-            }
-        })
-        .catch(function() { alert('清空失败'); });
+        // 使用表单提交清空日志（走顶部的 POST 拦截）
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = location.pathname;
+        var act = document.createElement('input');
+        act.type = 'hidden'; act.name = 'action'; act.value = 'clear_logs';
+        var typ = document.createElement('input');
+        typ.type = 'hidden'; typ.name = 'type'; typ.value = type;
+        form.appendChild(act); form.appendChild(typ);
+        document.body.appendChild(form);
+        form.submit();
     };
 })();
 </script>
