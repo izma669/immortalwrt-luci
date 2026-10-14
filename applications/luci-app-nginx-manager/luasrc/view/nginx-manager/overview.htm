@@ -1,357 +1,1175 @@
-<%
-local http = require "luci.http"
-local sys = require "luci.sys"
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>媒体播放器</title>
+<script src="/mpegts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none}
+#app{display:flex;height:100%;overflow:hidden}
+#sidebar{width:280px;background:#1a1a1a;display:flex;flex-direction:column;border-right:1px solid #2a2a2a;min-height:0}
+#sidebar header{padding:10px 12px;background:#222;border-bottom:1px solid #2a2a2a;display:flex;gap:8px;align-items:center;flex-shrink:0}
+#upbtn{background:#2f2f2f;border:1px solid #3a3a3a;color:#ccc;height:32px;padding:0 12px;border-radius:6px;cursor:pointer;font-size:12px;flex-shrink:0;display:flex !important;align-items:center;justify-content:center;white-space:nowrap}
+#upbtn:hover{background:#3a3a3a;color:#fff}
+#upbtn.hidden{display:flex !important;opacity:0.4;cursor:not-allowed}
+#dirname{flex:1;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#count{background:#333;color:#aaa;font-size:12px;padding:2px 8px;border-radius:10px;flex-shrink:0}
+#playlist{flex:1 1 0;overflow-y:auto;list-style:none;min-height:0}
+#playlist li{padding:8px 14px;font-size:13px;color:#bbb;cursor:pointer;display:flex;gap:10px;align-items:center;border-bottom:1px solid #222}
+#playlist li:hover{background:#252525;color:#fff}
+#playlist li.dir{color:#ffd166}
+#playlist li.media.active,#playlist li.image.active,#playlist li.doc.active,#playlist li.text.active{background:#1e3a5f;color:#4a9eff;border-left:3px solid #4a9eff;padding-left:11px}
+#playlist li.image{color:#c99cff}
+#playlist li.doc{color:#f28b82}
+#playlist li.text{color:#8ecae6}
+#playlist li.other{color:#888}
+#playlist li .idx{color:#666;min-width:22px;text-align:center;font-size:12px}
+#playlist li.active .idx{color:#4a9eff}
+#playlist li .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#playlist li .sz{color:#666;font-size:11px;flex-shrink:0}
+#playlist li.has-cue{color:#ffd6a5}
+#playlist li.has-cue.expanded{color:#ffb454}
+#playlist li.has-cue .toggle{color:#888;font-size:10px;min-width:14px;text-align:center}
+#playlist li.has-cue .toggle.on{color:#4a9eff}
+#playlist li.cue-child{padding-left:46px;color:#b8b8ff;font-size:12.5px}
+#playlist li.cue-child .idx{color:#666}
+#playlist li.cue-child .sz{color:#555}
+#playlist li.cue-child.active{background:#1e3a5f}
+#playlist li .playing-icon{display:inline-block;color:#4a9eff;animation:npPulse 1.3s ease-in-out infinite;margin-right:2px}
 
--- ========== POST 处理逻辑 ==========
-if http.getenv("REQUEST_METHOD") == "POST" then
-    local action = http.formvalue("action") or ""
+#main{flex:1 1 0;background:#000;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
+#video-wrap{flex:1 1 0;background:#000;display:flex;align-items:center;justify-content:center;position:relative;min-height:0;overflow:hidden}
+
+#video{width:100%;height:100%;object-fit:contain;background:#000;position:relative;z-index:2}
+
+/* ★ 音频模式：video 完全移出屏幕，不显示任何原生控件 */
+#video-wrap.audio-mode #video{
+  position:absolute !important;
+  left:-99999px !important;
+  top:-99999px !important;
+  width:10px !important;
+  height:10px !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+  visibility:hidden !important;
+}
+
+/* 封面图 */
+#audio-bg{position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;object-fit:contain;z-index:1;display:none;pointer-events:none;background:#000}
+#audio-bg.on{display:block}
+
+#audio-bg-info{position:absolute;bottom:70px;left:20px;color:#ddd;font-size:12px;background:rgba(0,0,0,.55);padding:5px 10px;border-radius:5px;z-index:6;display:none;pointer-events:none}
+#audio-bg-info.on{display:block}
+
+#preview{display:none;width:100%;height:100%;object-fit:contain;background:#000}
+#pdf-preview{display:none;width:100%;height:100%;border:none;background:#fff}
+#text-preview{display:none;width:100%;height:100%;margin:0;padding:20px;background:#1e1e1e;color:#d4d4d4;overflow:auto;font-size:13px;line-height:1.55;font-family:Consolas,Monaco,monospace;white-space:pre-wrap;word-break:break-all;-webkit-user-select:text;user-select:text}
+#empty{position:absolute;color:#555;font-size:15px;padding:20px;pointer-events:none;z-index:8}
+#nowplaying{position:absolute;top:0;left:0;right:0;padding:10px 16px 14px;background:linear-gradient(180deg,rgba(0,0,0,.92),rgba(0,0,0,.65) 60%,transparent);font-size:14px;color:#fff;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:7;font-weight:500;display:flex;align-items:center;gap:8px}
+#nowplaying .np-icon{display:inline-block;color:#4a9eff;animation:npPulse 1.3s ease-in-out infinite;flex-shrink:0}
+#nowplaying .np-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+#nowplaying .np-badge{display:inline-block;background:#4a9eff;color:#fff;font-size:11px;padding:2px 7px;border-radius:3px;margin-left:6px;font-weight:600;flex-shrink:0}
+@keyframes npPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(1.2)}}
+
+#enc-sel{position:absolute;bottom:70px;right:16px;height:42px;border-radius:6px;font-size:12px;padding:0 8px;background:rgba(30,30,30,.85);color:#ddd;display:none;cursor:pointer;z-index:20}
+#enc-sel option{background:#1e1e1e;color:#ddd}
+
+/* ★ 音频模式自定义控制条 */
+#audio-ctrl{
+  position:absolute;
+  bottom:0;left:0;right:0;
+  height:56px;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  background:linear-gradient(to top,rgba(0,0,0,.55) 0%,rgba(0,0,0,.15) 60%,transparent 100%);
+  display:none;
+  align-items:center;
+  gap:12px;
+  padding-left:18px;
+  padding-right:18px;
+  z-index:10;
+}
+#video-wrap.audio-mode #audio-ctrl{display:flex}
+
+#audio-ctrl button{
+  background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;
+  padding:6px 8px;flex-shrink:0;line-height:1;
+  transition:color .15s;display:flex;align-items:center;justify-content:center;
+}
+#audio-ctrl button:hover{color:#4a9eff}
+#audio-ctrl button:active{transform:scale(0.92)}
+#audio-ctrl .ac-time{color:#ddd;font-size:12px;font-variant-numeric:tabular-nums;flex-shrink:0;min-width:44px;text-align:center;letter-spacing:.3px}
+
+#audio-ctrl input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  background:transparent;cursor:pointer;height:24px;flex:1;min-width:0;
+}
+#audio-ctrl input[type=range]::-webkit-slider-runnable-track{height:4px;background:rgba(255,255,255,.3);border-radius:2px}
+#audio-ctrl input[type=range]::-moz-range-track{height:4px;background:rgba(255,255,255,.3);border-radius:2px}
+#audio-ctrl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;background:#fff;border-radius:50%;margin-top:-5px;border:none;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+#audio-ctrl input[type=range]::-moz-range-thumb{width:14px;height:14px;background:#fff;border-radius:50%;border:none;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+#audio-ctrl #ac-vol{flex:0 0 70px;width:70px;max-width:70px}
+
+/* ★ 底部整合信息栏（提亮版颜色） */
+#info-panel{padding:8px 14px;background:#1a1a1a;border-top:1px solid #2a2a2a;font-size:12px;color:#ccc;display:flex;gap:16px;flex-wrap:wrap;min-height:32px;align-items:center;flex-shrink:0}
+#info-panel .k{color:#aaa}
+#info-panel .v{color:#fff;font-variant-numeric:tabular-nums}
+#info-panel .hl{color:#4a9eff}
+
+/* 播放模式组样式重置为内联 */
+#mode-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:transparent;border:none;padding:0;min-height:auto;}
+#mode-bar .label{font-size:12px;color:#aaa;margin-right:2px}
+#mode-bar button{background:#2f2f2f;border:1px solid #3a3a3a;color:#ddd;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer}
+#mode-bar button:hover{background:#3a3a3a;color:#fff}
+#mode-bar button.active{background:#1e3a5f;border-color:#4a9eff;color:#4a9eff}
+#dlna-cast-btn { margin-left: 10px; background: #1e3a5f; border-color: #4a9eff; color: #4a9eff; }
+
+/* ★ DLNA 投屏弹窗样式 */
+#dlna-modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:99999; align-items:center; justify-content:center; }
+#dlna-modal .box { background:#1a1a1a; border:1px solid #333; border-radius:12px; width:400px; max-width:90vw; }
+#dlna-modal .hdr { padding:16px 20px; background:#222; font-size:15px; color:#fff; border-bottom:1px solid #333; }
+#dlna-modal .lst { max-height:300px; overflow-y:auto; padding:10px; }
+#dlna-modal .it { padding:12px; cursor:pointer; background:#2a2a2a; margin-bottom:5px; border-radius:6px; color:#ddd; font-size:14px; display:flex; align-items:center; gap:10px; }
+#dlna-modal .it:hover { background:#1e3a5f; color:#4a9eff; }
+#dlna-modal .ftr { padding:12px 20px; background:#222; border-top:1px solid #333; text-align:right; }
+#dlna-modal .ftr button { background:#333; border:none; color:#ccc; padding:6px 16px; border-radius:6px; cursor:pointer; }
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:#151515}
+::-webkit-scrollbar-thumb{background:#333;border-radius:4px}
+
+@media(max-width:768px){
+  #app{flex-direction:column}
+  #sidebar{width:100%;height:38vh;min-height:150px;border-right:none;border-bottom:1px solid #2a2a2a}
+  #main{flex:1 1 0;min-height:0}
+  #info-panel{font-size:11px;gap:8px}
+}
+
+/* ★ 适配手机横屏（修复 iPhone 8 Plus 底部信息栏被遮挡问题） */
+@media (max-width: 900px) and (orientation: landscape) {
+    #app { 
+        flex-direction: row !important; 
+        height: 100dvh !important; /* 使用动态视口高度，兼容 iOS 地址栏 */
+    }
+    #sidebar { 
+        width: 35% !important; 
+        height: 100dvh !important; 
+        min-height: 0 !important; 
+        border-right: 1px solid #2a2a2a !important; 
+        border-bottom: none !important; 
+    }
+    #main { 
+        height: 100dvh; 
+        flex: 1 1 0; 
+    }
     
-    if action == "change_port" then
-        local new_port = http.formvalue("new_port")
-        if new_port and new_port:match("^%d+$") then
-            local mn = http.formvalue("media_name") or "_media"
-            sys.exec("uci -q delete nginx." .. mn .. ".listen")
-            sys.exec("uci add_list nginx." .. mn .. ".listen='" .. new_port .. " default_server'")
-            sys.exec("uci add_list nginx." .. mn .. ".listen='[::]:" .. new_port .. " default_server'")
-            sys.exec("uci commit nginx")
-        end
-    elseif action == "change_root" then
-        local new_root = http.formvalue("new_root")
-        if new_root and new_root:match("^/") then
-            local f = io.open("/etc/nginx/media.locations", "r")
-            if f then
-                local content = f:read("*a")
-                f:close()
-                
-                content = content:gsub("root%s+/www;", "___WWW_PLACEHOLDER___")
-                content = content:gsub("root%s+[^;]+;", "root " .. new_root .. ";")
-                content = content:gsub("___WWW_PLACEHOLDER___", "root /www;")
-                
-                -- 同步替换 /api/dir/ 的 alias
-                local alias_root = new_root
-                if not alias_root:match("/$") then alias_root = alias_root .. "/" end
-                alias_root = alias_root:gsub("%%", "%%%%") -- 转义 %
-                content = content:gsub("alias%s+[^;]+;", "alias " .. alias_root .. ";")
-                
-                f = io.open("/etc/nginx/media.locations", "w")
-                if f then f:write(content); f:close() end
-            end
-        end
-    end
-    
-    sys.exec("/etc/init.d/nginx reload")
-    http.redirect(http.getenv("REQUEST_URI") or "/cgi-bin/luci/admin/services/nginx-manager")
-    return
-end
-
--- ========== AJAX：目录浏览 ==========
-if http.formvalue("ajax") == "browse" then
-    local path = http.formvalue("path") or "/mnt"
-    if not path:match("^/mnt") then path = "/mnt" end
-    path = path:gsub("'", "'\\''") -- 注入保护
-    
-    local out = sys.exec("ls -1p '" .. path .. "' 2>/dev/null | grep '/$' | sed 's|/$||'")
-    local dirs = {}
-    for name in out:gmatch("[^\n]+") do 
-        table.insert(dirs, name) 
-    end
-    
-    http.prepare_content("application/json")
-    http.write_json(dirs)
-    return
-end
-
--- ========== 读取 UCI 配置 ==========
-local uci_text = ""
-local fh = io.open("/etc/config/nginx", "r")
-if fh then
-    uci_text = fh:read("*a")
-    fh:close()
-end
-
-local servers = {}
-local current = nil
-for line in uci_text:gmatch("[^\n]+") do
-    local cn = line:match("^config%s+server%s+(%S+)")
-    if cn then
-        cn = cn:gsub("'", ""):gsub('"', "")
-        current = { name = cn, listens = {}, options = {} }
-        table.insert(servers, current)
-    elseif current then
-        local lv = line:match("^%s*list%s+listen%s+(.+)$")
-        if lv then
-            lv = lv:gsub("^%s+", ""):gsub("%s+$", "")
-            if lv:sub(1,1) == "'" and lv:sub(-1) == "'" then lv = lv:sub(2, -2) end
-            if lv:sub(1,1) == '"' and lv:sub(-1) == '"' then lv = lv:sub(2, -2) end
-            table.insert(current.listens, lv)
-        else
-            local ok, ov = line:match("^%s*option%s+(%S+)%s+(.+)$")
-            if ok then
-                ov = ov:gsub("^%s+", ""):gsub("%s+$", "")
-                if ov:sub(1,1) == "'" and ov:sub(-1) == "'" then ov = ov:sub(2, -2) end
-                if ov:sub(1,1) == '"' and ov:sub(-1) == '"' then ov = ov:sub(2, -2) end
-                current.options[ok] = ov
-            end
-        end
-    end
-end
-
-local http_server, https_server, media_server
-for _, s in ipairs(servers) do
-    local has_443 = false
-    local has_80 = false
-    for _, l in ipairs(s.listens) do
-        if l:match("^443") or l:match("^%[::%]:443") then has_443 = true end
-        if l:match("^80") or l:match("^%[::%]:80") then has_80 = true end
-    end
-    if has_443 then
-        https_server = s
-    elseif has_80 then
-        http_server = s
-    elseif not media_server then
-        media_server = s
-    end
-end
-
-local media_port = "880"
-if media_server then
-    for _, l in ipairs(media_server.listens) do
-        local p = l:match("^(%d+)")
-        if p then media_port = p; break end
-    end
-end
-
-local media_root = "/mnt"
-fh = io.open("/etc/nginx/media.locations", "r")
-if fh then
-    local content = fh:read("*a")
-    fh:close()
-    local in_root = false
-    for line in content:gmatch("[^\n]+") do
-        if line:match("^%s*location%s+/%s*{") then
-            in_root = true
-        elseif in_root then
-            local r = line:match("^%s*root%s+([^;]+);")
-            if r then media_root = r; break end
-            if line:match("^%s*}") then in_root = false end
-        end
-    end
-end
-
-local uci_enable = "1"
-if uci_text:match("option%s+uci_enable%s+'true'") then uci_enable = "1"
-elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
-%>
-<%+header%>
-
-<style type="text/css">
-.nm-wrap { max-width: 960px; }
-.nm-card { background:#fff; border:1px solid #e4e7eb; border-radius:10px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,0.04); overflow:hidden; }
-.nm-head { background:linear-gradient(135deg,#f8f9fb,#eef2f7); border-bottom:1px solid #e4e7eb; padding:14px 22px; font-size:15px; font-weight:600; color:#1f2d3d; }
-.nm-row { padding:12px 22px; border-bottom:1px solid #f4f6f8; display:flex; align-items:center; }
-.nm-row:last-child { border-bottom:none; }
-.nm-label { width:150px; flex-shrink:0; font-size:13px; color:#4a5568; font-weight:500; }
-.nm-field { flex:1; display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
-.nm-field input[type=text], .nm-field input[type=number] { padding:7px 12px; border:1px solid #d5dbe1; border-radius:6px; font-size:13px; }
-.nm-field input[type=text]:focus, .nm-field input[type=number]:focus { outline:none; border-color:#4a9eff; box-shadow:0 0 0 3px rgba(74,158,255,0.15); }
-.nm-ro { background:#f5f7fa; padding:7px 12px; border-radius:6px; color:#2d3748; font-family:Consolas,Monaco,monospace; font-size:12.5px; display:inline-block; min-width:240px; word-break:break-all; }
-.nm-btn { display:inline-flex; align-items:center; gap:5px; background:linear-gradient(135deg,#4a9eff,#3a7fd5); border:none; color:#fff; padding:8px 16px; border-radius:6px; font-size:12.5px; font-weight:500; cursor:pointer; box-shadow:0 1px 3px rgba(74,158,255,0.25); white-space:nowrap; font-family:inherit; text-decoration:none; }
-.nm-btn:hover { background:linear-gradient(135deg,#3a8eef,#2a6fc5); }
-.nm-btn.green { background:linear-gradient(135deg,#2ecc71,#27ae60); }
-.nm-btn.green:hover { background:linear-gradient(135deg,#27ae60,#229954); }
-.nm-btn.gray { background:linear-gradient(135deg,#7c8798,#6c7585); }
-.nm-btn.gray:hover { background:linear-gradient(135deg,#6c7585,#5a6272); }
-#nm-modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(20,25,35,0.55); z-index:9999; align-items:center; justify-content:center; }
-#nm-modal .box { background:#fff; border-radius:12px; min-width:540px; max-width:85vw; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.35); }
-#nm-modal .hdr { padding:16px 22px; background:linear-gradient(135deg,#4a9eff,#3a7fd5); color:#fff; font-size:16px; font-weight:600; }
-#nm-modal .pth { padding:12px 22px; background:#f0f7ff; border-bottom:1px solid #d8e8f8; font-size:12.5px; color:#5a6272; }
-#nm-modal .pth code { color:#2a6fc5; font-family:Consolas,monospace; font-weight:600; }
-#nm-modal .lst { max-height:420px; min-height:240px; overflow-y:auto; padding:8px; }
-#nm-modal .it { padding:10px 16px; cursor:pointer; border-radius:6px; font-size:13.5px; display:flex; gap:10px; color:#2d3748; }
-#nm-modal .it:hover { background:#e8f2ff; color:#2a6fc5; }
-#nm-modal .up { color:#e67e22; font-weight:500; }
-#nm-modal .up:hover { background:#fff5e6; }
-#nm-modal .ftr { padding:14px 22px; background:#f8f9fa; border-top:1px solid #e4e7eb; display:flex; justify-content:flex-end; gap:10px; }
-#nm-modal .ld { padding:40px; text-align:center; color:#95a5b8; font-size:13px; }
-</style>
-
-<div class="nm-wrap">
-    <h2 style="font-size:22px;color:#1f2d3d;margin:0 0 8px 0;">Nginx 配置管理</h2>
-    <div style="color:#666;font-size:13px;margin-bottom:20px;">直接管理 /etc/config/nginx 和 /etc/nginx/media.locations，保存后立即生效。</div>
-
-    <div style="margin-bottom:20px;">
-        <form method="post" style="display:inline;">
-            <input type="hidden" name="action" value="reload">
-            <button type="submit" class="nm-btn">🔄 重载 Nginx</button>
-        </form>
-        <button type="button" class="nm-btn gray" onclick="location.reload()" style="margin-left:8px;">🔃 刷新页面</button>
-        <a href="/cgi-bin/luci/admin/system/ttyd" target="_blank" class="nm-btn green" style="margin-left:8px;">💻 打开终端</a>
-    </div>
-
-    <div class="nm-card">
-        <div class="nm-head">⚙️ 全局设置</div>
-        <div class="nm-row">
-            <div class="nm-label">启用 UCI 配置</div>
-            <div class="nm-field">
-                <input type="checkbox" <% if uci_enable == "1" then %>checked<% end %> disabled>
-                <span style="color:#8898aa;font-size:12.5px;">启用后 nginx 会根据 UCI 自动生成配置文件</span>
-            </div>
-        </div>
-    </div>
-
-    <% if http_server then %>
-    <div class="nm-card">
-        <div class="nm-head">🌐 HTTP 服务（只读）</div>
-        <div class="nm-row">
-            <div class="nm-label">监听地址</div>
-            <div class="nm-field"><span class="nm-ro"><%= table.concat(http_server.listens, "　") %></span></div>
-        </div>
-        <div class="nm-row">
-            <div class="nm-label">服务器名称</div>
-            <div class="nm-field"><span class="nm-ro"><%= http_server.options.server_name or "-" %></span></div>
-        </div>
-    </div>
-    <% end %>
-
-    <% if https_server then %>
-    <div class="nm-card">
-        <div class="nm-head">🔒 HTTPS 服务（只读）</div>
-        <div class="nm-row">
-            <div class="nm-label">监听地址</div>
-            <div class="nm-field"><span class="nm-ro"><%= table.concat(https_server.listens, "　") %></span></div>
-        </div>
-        <div class="nm-row">
-            <div class="nm-label">服务器名称</div>
-            <div class="nm-field"><span class="nm-ro"><%= https_server.options.server_name or "-" %></span></div>
-        </div>
-        <div class="nm-row">
-            <div class="nm-label">SSL 证书</div>
-            <div class="nm-field"><span class="nm-ro"><%= https_server.options.ssl_certificate or "-" %></span></div>
-        </div>
-        <div class="nm-row">
-            <div class="nm-label">SSL 私钥</div>
-            <div class="nm-field"><span class="nm-ro"><%= https_server.options.ssl_certificate_key or "-" %></span></div>
-        </div>
-    </div>
-    <% end %>
-
-    <div class="nm-card">
-        <div class="nm-head">🎬 媒体服务（可修改）</div>
-
-        <form method="post">
-            <input type="hidden" name="action" value="change_port">
-            <input type="hidden" name="media_name" value="<%= media_server and media_server.name or "_media" %>">
-            <div class="nm-row">
-                <div class="nm-label">HTTP 端口</div>
-                <div class="nm-field">
-                    <input type="number" name="new_port" value="<%= media_port %>" min="1" max="65535" style="width:120px;">
-                    <button type="submit" class="nm-btn">💾 保存端口</button>
-                    <button type="button" class="nm-btn green" onclick="openSite()">🌐 打开网站</button>
-                </div>
-            </div>
-        </form>
-
-        <form method="post">
-            <input type="hidden" name="action" value="change_root">
-            <div class="nm-row">
-                <div class="nm-label">网站根目录</div>
-                <div class="nm-field">
-                    <input type="text" name="new_root" id="root-input" value="<%= media_root %>" style="width:280px;">
-                    <button type="button" class="nm-btn" onclick="openBrowser()">📂 选择目录</button>
-                    <button type="submit" class="nm-btn">💾 保存根目录</button>
-                </div>
-            </div>
-        </form>
-
-        <div class="nm-row" style="background:#fbfcfe;color:#95a5b8;font-size:12.5px;font-style:italic;">
-            💡 默认 /mnt，保存后写入 /etc/nginx/media.locations
-        </div>
-    </div>
-</div>
-
-<div id="nm-modal">
-    <div class="box">
-        <div class="hdr">📂 选择目录</div>
-        <div class="pth">当前位置：<code id="nm-path">/mnt</code></div>
-        <div class="lst" id="nm-list"></div>
-        <div class="ftr">
-            <button type="button" class="nm-btn gray" onclick="closeBrowser()">取消</button>
-            <button type="button" class="nm-btn green" onclick="pickBrowser()">✓ 选择此目录</button>
-        </div>
-    </div>
-</div>
-
-<script type="text/javascript">
-(function() {
-    'use strict';
-    var nmCur = '/mnt';
-    var nmPort = '<%= media_port %>';
-
-    window.openBrowser = function() {
-        document.getElementById('nm-modal').style.display = 'flex';
-        nmLoad('/mnt');
-    };
-    window.closeBrowser = function() {
-        document.getElementById('nm-modal').style.display = 'none';
-    };
-    window.pickBrowser = function() {
-        document.getElementById('root-input').value = nmCur;
-        closeBrowser();
-    };
-    window.openSite = function() {
-        window.open('http://' + window.location.hostname + ':' + nmPort + '/', '_blank');
-    };
-
-    function nmLoad(path) {
-        nmCur = path;
-        document.getElementById('nm-path').textContent = path;
-        var list = document.getElementById('nm-list');
-        list.innerHTML = '<div class="ld">加载中...</div>';
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', location.pathname + '?ajax=browse&path=' + encodeURIComponent(path), true);
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    try { nmRender(JSON.parse(xhr.responseText)); }
-                    catch(e) { list.innerHTML = '<div class="ld" style="color:#e74c3c;">解析失败：' + e.message + '</div>'; }
-                } else {
-                    list.innerHTML = '<div class="ld" style="color:#e74c3c;">HTTP ' + xhr.status + '</div>';
-                }
-            }
-        };
-        xhr.send();
+    /* 确保视频/封面区域可以压缩，不把底部撑开 */
+    #video-wrap {
+        flex: 1 1 0;
+        min-height: 0 !important;
     }
 
-    function nmRender(entries) {
-        var list = document.getElementById('nm-list');
-        list.innerHTML = '';
-        if (nmCur !== '/mnt') {
-            var p = nmCur.replace(/\/+$/, '').replace(/\/[^\/]+$/, '') || '/mnt';
-            if (p.length < 4) p = '/mnt';
-            var up = document.createElement('div');
-            up.className = 'it up';
-            up.innerHTML = '📁 .. (上级目录)';
-            up.onclick = function() { nmLoad(p); };
-            list.appendChild(up);
-        }
-        if (!entries || entries.length === 0) {
-            var e = document.createElement('div');
-            e.className = 'ld';
-            e.textContent = '(此目录下无子目录)';
-            list.appendChild(e);
-            return;
-        }
-        for (var i = 0; i < entries.length; i++) {
-            (function(name) {
-                var it = document.createElement('div');
-                it.className = 'it';
-                it.innerHTML = '📁 ' + name;
-                it.onclick = function() { nmLoad(nmCur.replace(/\/+$/, '') + '/' + name); };
-                list.appendChild(it);
-            })(entries[i]);
-        }
+    /* 横屏高度有限，信息栏尽量紧凑，确保可见 */
+    #info-panel { 
+        font-size: 11px; 
+        gap: 8px; 
+        padding: 4px 10px; 
+        min-height: 28px; 
+        flex-shrink: 0; /* 防止被压缩消失 */
+    }
+    
+    #mode-bar button { 
+        padding: 2px 6px; 
+        font-size: 10.5px; 
+    }
+    
+    #sidebar header { 
+        padding: 6px 10px; 
+    }
+    
+    #playlist li { 
+        padding: 7px 10px; 
+        font-size: 12.5px; 
+    }
+    
+    #upbtn { 
+        height: 28px; 
+        padding: 0 10px; 
+    }
+    
+    /* 横屏时音频控制条高度微调，避免遮挡信息栏 */
+    #audio-ctrl {
+        height: 48px;
+        padding-bottom: max(env(safe-area-inset-bottom), 0px);
+    }
+}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <header>
+      <button id="upbtn" title="返回上级目录">← 返回上级目录</button>
+      <h1 id="dirname">加载中...</h1>
+      <span id="count">0</span>
+    </header>
+    <ul id="playlist"></ul>
+  </aside>
+  <main id="main">
+    <div id="video-wrap">
+      <video id="video" controls playsinline webkit-playsinline x5-playsinline controlsList="nodownload"></video>
+      <img id="audio-bg" alt="">
+      <div id="audio-bg-info"></div>
+      <img id="preview" alt="">
+      <iframe id="pdf-preview" src="about:blank"></iframe>
+      <pre id="text-preview"></pre>
+
+      <div id="audio-ctrl">
+        <button id="ac-play" title="播放/暂停">▶</button>
+        <span id="ac-cur" class="ac-time">0:00</span>
+        <input type="range" id="ac-seek" min="0" max="1000" value="0" step="1">
+        <span id="ac-dur" class="ac-time">0:00</span>
+        <button id="ac-mute" title="静音" style="font-size:16px;">🔊</button>
+        <input type="range" id="ac-vol" min="0" max="100" value="100" step="1" style="width:70px;flex:0 0 70px;" title="音量">
+        <button id="ac-fs" title="全屏">⛶</button>
+      </div>
+
+      <select id="enc-sel" title="文本编码">
+        <option value="auto">自动</option>
+        <option value="utf-8">UTF-8</option>
+        <option value="gbk">GBK / ANSI</option>
+        <option value="gb18030">GB18030</option>
+        <option value="big5">Big5</option>
+        <option value="shift_jis">Shift-JIS</option>
+      </select>
+
+      <div id="empty">选择左侧列表播放</div>
+      <div id="nowplaying"></div>
+    </div>
+    
+    <!-- ★ 信息栏：整合为一行 (播放模式 + DLNA投屏 + 浏览器内核检测 + 分辨率) -->
+    <div id="info-panel">
+      <div id="mode-bar">
+        <span class="label">播放模式：</span>
+        <button data-mode="sequential">顺序</button>
+        <button data-mode="repeat-all">列表循环</button>
+        <button data-mode="repeat-one">单曲循环</button>
+        <button data-mode="random">随机</button>
+        <!-- DLNA 投屏按钮 -->
+        <button type="button" id="dlna-cast-btn">📺 投屏</button>
+      </div>
+      
+      <span><span class="k">浏览器内核检测：</span><span class="v hl" id="i-browser" style="color:#4a9eff;font-weight:bold;">-</span></span>
+      <span><span class="k">分辨率：</span><span class="v" id="i-res">-</span></span>
+    </div>
+  </main>
+</div>
+
+<!-- ★ DLNA 投屏弹窗（含手动输入IP） -->
+<div id="dlna-modal">
+    <div class="box">
+        <div class="hdr">📺 选择投屏设备</div>
+        
+        <!-- 设备列表展示区 -->
+        <div class="lst" id="dlna-device-list" style="text-align:center; color:#888; padding:20px;">正在搜索...</div>
+        
+        <!-- ★ 手动输入 IP 区域（默认隐藏） -->
+        <div id="manual-ip-area" style="display:none; padding: 15px 20px; border-top: 1px solid #333; background: #151515;">
+            <div style="color:#f28b82; font-size:12px; margin-bottom:8px;">未自动发现设备，请手动输入电视IP：</div>
+            <div style="display:flex; gap:8px;">
+                <input type="text" id="manual-tv-ip" placeholder="例如: 192.168.0.120" style="flex:1; padding:8px 10px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; font-size:13px;">
+                <button type="button" class="nm-btn green" onclick="manualCast()" style="margin:0;">开始投屏</button>
+            </div>
+        </div>
+
+        <div class="ftr"><button onclick="document.getElementById('dlna-modal').style.display='none'">取消</button></div>
+    </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+var VIDEO_EXTS=['.mp4','.webm','.mkv','.mov','.avi','.m4v','.ogv','.flv','.3gp','.ts','.m2ts','.wmv'];
+var AUDIO_EXTS=['.mp3','.m4a','.flac','.aac','.ogg','.wav','.ape','.wv','.aiff','.aif','.alac'];
+var IMAGE_EXTS=['.jpg','.jpeg','.png','.gif','.webp','.bmp','.svg','.ico','.tif','.tiff','.heic','.avif'];
+var PDF_EXTS=['.pdf'];
+var TEXT_EXTS=['.txt','.md','.log','.nfo','.url','.json','.xml','.yml','.yaml','.ini','.conf','.csv','.sh','.py','.js','.html','.css','.c','.cpp','.h','.java','.go','.php','.lua','.sql','.patch','.diff','.srt','.vtt','.ass','.ssa','.sub'];
+var SUB_EXTS=['.srt','.vtt','.ass','.ssa','.sub'];
+var CUE_EXTS=['.cue'];
+
+var ICON_MAP=[
+  {icon:'📦',exts:['.zip','.rar','.7z','.tar','.gz','.tgz','.xz']},
+  {icon:'📕',exts:PDF_EXTS},
+  {icon:'📘',exts:['.epub','.mobi','.azw','.djvu']},
+  {icon:'📊',exts:['.xls','.xlsx','.ppt','.pptx','.ods','.odp']},
+  {icon:'🎵',exts:['.cue','.m3u','.m3u8','.pls']},
+  {icon:'⚙️',exts:['.exe','.msi','.apk','.ipk','.deb','.rpm','.iso','.img']},
+  {icon:'🔑',exts:['.key','.crt','.pem','.p12','.pfx','.gpg']},
+  {icon:'🗄️',exts:['.db','.sqlite','.sqlite3','.bak']}
+];
+
+var CONTAINER_MAP={
+  '.mp4':'MP4','.m4v':'MP4','.mov':'QuickTime','.mkv':'Matroska','.webm':'WebM',
+  '.avi':'AVI','.ts':'MPEG-TS','.m2ts':'MPEG-TS','.flv':'Flash Video','.wmv':'ASF/WMV',
+  '.3gp':'3GPP','.ogv':'Ogg',
+  '.mp3':'MP3','.m4a':'MP4 Audio','.aac':'AAC','.flac':'FLAC','.ogg':'Ogg','.wav':'WAV',
+  '.ape':"Monkey's Audio",'.wv':'WavPack','.aiff':'AIFF','.aif':'AIFF'
+};
+
+var VCODEC_KEYWORDS=[
+  [/(?:^|[.\s_\-])x265(?:[.\s_\-]|$)/i,'H.265 / HEVC'],
+  [/(?:^|[.\s_\-])h\.?265(?:[.\s_\-]|$)/i,'H.265 / HEVC'],
+  [/(?:^|[.\s_\-])hevc(?:[.\s_\-]|$)/i,'H.265 / HEVC'],
+  [/(?:^|[.\s_\-])x264(?:[.\s_\-]|$)/i,'H.264 / AVC'],
+  [/(?:^|[.\s_\-])h\.?264(?:[.\s_\-]|$)/i,'H.264 / AVC'],
+  [/(?:^|[.\s_\-])avc(?:[.\s_\-]|$)/i,'H.264 / AVC'],
+  [/(?:^|[.\s_\-])vp0?9(?:[.\s_\-]|$)/i,'VP9'],
+  [/(?:^|[.\s_\-])vp0?8(?:[.\s_\-]|$)/i,'VP8'],
+  [/(?:^|[.\s_\-])av1(?:[.\s_\-]|$)/i,'AV1'],
+  [/(?:^|[.\s_\-])mpeg-?2(?:[.\s_\-]|$)/i,'MPEG-2'],
+  [/(?:^|[.\s_\-])xvid(?:[.\s_\-]|$)/i,'XviD'],
+  [/(?:^|[.\s_\-])divx(?:[.\s_\-]|$)/i,'DivX']
+];
+
+var ACODEC_KEYWORDS=[
+  [/(?:^|[.\s_\-])truehd(?:[.\s_\-]|$)/i,'TrueHD'],
+  [/(?:^|[.\s_\-])atmos(?:[.\s_\-]|$)/i,'Atmos'],
+  [/(?:^|[.\s_\-])dts(?:[.\s_\-+]|$)/i,'DTS'],
+  [/(?:^|[.\s_\-])e?ac-?3(?:[.\s_\-+]|$)/i,'AC-3'],
+  [/(?:^|[.\s_\-])aac(?:[.\s_\-+]|$)/i,'AAC'],
+  [/(?:^|[.\s_\-])flac(?:[.\s_\-+]|$)/i,'FLAC'],
+  [/(?:^|[.\s_\-])mp3(?:[.\s_\-+]|$)/i,'MP3'],
+  [/(?:^|[.\s_\-])opus(?:[.\s_\-+]|$)/i,'Opus']
+];
+
+var videoEl=document.getElementById('video');
+var audioBgEl=document.getElementById('audio-bg');
+var audioBgInfoEl=document.getElementById('audio-bg-info');
+var acPlayEl=document.getElementById('ac-play');
+var acSeekEl=document.getElementById('ac-seek');
+var acCurEl=document.getElementById('ac-cur');
+var acDurEl=document.getElementById('ac-dur');
+var acFsEl=document.getElementById('ac-fs');
+var previewEl=document.getElementById('preview');
+var pdfPreviewEl=document.getElementById('pdf-preview');
+var textPreviewEl=document.getElementById('text-preview');
+var encSelEl=document.getElementById('enc-sel');
+var listEl=document.getElementById('playlist');
+var emptyEl=document.getElementById('empty');
+var npEl=document.getElementById('nowplaying');
+var countEl=document.getElementById('count');
+var dirnameEl=document.getElementById('dirname');
+var upBtn=document.getElementById('upbtn');
+var videoWrap=document.getElementById('video-wrap');
+
+// ★ 浏览器内核检测逻辑
+(function detectBrowserInfo() {
+    var ua = navigator.userAgent;
+    var platform = navigator.platform || '';
+    var os = '未知';
+    var kernel = '未知';
+    var warning = '';
+
+    if (/iPhone|iPad|iPod/.test(platform) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1)) { os = 'iOS/iPadOS'; }
+    else if (/Android/.test(ua)) { os = 'Android'; }
+    else if (/Windows/.test(ua)) { os = 'Windows'; }
+    else if (/Mac/.test(ua)) { os = 'macOS'; }
+    else if (/Linux/.test(ua)) { os = 'Linux'; }
+
+    if (/AppleWebKit/.test(ua)) {
+        if (/Chrome/.test(ua) || /CriOS/.test(ua)) { kernel = (os === 'iOS/iPadOS') ? 'WebKit (iOS Chrome)' : 'Blink (Chrome)'; }
+        else if (/Safari/.test(ua)) { kernel = 'WebKit (Safari)'; }
+        else { kernel = 'WebKit'; }
+    } else if (/Gecko/.test(ua) && /Firefox/.test(ua)) { kernel = 'Gecko (Firefox)'; }
+    else if (/Trident/.test(ua)) { kernel = 'Trident (IE)'; }
+
+    if (os === 'iOS/iPadOS') { warning = ' (注意：iOS硬件解码不支持MP4/MP3音频，请转码AAC)'; }
+
+    var el = document.getElementById('i-browser');
+    if (el) {
+        el.textContent = os + ' / ' + kernel + warning;
+        if (os === 'iOS/iPadOS') { el.style.color = '#f28b82'; }
     }
 })();
-</script>
 
-<%+footer%>
+var currentIndex=-1;
+var listItems=[];
+var playMode='sequential';
+var mpegtsPlayer=null;
+var textAbortController=null;
+var currentTextBytes=null;
+var currentSegment={start:0,end:null};
+
+var bgTimer=null;
+var bgImages=[];
+var bgIdx=0;
+var bgInfoHideTimer=null;
+var seeking=false;
+
+var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+if(isIOS){
+  var _am=document.getElementById('ac-mute');
+  var _av=document.getElementById('ac-vol');
+  if(_am)_am.style.display='none';
+  if(_av)_av.style.display='none';
+}
+
+var TEXT_PREVIEW_MAX=2*1024*1024;
+var BG_INTERVAL=8000;
+
+function getExt(n){var m=String(n).toLowerCase().match(/\.[^.]+$/);return m?m[0]:''}
+function isMedia(n){var e=getExt(n);return VIDEO_EXTS.indexOf(e)>=0||AUDIO_EXTS.indexOf(e)>=0}
+function isImage(n){return IMAGE_EXTS.indexOf(getExt(n))>=0}
+function isPDF(n){return PDF_EXTS.indexOf(getExt(n))>=0}
+function isText(n){return TEXT_EXTS.indexOf(getExt(n))>=0}
+function isSubFile(n){return SUB_EXTS.indexOf(getExt(n))>=0}
+function isCue(n){return CUE_EXTS.indexOf(getExt(n))>=0}
+function isTS(n){var e=getExt(n);return e==='.ts'||e==='.m2ts'}
+function isAudioOnly(n){var e=getExt(n);return AUDIO_EXTS.indexOf(e)>=0}
+function formatSize(b){if(!b)return '';var u=['B','KB','MB','GB','TB'],i=0;while(b>=1024&&i<u.length-1){b/=1024;i++}return b.toFixed(i===0?0:1)+' '+u[i]}
+function formatTime(s){if(!isFinite(s)||s<0)return '-';s=Math.floor(s);var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;var p=function(n){return n<10?'0'+n:''+n};return(h>0?p(h)+':':'')+p(m)+':'+p(sec)}
+function formatTimeShort(s){if(!isFinite(s)||s<0)return '0:00';s=Math.floor(s);var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;var p=function(n){return n<10?'0'+n:''+n};return(h>0?h+':':'')+p(m)+':'+p(sec)}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function cmp(a,b){return a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'})}
+function iconFor(n){var e=getExt(n);for(var i=0;i<ICON_MAP.length;i++){if(ICON_MAP[i].exts.indexOf(e)>=0)return ICON_MAP[i].icon}if(isText(n))return '📝';return '📄'}
+function encodePath(p){return p.split('/').map(encodeURIComponent).join('/')}
+function guessContainer(name){return CONTAINER_MAP[getExt(name)]||null}
+function guessVCodec(name){for(var i=0;i<VCODEC_KEYWORDS.length;i++){if(VCODEC_KEYWORDS[i][0].test(name))return VCODEC_KEYWORDS[i][1]}return null}
+function guessACodec(name){var h=[];for(var i=0;i<ACODEC_KEYWORDS.length;i++){if(ACODEC_KEYWORDS[i][0].test(name))h.push(ACODEC_KEYWORDS[i][1])}return h.length?h.join(' / '):null}
+
+function detectBOM(b){if(b.length>=3&&b[0]===0xEF&&b[1]===0xBB&&b[2]===0xBF)return{enc:'utf-8',skip:3,label:'UTF-8 (BOM)'};if(b.length>=2&&b[0]===0xFF&&b[1]===0xFE)return{enc:'utf-16le',skip:2,label:'UTF-16 LE'};if(b.length>=2&&b[0]===0xFE&&b[1]===0xFF)return{enc:'utf-16be',skip:2,label:'UTF-16 BE'};return null}
+function tryDec(b,e,f){try{return new TextDecoder(e,{fatal:!!f}).decode(b)}catch(x){return null}}
+function decodeBytes(b,f){
+  if(f&&f!=='auto'){var t=tryDec(b,f,false);return t!==null?{text:t,label:f.toUpperCase()}:{text:'(不支持:'+f+')',label:f}}
+  var bom=detectBOM(b);
+  if(bom){var t=tryDec(b.subarray(bom.skip),bom.enc,false);if(t!==null)return{text:t,enc:bom.enc,label:bom.label}}
+  var u=tryDec(b,'utf-8',true);if(u!==null)return{text:u,enc:'utf-8',label:'UTF-8'};
+  var g=tryDec(b,'gbk',false);if(g!==null)return{text:g,enc:'gbk',label:'GBK / ANSI'};
+  var g18=tryDec(b,'gb18030',false);if(g18!==null)return{text:g18,enc:'gb18030',label:'GB18030'};
+  return{text:new TextDecoder('utf-8').decode(b),enc:'utf-8',label:'UTF-8 (lossy)'};
+}
+
+function parseCue(text){
+  var lines=text.split(/\r?\n/);
+  var albumTitle='',albumPerformer='';
+  var tracks=[];var current=null;var currentFile=null;
+  function unquote(s){s=String(s).trim();if(s.length>=2&&s.charAt(0)==='"'&&s.charAt(s.length-1)==='"')s=s.slice(1,-1);return s}
+  function timeToSec(mm,ss,ff){return parseInt(mm,10)*60+parseInt(ss,10)+parseInt(ff,10)/75}
+  for(var i=0;i<lines.length;i++){
+    var line=lines[i].replace(/^\uFEFF/,'').trim();
+    if(!line) continue;
+    if(/^REM\b/i.test(line)) continue;
+    var m;
+    if((m=line.match(/^TITLE\s+(.+)$/i))){var v=unquote(m[1]);if(current)current.title=v;else albumTitle=v;}
+    else if((m=line.match(/^PERFORMER\s+(.+)$/i))){var v=unquote(m[1]);if(current)current.performer=v;else albumPerformer=v;}
+    else if((m=line.match(/^FILE\s+(.+?)\s+(\w+)\s*$/i))){currentFile=unquote(m[1]);}
+    else if((m=line.match(/^TRACK\s+(\d+)\s+(\w+)/i))){if(current)tracks.push(current);current={num:parseInt(m[1],10),type:m[2],title:'',performer:'',file:currentFile,index01:null};}
+    else if((m=line.match(/^INDEX\s+(\d+)\s+(\d+):(\d+):(\d+)/i))){if(current&&parseInt(m[1],10)===1)current.index01=timeToSec(m[2],m[3],m[4]);}
+  }
+  if(current) tracks.push(current);
+  tracks=tracks.filter(function(t){return t.index01!==null});
+  for(var j=0;j<tracks.length;j++){tracks[j].endTime=(j+1<tracks.length)?tracks[j+1].index01:null;}
+  return {title:albumTitle,performer:albumPerformer,tracks:tracks};
+}
+
+var dirPath=window.location.pathname;
+if(dirPath.charAt(dirPath.length-1)!=='/')dirPath+='/';
+var dirName=decodeURIComponent(dirPath.replace(/\/$/,'').split('/').pop()||'根目录');
+dirnameEl.textContent=dirName;
+document.title=dirName+' - 媒体播放器';
+
+if(dirPath === '/'){upBtn.classList.add('hidden');upBtn.onclick=null}
+else{upBtn.classList.remove('hidden');upBtn.onclick=function(){location.href='../'}}
+
+function isRealFullscreen(){return!!(document.fullscreenElement||document.webkitFullscreenElement)}
+function exitRealFullscreen(){var fn=document.exitFullscreen||document.webkitExitFullscreen;if(fn)try{fn.call(document)}catch(e){}}
+function requestRealFullscreen(el){var fn=el.requestFullscreen||el.webkitRequestFullscreen;if(fn)return fn.call(el)}
+function toggleFullscreen(){
+  if(isRealFullscreen()){exitRealFullscreen();return;}
+  if(videoWrap.requestFullscreen||videoWrap.webkitRequestFullscreen){requestRealFullscreen(videoWrap);return;}
+  if(isIOS && videoEl.webkitEnterFullscreen){videoEl.webkitEnterFullscreen();return;}
+}
+
+var acMuteEl=document.getElementById('ac-mute');
+var acVolEl=document.getElementById('ac-vol');
+acMuteEl.onclick=function(e){e.stopPropagation();videoEl.muted=!videoEl.muted;acMuteEl.textContent=videoEl.muted?'🔇':'🔊'};
+acVolEl.oninput=function(e){e.stopPropagation();videoEl.volume=acVolEl.value/100;videoEl.muted=(videoEl.volume===0);acMuteEl.textContent=videoEl.muted?'🔇':'🔊'};
+videoEl.addEventListener('volumechange',function(){acVolEl.value=Math.round(videoEl.volume*100);acMuteEl.textContent=videoEl.muted?'🔇':'🔊'});
+
+acFsEl.onclick=function(e){e.stopPropagation();toggleFullscreen()};
+videoWrap.addEventListener('dblclick',function(e){var t=e.target.tagName;if(t==='VIDEO'||t==='IMG'||t==='PRE'||t==='IFRAME'||e.target===videoWrap)toggleFullscreen()});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isRealFullscreen())exitRealFullscreen()});
+
+// ★ 音频控制条
+function acUpdatePlay(){acPlayEl.textContent = videoEl.paused ? '▶' : '⏸'}
+function acUpdateTime(){
+  if(seeking) return;
+  var cur=videoEl.currentTime||0;
+  var dur=videoEl.duration||0;
+  acCurEl.textContent=formatTimeShort(cur);
+  acDurEl.textContent=formatTimeShort(dur);
+  if(dur>0) acSeekEl.value=Math.floor(cur/dur*1000);
+  else acSeekEl.value=0;
+}
+acPlayEl.onclick=function(e){
+  e.stopPropagation();
+  if(videoEl.paused) videoEl.play().catch(function(){});
+  else videoEl.pause();
+};
+acSeekEl.addEventListener('input',function(){
+  seeking=true;
+  var dur=videoEl.duration||0;
+  var t=acSeekEl.value/1000*dur;
+  acCurEl.textContent=formatTimeShort(t);
+});
+acSeekEl.addEventListener('change',function(){
+  var dur=videoEl.duration||0;
+  var t=acSeekEl.value/1000*dur;
+  try{ videoEl.currentTime=t; }catch(e){}
+  seeking=false;
+  acUpdateTime();
+});
+videoEl.addEventListener('play',acUpdatePlay);
+videoEl.addEventListener('pause',acUpdatePlay);
+videoEl.addEventListener('timeupdate',acUpdateTime);
+videoEl.addEventListener('loadedmetadata',acUpdateTime);
+videoEl.addEventListener('durationchange',acUpdateTime);
+videoEl.addEventListener('ended',acUpdatePlay);
+
+function setNowPlaying(icon,text,badge){
+  var html='<span class="np-icon">'+icon+'</span><span class="np-text">'+esc(text)+'</span>';
+  if(badge) html+='<span class="np-badge">'+esc(badge)+'</span>';
+  npEl.innerHTML=html;
+}
+function getCueBadge(idx){
+  if(idx<0) return '';
+  var it=listItems[idx];
+  if(!it||!it.isCueChild) return '';
+  var parentUrl=it.parentUrl;
+  var siblings=[];
+  for(var i=0;i<listItems.length;i++){
+    if(listItems[i].isCueChild && listItems[i].parentUrl===parentUrl) siblings.push(i);
+  }
+  var pos=siblings.indexOf(idx);
+  if(pos<0) return '';
+  return '曲目 '+(pos+1)+'/'+siblings.length;
+}
+
+var modeBtns=document.querySelectorAll('#mode-bar button[data-mode]');
+modeBtns.forEach(function(b){b.onclick=function(){playMode=b.getAttribute('data-mode');modeBtns.forEach(function(x){x.classList.toggle('active',x===b)})}});
+document.querySelector('#mode-bar button[data-mode="sequential"]').classList.add('active');
+
+
+
+// ★ DLNA 投屏逻辑（自动搜索 + 手动输入 IP）
+document.getElementById('dlna-cast-btn').onclick = function() {
+    var it = listItems[currentIndex];
+    if (!it || it.kind !== 'media') {
+        alert('请先点击左侧列表选择一个视频进行播放，然后再投屏！');
+        return;
+    }
+    
+    var modal = document.getElementById('dlna-modal');
+    var list = document.getElementById('dlna-device-list');
+    var manualArea = document.getElementById('manual-ip-area');
+    
+    modal.style.display = 'flex';
+    manualArea.style.display = 'none';  // 隐藏手动输入区
+    list.innerHTML = '正在搜索局域网内的 DLNA 设备...';
+    
+    var apiBase = '/cgi-bin/luci/dlna';
+    
+    // 1. 尝试自动发现设备
+    fetch(apiBase + '/discover')
+        .then(function(r) { 
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json(); 
+        })
+        .then(function(devices) {
+            list.innerHTML = '';
+            if (!devices || devices.length === 0) {
+                // ★ 自动搜索无结果：显示提示并展开手动输入区
+                list.innerHTML = '<div style="color:#e67e22; padding:15px;">未自动发现任何设备</div>';
+                manualArea.style.display = 'block';
+                document.getElementById('manual-tv-ip').focus();
+                return;
+            }
+            
+            // 搜索到设备，渲染列表
+            devices.forEach(function(dev) {
+                var div = document.createElement('div');
+                div.className = 'it';
+                div.innerHTML = '📺 ' + dev.name;
+                div.onclick = function() {
+                    var videoUrl = window.location.origin + it.url;
+                    list.innerHTML = '正在发送投屏指令...';
+                    
+                    fetch(apiBase + '/cast', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: 'control_url=' + encodeURIComponent(dev.control_url) + '&video_url=' + encodeURIComponent(videoUrl)
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (res.status === 'success') {
+                            list.innerHTML = '<div style="color:#2ecc71; padding:10px;">✓ 投屏成功，电视即将播放！</div>';
+                            setTimeout(function() { modal.style.display = 'none'; }, 1500);
+                        } else {
+                            list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 失败: ' + (res.message || '未知错误') + '</div>';
+                        }
+                    })
+                    .catch(function() {
+                        list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求失败</div>';
+                    });
+                };
+                list.appendChild(div);
+            });
+        })
+        .catch(function(err) {
+            // 即使请求出错，也提供手动输入的机会
+            list.innerHTML = '<div style="color:#e74c3c; padding:15px;">搜索请求失败，请尝试手动投屏</div>';
+            manualArea.style.display = 'block';
+            document.getElementById('manual-tv-ip').focus();
+        });
+};
+
+
+
+
+// ★ 手动投屏（支持 IP:端口 强制投送）
+window.manualCast = function() {
+    var it = listItems[currentIndex];
+    if (!it || it.kind !== 'media') { alert('请先选择视频播放'); return; }
+    
+    var inputVal = document.getElementById('manual-tv-ip').value.trim();
+    if (!inputVal) { alert('请输入电视的 IP 或 IP:端口'); return; }
+    
+    var ip = inputVal;
+    var port = "9197"; // 默认给一个常见端口
+    var hasPort = false;
+    
+    if (inputVal.indexOf(':') > -1) {
+        var parts = inputVal.split(':');
+        ip = parts[0];
+        port = parts[1];
+        hasPort = true;
+    }
+    
+    if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+        alert('IP 格式不正确，例如 192.168.0.138 或 192.168.0.138:9197'); return;
+    }
+    
+    var list = document.getElementById('dlna-device-list');
+    var videoUrl = window.location.origin + it.url;
+    
+    if (hasPort) {
+        // ★ 用户明确指定了端口：直接构造常见路径强制发送，跳过探测
+        list.innerHTML = '正在强制投送到 ' + ip + ':' + port + ' ...';
+        var paths = [
+            '/AVTransport/control', 
+            '/upnp/control/AVTransport', 
+            '/control/AVTransport'
+        ];
+        var idx = 0;
+        function tryNextPath() {
+            if (idx >= paths.length) {
+                list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 尝试了所有路径均失败，请确认该端口是 DLNA 控制端口</div>';
+                return;
+            }
+            var control_url = 'http://' + ip + ':' + port + paths[idx];
+            list.innerHTML = '正在尝试 ' + control_url + ' ...';
+            doCast(control_url, videoUrl, list, function(success) {
+                if (success) return; 
+                idx++;
+                tryNextPath();
+            });
+        }
+        tryNextPath();
+    } else {
+        // 没带端口：尝试用后端探测
+        list.innerHTML = '正在探测 ' + ip + ' 的 DLNA 端口...';
+        fetch('/cgi-bin/luci/dlna/probe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'ip=' + encodeURIComponent(ip)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.status === 'success') {
+                list.innerHTML = '找到端口，正在投送...';
+                doCast(res.control_url, videoUrl, list);
+            } else {
+                list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 探测失败，建议输入 "IP:端口" 强制投送。<br>常见的端口：9197, 49152, 2869, 10243</div>';
+            }
+        })
+        .catch(function() {
+            list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求后端失败</div>';
+        });
+    }
+};
+
+// 发送投屏指令的辅助函数
+function doCast(control_url, videoUrl, listEl, callback) {
+    fetch('/cgi-bin/luci/dlna/cast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'control_url=' + encodeURIComponent(control_url) + '&video_url=' + encodeURIComponent(videoUrl)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.status === 'success') {
+            listEl.innerHTML = '<div style="color:#2ecc71; padding:10px;">✓ 投屏成功！电视即将播放</div>';
+            setTimeout(function() { document.getElementById('dlna-modal').style.display='none'; }, 2000);
+            if (callback) callback(true);
+        } else {
+            listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 发送失败: ' + (res.message || '') + '</div>';
+            if (callback) callback(false);
+        }
+    })
+    .catch(function() {
+        listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求失败</div>';
+        if (callback) callback(false);
+    });
+}
+
+
+
+var COVER_NAMES=/^(cover|front|folder|album|poster|thumb|default|artwork|cd|disc|scan)$/i;
+
+function findBgImages(audioName){
+  var base=audioName.replace(/\.[^.]+$/,'').toLowerCase();
+  var exact=[],covers=[],others=[];
+  listItems.forEach(function(it){
+    if(it.kind!=='image') return;
+    var nBase=it.name.replace(/\.[^.]+$/,'').toLowerCase();
+    if(nBase===base) exact.push(it);
+    else if(COVER_NAMES.test(nBase)) covers.push(it);
+    else others.push(it);
+  });
+  for(var i=others.length-1;i>0;i--){
+    var j=Math.floor(Math.random()*(i+1));
+    var t=others[i]; others[i]=others[j]; others[j]=t;
+  }
+  return exact.concat(covers, others);
+}
+
+function showBgInfo(text){
+  audioBgInfoEl.textContent=text;
+  audioBgInfoEl.classList.add('on');
+  if(bgInfoHideTimer) clearTimeout(bgInfoHideTimer);
+  bgInfoHideTimer=setTimeout(function(){audioBgInfoEl.classList.remove('on')},4000);
+}
+
+function setBgImage(url){
+  audioBgEl.style.opacity='0';
+  setTimeout(function(){
+    audioBgEl.src=url;
+    audioBgEl.style.opacity='1';
+  },400);
+}
+
+
+
+
+// ★ 音频模式背景（支持自动联网获取封面）
+function startAudioBackground(audioName) {
+    stopAudioBackground();
+    var imgs = findBgImages(audioName);
+    videoWrap.classList.add('audio-mode');
+    
+    if (imgs.length === 0) {
+        // ★ 本地无图片：尝试联网获取封面
+        var baseName = audioName.replace(/\.[^.]+$/, ''); // 去掉扩展名
+        
+        // 假设文件命名格式为 "歌手 - 歌名" 或 "歌名 - 歌手"
+        var artist = '', title = baseName;
+        if (baseName.indexOf(' - ') > -1) {
+            var parts = baseName.split(' - ');
+            artist = parts[0]; // 通常第一个是歌手
+            title = parts.slice(1).join(' - '); // 支持歌名里带横杠
+        }
+        
+        // 去掉前面的数字序号（例如 "01 "）
+        title = title.replace(/^\d+\s*/, '');
+        artist = artist.replace(/^\d+\s*/, '');
+        
+        showBgInfo('正在联网获取封面...');
+        
+        fetch('/cgi-bin/luci/dlna/cover?artist=' + encodeURIComponent(artist) + '&title=' + encodeURIComponent(title))
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (res.status === 'success') {
+                    bgImages = [{name: '在线封面', url: res.url}];
+                    bgIdx = 0;
+                    audioBgEl.src = res.url;
+                    audioBgEl.style.opacity = '1';
+                    audioBgEl.classList.add('on');
+                    showBgInfo('📷 在线获取的封面');
+                } else {
+                    // 找不到封面时，显示默认背景
+                    videoEl.removeAttribute('controls');
+                    acUpdatePlay();
+                    acUpdateTime();
+                    showBgInfo('未能找到封面');
+                }
+            })
+            .catch(function() {
+                videoEl.removeAttribute('controls');
+                acUpdatePlay();
+                acUpdateTime();
+            });
+        
+        videoEl.removeAttribute('controls');
+        acUpdatePlay(); 
+        acUpdateTime();
+        return;
+    }
+    
+    // 下面是原有的逻辑，处理本地图片
+    bgImages = imgs;
+    bgIdx = 0;
+    audioBgEl.src = imgs[0].url;
+    audioBgEl.style.opacity = '1';
+    audioBgEl.classList.add('on');
+    videoEl.removeAttribute('controls');
+    acUpdatePlay();
+    acUpdateTime();
+    var label;
+    if (imgs.length === 1) label = '📷 ' + imgs[0].name;
+    else label = '📷 ' + imgs.length + ' 张图片轮播';
+    showBgInfo(label);
+    if (imgs.length > 1) {
+        bgTimer = setInterval(function() {
+            bgIdx = (bgIdx + 1) % bgImages.length;
+            setBgImage(bgImages[bgIdx].url);
+        }, BG_INTERVAL);
+    }
+}
+
+
+
+
+function stopAudioBackground(){
+  if(bgTimer){clearInterval(bgTimer);bgTimer=null;}
+  audioBgEl.classList.remove('on');
+  audioBgEl.removeAttribute('src');
+  audioBgEl.style.opacity='1';
+  audioBgInfoEl.classList.remove('on');
+  videoWrap.classList.remove('audio-mode');
+  videoEl.setAttribute('controls','');
+  bgImages=[];
+  bgIdx=0;
+}
+
+function setI(id,v){var el=document.getElementById(id);if(el)el.textContent=v}
+function clearInfo(){setI('i-container','-');setI('i-vcodec','-');setI('i-acodec','-');setI('i-res','-');setI('i-dur','-');setI('i-pos','-')}
+function setSize(s){setI('i-size',formatSize(s)||'-')}
+function fillGuessedInfo(name){
+  setI('i-container',guessContainer(name)||'-');
+  var v=guessVCodec(name);setI('i-vcodec',v?v:'-');
+  var a=guessACodec(name);setI('i-acodec',a?a:'-');
+}
+
+videoEl.addEventListener('loadedmetadata',function(){
+  setI('i-res',(videoEl.videoWidth||'?')+'×'+(videoEl.videoHeight||'?'));
+  setI('i-dur',formatTime(videoEl.duration));
+  if(currentSegment.start>0){try{videoEl.currentTime=currentSegment.start}catch(e){}}
+});
+videoEl.addEventListener('timeupdate',function(){
+  if(currentSegment.end!=null&&videoEl.currentTime>=currentSegment.end-0.1){
+    currentSegment.end=null;videoEl.pause();setTimeout(playNextAuto,50);return;
+  }
+  if(currentSegment.end!=null){
+    var rel=videoEl.currentTime-currentSegment.start;
+    var len=currentSegment.end-currentSegment.start;
+    setI('i-pos',formatTime(rel)+' / '+formatTime(len));
+  } else {
+    setI('i-pos',formatTime(videoEl.currentTime)+' / '+formatTime(videoEl.duration));
+  }
+});
+previewEl.onload=function(){setI('i-res',previewEl.naturalWidth+'×'+previewEl.naturalHeight)};
+
+function hideAllViews(){
+  videoEl.style.display='none';
+  previewEl.style.display='none';previewEl.removeAttribute('src');
+  pdfPreviewEl.style.display='none';pdfPreviewEl.src='about:blank';
+  textPreviewEl.style.display='none';textPreviewEl.textContent='';
+  encSelEl.style.display='none';
+  if(textAbortController){try{textAbortController.abort()}catch(e){}textAbortController=null}
+}
+function destroyPlayer(){
+  if(mpegtsPlayer){try{mpegtsPlayer.pause();mpegtsPlayer.unload();mpegtsPlayer.detachMediaElement();mpegtsPlayer.destroy()}catch(e){}mpegtsPlayer=null}
+  try{videoEl.pause()}catch(e){}
+  videoEl.removeAttribute('src');
+  try{videoEl.load()}catch(e){}
+}
+
+fetch('/api/dir'+dirPath).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(function(items){
+  if(!Array.isArray(items))items=[];
+  var dirs=items.filter(function(it){return it.type==='directory'}).sort(cmp);
+  var media=items.filter(function(it){return it.type==='file'&&isMedia(it.name)}).sort(cmp);
+  var cues=items.filter(function(it){return it.type==='file'&&isCue(it.name)}).sort(cmp);
+  var images=items.filter(function(it){return it.type==='file'&&isImage(it.name)}).sort(cmp);
+  var pdfs=items.filter(function(it){return it.type==='file'&&isPDF(it.name)}).sort(cmp);
+  var texts=items.filter(function(it){return it.type==='file'&&isText(it.name)&&!isSubFile(it.name)&&!isCue(it.name)}).sort(cmp);
+  var others=items.filter(function(it){return it.type==='file'&&!isMedia(it.name)&&!isImage(it.name)&&!isPDF(it.name)&&!isText(it.name)&&!isCue(it.name)}).sort(cmp);
+
+  var cuePromises=cues.map(function(c){
+    return fetch(dirPath+encodeURIComponent(c.name)).then(function(r){return r.arrayBuffer()}).then(function(buf){
+      var dec=decodeBytes(new Uint8Array(buf),'auto');
+      var parsed=parseCue(dec.text);
+      return {cueFile:c, parsed:parsed};
+    }).catch(function(){return null});
+  });
+
+  return Promise.all(cuePromises).then(function(results){
+    var cueMap={};
+    results.forEach(function(r){
+      if(!r||!r.parsed||!r.parsed.tracks.length) return;
+      var byFile={};
+      r.parsed.tracks.forEach(function(t){
+        if(!t.file) return;
+        if(!byFile[t.file]) byFile[t.file]=[];
+        byFile[t.file].push(t);
+      });
+      Object.keys(byFile).forEach(function(fname){
+        cueMap[fname]={tracks:byFile[fname],title:r.parsed.title,performer:r.parsed.performer,cueName:r.cueFile.name};
+      });
+    });
+
+    listItems=[];
+    dirs.forEach(function(d){listItems.push({kind:'dir',name:d.name})});
+    media.forEach(function(m){
+      var item={kind:'media',name:m.name,size:m.size,url:dirPath+encodeURIComponent(m.name)};
+      if(cueMap[m.name]){item.hasCue=true;item.cueData=cueMap[m.name];item.expanded=false;}
+      listItems.push(item);
+    });
+    images.forEach(function(m){listItems.push({kind:'image',name:m.name,size:m.size,url:dirPath+encodeURIComponent(m.name)})});
+    pdfs.forEach(function(m){listItems.push({kind:'doc',name:m.name,size:m.size,url:dirPath+encodeURIComponent(m.name)})});
+    texts.forEach(function(m){listItems.push({kind:'text',name:m.name,size:m.size,url:dirPath+encodeURIComponent(m.name)})});
+    others.forEach(function(o){listItems.push({kind:'other',name:o.name,size:o.size,url:dirPath+encodeURIComponent(o.name)})});
+
+    countEl.textContent=media.length;
+    renderList();
+
+    if(media.length>0){
+      currentIndex=dirs.length;
+      var first=listItems[currentIndex];
+      if(isAudioOnly(first.name)){
+        hideAllViews();
+        videoEl.style.display='block';
+        videoEl.src=first.url;
+        setNowPlaying('▶',first.name,'');
+        setSize(first.size);fillGuessedInfo(first.name);
+        startAudioBackground(first.name);
+      } else {
+        videoEl.src=first.url;
+        setNowPlaying('▶',first.name,'');
+        setSize(first.size);
+        fillGuessedInfo(first.name);
+      }
+      renderList();
+    } else if(images.length>0){
+      showImageOnly(dirs.length);
+    } else if(listItems.length>0){
+      emptyEl.textContent='点击左侧列表打开';emptyEl.style.display='';
+    } else {
+      emptyEl.textContent='此目录为空';emptyEl.style.display='';
+    }
+  });
+}).catch(function(e){
+  emptyEl.textContent='加载失败：'+e.message;emptyEl.style.display='';
+});
+
+function renderList(){
+  listEl.innerHTML='';
+  listItems.forEach(function(item,idx){
+    var li=document.createElement('li');
+    if(item.kind==='dir'){
+      li.className='dir';
+      li.innerHTML='<span class="idx">📁</span><span class="name">'+esc(item.name)+'/</span>';
+      li.onclick=function(){location.href=dirPath+encodeURIComponent(item.name)+'/'};
+    } else if(item.kind==='media'){
+      var cls='media'+(idx===currentIndex?' active':'');
+      if(item.isCueChild) cls+=' cue-child';
+      if(item.hasCue) cls+=' has-cue'+(item.expanded?' expanded':'');
+      li.className=cls;
+      var dn=item.displayName||item.name;
+      var prefix;
+      if(item.hasCue){prefix='<span class="idx toggle'+(item.expanded?' on':'')+'">'+(item.expanded?'▼':'▶')+'</span>';}
+      else {prefix='<span class="idx">'+(idx+1)+'</span>';}
+      var sz=item.isCueChild?'':formatSize(item.size);
+      var playing=(idx===currentIndex);
+      var nameHtml=playing?'<span class="playing-icon">🔊</span>'+esc(dn):esc(dn);
+      li.innerHTML=prefix+'<span class="name">'+nameHtml+'</span><span class="sz">'+sz+'</span>';
+      if(item.hasCue){li.onclick=(function(i){return function(){toggleAudioCue(i)}})(idx);}
+      else {li.onclick=(function(i){return function(){playIndex(i)}})(idx);}
+    } else if(item.kind==='image'){
+      li.className='image'+(idx===currentIndex?' active':'');
+      li.innerHTML='<span class="idx">🖼️</span><span class="name">'+esc(item.name)+'</span><span class="sz">'+formatSize(item.size)+'</span>';
+      li.onclick=(function(i){return function(){previewImage(i)}})(idx);
+    } else if(item.kind==='doc'){
+      li.className='doc'+(idx===currentIndex?' active':'');
+      li.innerHTML='<span class="idx">📕</span><span class="name">'+esc(item.name)+'</span><span class="sz">'+formatSize(item.size)+'</span>';
+      li.onclick=(function(i){return function(){previewPDF(i)}})(idx);
+    } else if(item.kind==='text'){
+      li.className='text'+(idx===currentIndex?' active':'');
+      li.innerHTML='<span class="idx">📝</span><span class="name">'+esc(item.name)+'</span><span class="sz">'+formatSize(item.size)+'</span>';
+      li.onclick=(function(i){return function(){previewText(i)}})(idx);
+    } else {
+      li.className='other';
+      li.innerHTML='<span class="idx">'+iconFor(item.name)+'</span><a class="name" href="'+item.url+'" download="'+esc(item.name)+'">'+esc(item.name)+'</a><span class="sz">'+formatSize(item.size)+'</span>';
+      li.onclick=(function(a){return function(e){if(e.target.tagName!=='A')a.click()}})(li.querySelector('a'));
+    }
+    listEl.appendChild(li);
+  });
+}
+
+function toggleAudioCue(idx){
+  var it=listItems[idx];
+  if(!it||it.kind!=='media'||!it.hasCue) return;
+  if(it.expanded){
+    var removed=0;
+    while(idx+1<listItems.length && listItems[idx+1].isCueChild && listItems[idx+1].parentUrl===it.url){
+      listItems.splice(idx+1,1);removed++;
+    }
+    it.expanded=false;
+    if(currentIndex>idx){if(currentIndex<=idx+removed)currentIndex=-1;else currentIndex-=removed;}
+    renderList();
+    return;
+  }
+  var cd=it.cueData;
+  var newItems=[];
+  cd.tracks.forEach(function(t){
+    var numStr=(t.num<10?'0':'')+t.num;
+    var title=t.title||('Track '+t.num);
+    var disp=numStr+' '+title+(t.performer?(' - '+t.performer):'');
+    newItems.push({kind:'media',name:disp,displayName:disp,size:0,url:it.url,startTime:t.index01,endTime:t.endTime,isCueChild:true,parentUrl:it.url,cueFrom:cd.cueName,cueAlbum:cd.title||'',cuePerformer:cd.performer||''});
+  });
+  var i=idx+1;
+  while(i<listItems.length && listItems[i].isCueChild && listItems[i].parentUrl===it.url){listItems.splice(i,1);}
+  Array.prototype.splice.apply(listItems, [idx+1, 0].concat(newItems));
+  it.expanded=true;
+  if(currentIndex>idx) currentIndex+=newItems.length;
+  renderList();
+}
+
+function playIndex(idx){
+  var it=listItems[idx];
+  if(!it||it.kind!=='media') return;
+  destroyPlayer();
+  hideAllViews();
+  videoEl.style.display='block';
+  currentIndex=idx;
+  renderList();
+  if(it.startTime!=null){currentSegment.start=it.startTime;currentSegment.end=it.endTime;}
+  else {currentSegment.start=0;currentSegment.end=null;}
+  setNowPlaying('▶',(it.displayName||it.name),getCueBadge(idx));
+  emptyEl.style.display='none';
+  setSize(it.size);
+  clearInfo();
+  fillGuessedInfo(it.name);
+
+  if(isAudioOnly(it.url)){
+    startAudioBackground(it.name);
+  } else {
+    stopAudioBackground();
+  }
+
+  if(isTS(it.url)&&typeof mpegts!=='undefined'&&mpegts.isSupported()){
+    try{
+      mpegtsPlayer=mpegts.createPlayer({type:'mpegts',isLive:false,url:it.url},{enableWorker:false,lazyLoad:false});
+      mpegtsPlayer.attachMediaElement(videoEl);
+      mpegtsPlayer.load();
+      mpegtsPlayer.play();
+      mpegtsPlayer.on(mpegts.Events.ERROR,function(t,d){console.warn('mpegts err:',t,d);setTimeout(playNextAuto,500)});
+    }catch(e){videoEl.src=it.url;videoEl.play().catch(function(){});}
+  } else {
+    videoEl.src=it.url;videoEl.play().catch(function(){});
+  }
+  var active=listEl.querySelector('li.active');
+  if(active)active.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+
+function showImageOnly(idx){
+  var it=listItems[idx];if(!it||it.kind!=='image')return;
+  stopAudioBackground();
+  destroyPlayer();hideAllViews();
+  previewEl.style.display='block';previewEl.src=it.url;
+  currentIndex=idx;renderList();
+  setNowPlaying('🖼️',it.name,'');emptyEl.style.display='none';
+  setSize(it.size);clearInfo();
+  setI('i-container','图片');
+}
+function previewImage(idx){showImageOnly(idx);}
+
+function previewPDF(idx){
+  var it=listItems[idx];if(!it||it.kind!=='doc')return;
+  stopAudioBackground();
+  destroyPlayer();hideAllViews();
+  pdfPreviewEl.style.display='block';pdfPreviewEl.src=it.url;
+  currentIndex=idx;renderList();
+  setNowPlaying('📕',it.name,'');emptyEl.style.display='none';
+  setSize(it.size);clearInfo();
+  setI('i-container','PDF');
+}
+function previewText(idx){
+  var it=listItems[idx];if(!it||it.kind!=='text')return;
+  stopAudioBackground();
+  destroyPlayer();hideAllViews();
+  currentIndex=idx;renderList();
+  setNowPlaying('📝',it.name,'');emptyEl.style.display='none';
+  setSize(it.size);clearInfo();
+  if(it.size&&it.size>TEXT_PREVIEW_MAX){textPreviewEl.style.display='block';textPreviewEl.textContent='文件过大，无法在线预览。';return;}
+  textPreviewEl.style.display='block';textPreviewEl.textContent='加载中...';
+  encSelEl.style.display='block';encSelEl.value='auto';
+  textAbortController=('AbortController' in window)?new AbortController():null;
+  var opts=textAbortController?{signal:textAbortController.signal}:{};
+  fetch(it.url,opts).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer()}).then(function(buf){
+    if(currentIndex!==idx)return;
+    currentTextBytes=new Uint8Array(buf);
+    applyTextDecode('auto');
+  }).catch(function(e){if(e.name==='AbortError')return;textPreviewEl.textContent='加载失败：'+e.message});
+}
+function applyTextDecode(forced){
+  if(!currentTextBytes)return;
+  var r=decodeBytes(currentTextBytes,forced);
+  if(forced==='auto'){
+    if(r.enc==='gbk')encSelEl.value='gbk';
+    else if(r.enc==='gb18030')encSelEl.value='gb18030';
+    else if(r.enc==='utf-8')encSelEl.value='utf-8';
+  }
+  textPreviewEl.textContent=r.text||'（空）';
+  setI('i-container','TXT');
+  setI('i-vcodec','编码：'+r.label);
+}
+encSelEl.addEventListener('change',function(){applyTextDecode(encSelEl.value)});
+
+videoEl.addEventListener('ended',function(){
+  if(playMode==='repeat-one'){if(currentIndex>=0&&listItems[currentIndex].kind==='media')playIndex(currentIndex);return}
+  playNextAuto();
+});
+function playNextAuto(){
+  if(playMode==='random'){
+    var c=[];for(var i=0;i<listItems.length;i++)if(listItems[i].kind==='media'&&i!==currentIndex)c.push(i);
+    if(c.length===0){if(currentIndex>=0&&listItems[currentIndex].kind==='media')playIndex(currentIndex);return}
+    playIndex(c[Math.floor(Math.random()*c.length)]);return;
+  }
+  for(var j=currentIndex+1;j<listItems.length;j++)if(listItems[j].kind==='media'){playIndex(j);return}
+  if(playMode==='repeat-all')for(var k=0;k<listItems.length;k++)if(listItems[k].kind==='media'){playIndex(k);return}
+}
+videoEl.addEventListener('error',function(){if(videoEl.src&&!mpegtsPlayer)setTimeout(playNextAuto,500)});
+
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
+  if(e.key===' '){if(videoEl.style.display!=='none'&&videoEl.src){e.preventDefault();videoEl.paused?videoEl.play():videoEl.pause()}return}
+  if(e.key==='ArrowLeft')for(var i=currentIndex-1;i>=0;i--){var k=listItems[i].kind;if(k==='media'){playIndex(i);return}if(k==='image'){previewImage(i);return}if(k==='doc'){previewPDF(i);return}if(k==='text'){previewText(i);return}}
+  else if(e.key==='ArrowRight')for(var i=currentIndex+1;i<listItems.length;i++){var k=listItems[i].kind;if(k==='media'){playIndex(i);return}if(k==='image'){previewImage(i);return}if(k==='doc'){previewPDF(i);return}if(k==='text'){previewText(i);return}}
+});
+})();
+</script>
+</body>
+</html>
