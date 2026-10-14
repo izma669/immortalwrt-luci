@@ -14,6 +14,7 @@ function index()
     entry({"admin", "nas", "owntone", "sync_schedule"}, call("action_sync_schedule")).leaf = true
     entry({"admin", "nas", "owntone", "restart_service"}, call("action_restart_service")).leaf = true
     entry({"admin", "nas", "owntone", "player_control"}, call("player_control")).leaf = true
+    entry({"admin", "nas", "owntone", "browse_dir"}, call("action_browse_dir")).leaf = true
 end
 
 function act_status()
@@ -249,7 +250,6 @@ function action_apply_schedule()
             local t = params["time" .. i]
             local v = params["volume" .. i]
             local target = params["target" .. i]
-            -- 校验：时间格式正确、音量是 0-100 纯数字（自动去前导零）
             if t ~= "" and v:match("^%d+$") and tonumber(v) <= 100 then
                 v = tostring(tonumber(v))
                 local hh, mm = t:match("^(%d?%d):(%d%d)$")
@@ -268,7 +268,6 @@ function action_apply_schedule()
         end
     end
 
-    -- 只清理带 # owntone-vol-N 标识的行，其他计划任务不动
     local crontab = "/etc/crontabs/root"
     local kept = {}
     local f = io.open(crontab, "r")
@@ -292,7 +291,7 @@ function action_apply_schedule()
     luci.http.write_json({ success = true, count = #new_lines })
 end
 
--- 从 crontab 反向解析定时任务，回写 UCI（保证界面和实际一致）
+-- 从 crontab 反向解析定时任务，返回给前端回填显示
 function action_sync_schedule()
     local fs = require "nixio.fs"
 
@@ -337,7 +336,6 @@ function player_control()
         return
     end
 
-    -- 先检查 OwnTone 是否在运行
     local running = luci.sys.call("pgrep owntone >/dev/null") == 0
     if not running then
         luci.http.status(500, "Not Running")
@@ -372,4 +370,53 @@ function player_control()
         luci.http.prepare_content("application/json")
         luci.http.write_json({ success = false, error = "OwnTone API 返回状态码: " .. (http_code or "空") })
     end
+end
+
+-- ==================== 目录浏览（供"选择目录"弹窗使用） ====================
+function action_browse_dir()
+    local sys = require "luci.sys"
+    local path = luci.http.formvalue("path") or "/mnt"
+
+    -- 规范化
+    if path == "" or path == "/" or path == "/mnt/" then path = "/mnt" end
+    path = path:gsub("/+$", "")
+    if path == "" then path = "/mnt" end
+
+    -- 限制在 /mnt 下
+    if not path:match("^/mnt") then
+        path = "/mnt"
+    end
+
+    -- 转义单引号，避免 shell 注入
+    local safe_path = path:gsub("'", "'\\''")
+
+    local dirs = {}
+    local cmd = string.format(
+        "find '%s' -mindepth 1 -maxdepth 1 -type d 2>/dev/null", safe_path)
+    local out = sys.exec(cmd) or ""
+
+    for line in out:gmatch("[^\r\n]+") do
+        local name = line:match("([^/]+)$")
+        if name and name ~= "" and not name:match("^%.") then
+            table.insert(dirs, name)
+        end
+    end
+    table.sort(dirs)
+
+    -- 上级目录
+    local parent = nil
+    if path ~= "/mnt" then
+        parent = path:match("^(.*)/[^/]+$")
+        if not parent or not parent:match("^/mnt") then
+            parent = "/mnt"
+        end
+    end
+
+    luci.http.prepare_content("application/json")
+    luci.http.write_json({
+        success = true,
+        path    = path,
+        parent  = parent,
+        dirs    = dirs
+    })
 end
