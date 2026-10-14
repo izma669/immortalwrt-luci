@@ -19,7 +19,10 @@ function index()
     entry({"dlna", "discover"}, call("dlna_discover")).leaf = true
     entry({"dlna", "cast"}, post("dlna_cast")).leaf = true
     entry({"dlna", "probe"}, post("dlna_probe")).leaf = true
+    -- ★ 自动下载封面
+    entry({"dlna", "cover"}, call("dlna_cover")).leaf = true
 end
+
 
 -- AJAX 目录浏览
 function browse_dir()
@@ -242,7 +245,6 @@ function dlna_probe()
 end
 
 
-
 -- ★ 发送投屏指令
 function dlna_cast()
     local http = require "luci.http"
@@ -277,5 +279,30 @@ function dlna_cast()
         http.write_json({status = "success"})
     else
         http.write_json({status = "error", message = "HTTP Status: " .. out1 .. " / " .. out2})
+    end
+end   -- ★ 就是这里，必须加上这个 end，否则 dlna_cover 会被嵌套进去！
+
+-- ★ 自动联网获取歌曲封面
+function dlna_cover()
+    local http = require "luci.http"
+    local sys = require "luci.sys"
+    local title = http.formvalue("title") or ""
+    
+    local query = title:gsub("%[.-%]", ""):gsub("%(.-%)", ""):gsub("《.-》", "")
+    query = query:gsub("^%d+%s*", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if query == "" then query = title end
+    
+    local cmd = string.format([[curl -s -G -k --connect-timeout 5 --max-time 10 'https://itunes.apple.com/search' --data-urlencode 'term=%s' --data-urlencode 'entity=song' --data-urlencode 'limit=1']], query:gsub("'", "'\\''"))
+    local json_str = sys.exec(cmd)
+    
+    local artwork = json_str:match('"artworkUrl100":"([^"]+)"')
+    
+    if artwork then
+        artwork = artwork:gsub("100x100", "600x600")
+        http.prepare_content("application/json")
+        http.write_json({status = "success", url = artwork})
+    else
+        http.prepare_content("application/json")
+        http.write_json({status = "error", message = "iTunes 未找到匹配封面，原始搜索词: " .. query})
     end
 end
