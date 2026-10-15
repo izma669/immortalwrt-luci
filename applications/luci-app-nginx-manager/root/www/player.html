@@ -7,7 +7,9 @@
 <script src="/mpegts.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none}
+html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", sans-serif;
+  overflow:hidden;-webkit-user-select:none;user-select:none}
 #app{display:flex;height:100%;overflow:hidden}
 #sidebar{width:280px;background:#1a1a1a;display:flex;flex-direction:column;border-right:1px solid #2a2a2a;min-height:0}
 #sidebar header{padding:10px 12px;background:#222;border-bottom:1px solid #2a2a2a;display:flex;gap:8px;align-items:center;flex-shrink:0}
@@ -105,13 +107,33 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
 
 /* ★ DLNA 投屏弹窗 */
 #dlna-modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:99999; align-items:center; justify-content:center; }
-#dlna-modal .box { background:#1a1a1a; border:1px solid #333; border-radius:12px; width:400px; max-width:90vw; }
+#dlna-modal .box { background:#1a1a1a; border:1px solid #333; border-radius:12px; width:420px; max-width:90vw; }
 #dlna-modal .hdr { padding:16px 20px; background:#222; font-size:15px; color:#fff; border-bottom:1px solid #333; }
-#dlna-modal .lst { max-height:300px; overflow-y:auto; padding:10px; }
+#dlna-modal .lst { max-height:250px; overflow-y:auto; padding:10px; }
 #dlna-modal .it { padding:12px; cursor:pointer; background:#2a2a2a; margin-bottom:5px; border-radius:6px; color:#ddd; font-size:14px; display:flex; align-items:center; gap:10px; }
 #dlna-modal .it:hover { background:#1e3a5f; color:#4a9eff; }
 #dlna-modal .ftr { padding:12px 20px; background:#222; border-top:1px solid #333; text-align:right; }
 #dlna-modal .ftr button { background:#333; border:none; color:#ccc; padding:6px 16px; border-radius:6px; cursor:pointer; }
+
+/* ★ DLNA 进度条自定义样式 */
+#dlna-seek-bar {
+    -webkit-appearance: none;
+    appearance: none;
+    background: #333;
+    border-radius: 3px;
+    height: 6px;
+    outline: none;
+    width: 100%;
+}
+#dlna-seek-bar::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #4a9eff;
+    border-radius: 50%;
+    cursor: pointer;
+}
 
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-track{background:#151515}
@@ -196,6 +218,7 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
   </main>
 </div>
 
+<!-- ★ DLNA 投屏弹窗（含控制面板） -->
 <div id="dlna-modal">
     <div class="box">
         <div class="hdr">📺 选择投屏设备</div>
@@ -207,6 +230,36 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
                 <button type="button" class="nm-btn green" onclick="manualCast()" style="margin:0;">开始投屏</button>
             </div>
         </div>
+        
+        <!-- ★ 投屏控制面板（默认隐藏） -->
+        <div id="dlna-control-panel" style="display:none; padding: 15px 20px; border-top: 1px solid #333; background: #151515;">
+            <div style="color:#2ecc71; font-size:12px; margin-bottom:10px; text-align:center;">🎉 投屏成功！远端遥控器已就绪</div>
+            <div style="display:flex; gap:8px; justify-content:center; margin-bottom:12px;">
+                <button onclick="dlnaAction('play')" style="background:#333; border:none; color:#fff; padding:6px 12px; border-radius:4px; cursor:pointer;">▶ 播放</button>
+                <button onclick="dlnaAction('pause')" style="background:#333; border:none; color:#fff; padding:6px 12px; border-radius:4px; cursor:pointer;">⏸ 暂停</button>
+                <button onclick="dlnaAction('stop')" style="background:#c0392b; border:none; color:#fff; padding:6px 12px; border-radius:4px; cursor:pointer;">⏹ 停止</button>
+            </div>
+            
+            <!-- ★ 跟踪走时的进度条 -->
+            <div style="margin-bottom:10px;">
+                <div style="color:#aaa; font-size:12px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>进度跳转（自动走时，拖动可跳转）</span>
+                    <span id="dlna-duration-label" style="color:#666; font-size:11px;">总时长: 加载中...</span>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="range" id="dlna-seek-bar" min="0" max="100" value="0" step="1" 
+                           oninput="window.isDlnaDragging=true; updateSeekDisplay(this.value);" 
+                           onchange="window.isDlnaDragging=false; executeSeek(this.value);">
+                    <span id="dlna-seek-label" style="color:#4a9eff; font-size:13px; min-width:60px; text-align:right; font-variant-numeric:tabular-nums;">00:00:00</span>
+                </div>
+            </div>
+            
+            <div>
+                <div style="color:#aaa; font-size:12px; margin-bottom:4px;">音量控制：<span id="dlna-vol-val">50</span></div>
+                <input type="range" id="dlna-vol" min="0" max="100" value="50" style="width:100%;" oninput="document.getElementById('dlna-vol-val').innerText=this.value" onchange="dlnaControl('volume', this.value)">
+            </div>
+        </div>
+
         <div class="ftr"><button onclick="document.getElementById('dlna-modal').style.display='none'">取消</button></div>
     </div>
 </div>
@@ -214,6 +267,11 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
 <script>
 (function(){
 'use strict';
+
+// ★ 全局变量
+var dlnaControlUrl = "";
+window.isDlnaDragging = false;
+window.dlnaIsPaused = false; // 全局远端暂停标志
 
 var VIDEO_EXTS=['.mp4','.webm','.mkv','.mov','.avi','.m4v','.ogv','.flv','.3gp','.ts','.m2ts','.wmv'];
 var AUDIO_EXTS=['.mp3','.m4a','.flac','.aac','.ogg','.wav','.ape','.wv','.aiff','.aif','.alac'];
@@ -273,12 +331,16 @@ var videoWrap=document.getElementById('video-wrap');
         else { kernel = 'WebKit'; }
     } else if (/Gecko/.test(ua) && /Firefox/.test(ua)) { kernel = 'Gecko (Firefox)'; }
     else if (/Trident/.test(ua)) { kernel = 'Trident (IE)'; }
-    if (os === 'iOS/iPadOS') { warning = ' (注意：iOS硬件解码不支持MP4/MP3音频，请转码AAC)'; }
+    
+    if (os === 'iOS/iPadOS') { 
+        warning = ' (注意：iOS系统会强制任何浏览器使用WebKit内核)'; 
+    }
+    
     var el = document.getElementById('i-browser');
     if (el) { el.textContent = os + ' / ' + kernel + warning; if (os === 'iOS/iPadOS') { el.style.color = '#f28b82'; } }
 })();
 
-var currentIndex=-1, listItems=[], playMode='sequential', mpegtsPlayer=null, textAbortController=null, currentTextBytes=null, currentSegment={start:0,end:null};
+var currentIndex=-1, listItems=[], playMode='', mpegtsPlayer=null, textAbortController=null, currentTextBytes=null, currentSegment={start:0,end:null};
 var bgTimer=null, bgImages=[], bgIdx=0, bgInfoHideTimer=null, seeking=false;
 var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 if(isIOS){ var _am=document.getElementById('ac-mute'); var _av=document.getElementById('ac-vol'); if(_am)_am.style.display='none'; if(_av)_av.style.display='none'; }
@@ -423,31 +485,219 @@ function getCueBadge(idx){
 
 var modeBtns=document.querySelectorAll('#mode-bar button[data-mode]');
 modeBtns.forEach(function(b){b.onclick=function(){playMode=b.getAttribute('data-mode');modeBtns.forEach(function(x){x.classList.toggle('active',x===b)})}});
-document.querySelector('#mode-bar button[data-mode="sequential"]').classList.add('active');
+// ★ 默认不选中任何模式，避免自动切集导致飞快换片
+// document.querySelector('#mode-bar button[data-mode="sequential"]').classList.add('active');
 
-// ★ DLNA 投屏逻辑（自动搜索 + 手动输入 IP）
+// =========================================================
+// ★ 混合模式：DLNA 进度条自动获取本地时长及跟踪走时逻辑
+// =========================================================
+
+function formatToHHMMSS(seconds) {
+    var h = Math.floor(seconds / 3600);
+    var m = Math.floor((seconds % 3600) / 60);
+    var s = Math.floor(seconds % 60);
+    var fmt = function(n) { return n < 10 ? '0' + n : n; };
+    return fmt(h) + ':' + fmt(m) + ':' + fmt(s);
+}
+
+function updateDlnaDuration(dur) {
+    var bar = document.getElementById('dlna-seek-bar');
+    var label = document.getElementById('dlna-duration-label');
+    if (bar && dur && isFinite(dur) && dur > 0) {
+        bar.max = Math.floor(dur);
+        if (label) {
+            label.innerText = '总时长: ' + formatToHHMMSS(dur);
+        }
+    } else {
+        if (label) label.innerText = '总时长: 未知';
+    }
+}
+
+window.updateSeekDisplay = function(seconds) {
+    var label = document.getElementById('dlna-seek-label');
+    if (label) {
+        label.innerText = formatToHHMMSS(seconds);
+    }
+};
+
+window.executeSeek = function(seconds) {
+    dlnaControl('seek', formatToHHMMSS(seconds));
+    if (videoEl.duration) {
+        try { videoEl.currentTime = seconds; } catch(e) {}
+    }
+};
+
+// ★ 本地走时兜底：如果远端不支持回传，靠本地 timeupdate 驱动进度条
+videoEl.addEventListener('timeupdate', function() {
+    if (window.dlnaIsPaused) return; // 远端已暂停，前端必须停
+    if (dlnaControlUrl && !window.isDlnaDragging) {
+        var bar = document.getElementById('dlna-seek-bar');
+        var label = document.getElementById('dlna-seek-label');
+        if (bar && label) {
+            var cur = Math.floor(videoEl.currentTime);
+            if (videoEl.duration && isFinite(videoEl.duration) && Math.floor(videoEl.duration) !== parseInt(bar.max)) {
+                bar.max = Math.floor(videoEl.duration);
+                var durLabel = document.getElementById('dlna-duration-label');
+                if (durLabel) durLabel.innerText = '总时长: ' + formatToHHMMSS(videoEl.duration);
+            }
+            bar.value = Math.min(cur, parseInt(bar.max));
+            label.innerText = formatToHHMMSS(cur);
+        }
+    }
+});
+
+// ★ 远端轮询纠偏：状态 + 时间双重同步
+var dlnaPollTimer = null;
+var lastDlnaTime = -1;
+var sameTimeCount = 0;
+var remoteSyncFailed = 0; // 连续失败次数
+
+function startDlnaPolling() {
+    if (dlnaPollTimer) clearInterval(dlnaPollTimer);
+    lastDlnaTime = -1;
+    sameTimeCount = 0;
+    remoteSyncFailed = 0;
+    
+    dlnaPollTimer = setInterval(function() {
+        if (!dlnaControlUrl) return;
+        if (window.isDlnaDragging) return; // 拖动时忽略
+        
+        if (remoteSyncFailed > 5) {
+            console.log('远端连续 5 次未返回状态，停止轮询。将仅使用本地控制。');
+            clearInterval(dlnaPollTimer);
+            return;
+        }
+
+        fetch('/cgi-bin/luci/dlna/get_position?control_url=' + encodeURIComponent(dlnaControlUrl))
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (res.status === 'success') {
+                    remoteSyncFailed = 0; // 成功，重置失败计数
+                    
+                    // 1. 状态同步（如果远端返回了标准 TransportState）
+                    if (res.state) {
+                        if (res.state === 'PAUSED_PLAYBACK' || res.state === 'STOPPED') {
+                            window.dlnaIsPaused = true;
+                            if (!videoEl.paused) {
+                                videoEl.pause(); 
+                                console.log('远端状态：暂停/停止，本地已同步');
+                            }
+                        } else if (res.state === 'PLAYING') {
+                            window.dlnaIsPaused = false;
+                            if (videoEl.paused) {
+                                videoEl.play().catch(function(){});
+                                console.log('远端状态：播放中，本地已恢复');
+                            }
+                        }
+                    }
+                    
+                    // 2. 时间停滞检测（针对不返回状态的非标准设备）
+                    if (res.rel_time && !window.dlnaIsPaused) {
+                        var parts = res.rel_time.split(':');
+                        if (parts.length === 3) {
+                            var seconds = parseInt(parts[0])*3600 + parseInt(parts[1])*60 + parseInt(parts[2]);
+                            
+                            if (seconds === lastDlnaTime) {
+                                sameTimeCount++;
+                                if (sameTimeCount >= 2) { // 连续 2 次（10秒）时间没变，判定为远端已暂停
+                                    window.dlnaIsPaused = true;
+                                    if (!videoEl.paused) {
+                                        videoEl.pause();
+                                        console.log('远端时间停滞，判定为暂停，本地已同步');
+                                    }
+                                }
+                            } else {
+                                sameTimeCount = 0;
+                                if (videoEl.paused) {
+                                    videoEl.play().catch(function(){});
+                                    console.log('远端时间恢复前进，本地恢复播放');
+                                }
+                            }
+                            lastDlnaTime = seconds;
+                            
+                            var bar = document.getElementById('dlna-seek-bar');
+                            var label = document.getElementById('dlna-seek-label');
+                            if (bar && label) {
+                                bar.value = seconds;
+                                label.innerText = res.rel_time;
+                            }
+                            // 纠偏本地时间（允许 5 秒误差，避免频繁跳动）
+                            if (videoEl.duration && Math.abs(videoEl.currentTime - seconds) > 5) {
+                                try { videoEl.currentTime = seconds; } catch(e) {}
+                            }
+                        }
+                    }
+                } else {
+                    remoteSyncFailed++;
+                }
+            })
+            .catch(function() {
+                remoteSyncFailed++;
+            });
+    }, 5000);
+}
+
+videoEl.addEventListener('loadedmetadata', function() {
+    updateDlnaDuration(videoEl.duration);
+});
+videoEl.addEventListener('durationchange', function() {
+    updateDlnaDuration(videoEl.duration);
+});
+
+// =========================================================
+
+// ★ 控制远端的同时，同步本地播放器状态
+window.dlnaAction = function(action) {
+    dlnaControl(action);
+    
+    if (action === 'play') {
+        window.dlnaIsPaused = false;
+        videoEl.play().catch(function(){});
+    } else if (action === 'pause') {
+        window.dlnaIsPaused = true;
+        videoEl.pause();
+    } else if (action === 'stop') {
+        window.dlnaIsPaused = true;
+        videoEl.pause();
+        videoEl.currentTime = 0;
+        var bar = document.getElementById('dlna-seek-bar');
+        var label = document.getElementById('dlna-seek-label');
+        if (bar && label) {
+            bar.value = 0;
+            label.innerText = '00:00:00';
+        }
+    }
+};
+
+// ★ 本地播放/暂停时，自动同步远端
+videoEl.addEventListener('play', function() {
+    window.dlnaIsPaused = false;
+    if (dlnaControlUrl) dlnaControl('play');
+});
+videoEl.addEventListener('pause', function() {
+    window.dlnaIsPaused = true;
+    if (dlnaControlUrl && !videoEl.ended) dlnaControl('pause');
+});
+
+// ★ DLNA 投屏逻辑
 document.getElementById('dlna-cast-btn').onclick = function() {
     var it = listItems[currentIndex];
-    if (!it || it.kind !== 'media') {
-        alert('请先点击左侧列表选择一个视频进行播放，然后再投屏！');
-        return;
-    }
+    if (!it || it.kind !== 'media') { alert('请先点击左侧列表选择一个视频进行播放，然后再投屏！'); return; }
     
     var modal = document.getElementById('dlna-modal');
     var list = document.getElementById('dlna-device-list');
     var manualArea = document.getElementById('manual-ip-area');
     
     modal.style.display = 'flex';
-    manualArea.style.display = 'none';  // 隐藏手动输入区
+    manualArea.style.display = 'none';
+    document.getElementById('dlna-control-panel').style.display = 'none';
+    updateDlnaDuration(videoEl.duration);
     list.innerHTML = '<div style="color:#f1c40f; padding:10px;">📡 正在进行【SSDP 广播扫描】自动发现设备...</div>';
     
     var apiBase = '/cgi-bin/luci/dlna';
     
     fetch(apiBase + '/discover')
-        .then(function(r) { 
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.json(); 
-        })
+        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function(devices) {
             list.innerHTML = '';
             if (!devices || devices.length === 0) {
@@ -474,14 +724,15 @@ document.getElementById('dlna-cast-btn').onclick = function() {
                     .then(function(res) {
                         if (res.status === 'success') {
                             list.innerHTML = '<div style="color:#2ecc71; padding:10px;">✓ 投屏成功，电视即将播放！</div>';
-                            setTimeout(function() { modal.style.display = 'none'; }, 1500);
+                            dlnaControlUrl = dev.control_url;
+                            window.dlnaIsPaused = false;
+                            document.getElementById('dlna-control-panel').style.display = 'block';
+                            startDlnaPolling(); // ★ 启动轮询
                         } else {
                             list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 失败: ' + (res.message || '未知错误') + '</div>';
                         }
                     })
-                    .catch(function() {
-                        list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求失败</div>';
-                    });
+                    .catch(function() { list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求失败</div>'; });
                 };
                 list.appendChild(div);
             });
@@ -493,96 +744,41 @@ document.getElementById('dlna-cast-btn').onclick = function() {
         });
 };
 
-// ★ 手动投屏（支持 IP:端口 强制投送）
 window.manualCast = function() {
     var it = listItems[currentIndex];
     if (!it || it.kind !== 'media') { alert('请先选择视频播放'); return; }
-    
     var inputVal = document.getElementById('manual-tv-ip').value.trim();
     if (!inputVal) { alert('请输入电视的 IP 或 IP:端口'); return; }
-    
-    var ip = inputVal;
-    var port = "9197"; // 默认给一个常见端口
-    var hasPort = false;
-    
-    if (inputVal.indexOf(':') > -1) {
-        var parts = inputVal.split(':');
-        ip = parts[0];
-        port = parts[1];
-        hasPort = true;
-    }
-    
-    if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
-        alert('IP 格式不正确，例如 192.168.0.138 或 192.168.0.138:9197'); return;
-    }
-    
+    var ip = inputVal; var port = "9197"; var hasPort = false;
+    if (inputVal.indexOf(':') > -1) { var parts = inputVal.split(':'); ip = parts[0]; port = parts[1]; hasPort = true; }
+    if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) { alert('IP 格式不正确'); return; }
     var list = document.getElementById('dlna-device-list');
     var videoUrl = window.location.origin + it.url;
+    document.getElementById('dlna-control-panel').style.display = 'none';
     
     if (hasPort) {
-        // ★ 用户明确指定了端口：直接构造常见路径强制发送，跳过探测
-        list.innerHTML = '<div style="color:#f1c40f; padding:10px;">🎯 正在进行【端口强制投送】模式：<br><span style="font-size:11px; color:#666;">目标: ' + ip + ':' + port + '</span></div>';
-        
-        // ★ 兼容 Apple TV UnPlay、GMediaRender 与各大标准 DLNA 设备
-        var paths = [
-            '/AVTransport/action',           // Apple TV UnPlay
-            '/upnp/control/rendertransport1', // GMediaRender 专有
-            '/upnp/control/AVTransport',     // 标准 UPnP
-            '/AVTransport/control',          // 部分电视
-            '/control/AVTransport',          // 常见兼容
-            '/control',                      // 备用
-            '/AVTransport',                  // 备用
-            '/upnp/control/AVTransport1'     // 防漏
-        ];
-        
+        list.innerHTML = '<div style="color:#f1c40f; padding:10px;">🎯 正在进行【端口强制投送】模式...</div>';
+        var paths = ['/AVTransport/action','/upnp/control/rendertransport1','/upnp/control/AVTransport','/AVTransport/control','/control/AVTransport','/control','/AVTransport','/upnp/control/AVTransport1'];
         var idx = 0;
         function tryNextPath() {
-            if (idx >= paths.length) {
-                list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 端口强制投送尝试了所有路径均失败，请确认该端口是 DLNA 控制端口</div>';
-                return;
-            }
+            if (idx >= paths.length) { list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 端口强制投送尝试了所有路径均失败</div>'; return; }
             var control_url = 'http://' + ip + ':' + port + paths[idx];
-            list.innerHTML = '<div style="color:#f1c40f; padding:10px;">🎯 正在进行【端口强制投送】模式：<br><span style="font-size:11px; color:#666;">正在尝试路径: ' + paths[idx] + '</span></div>';
-            doCast(control_url, videoUrl, list, function(success) {
-                if (success) return; 
-                idx++;
-                tryNextPath();
-            });
+            list.innerHTML = '<div style="color:#f1c40f; padding:10px;">🎯 尝试路径: ' + paths[idx] + '</div>';
+            doCast(control_url, videoUrl, list, function(success) { if (success) return; idx++; tryNextPath(); });
         }
         tryNextPath();
     } else {
-        // ★ 不带端口，走后端探测（单播 SSDP -> 端口盲扫）
-        list.innerHTML = '<div style="color:#f1c40f; padding:10px;">📡 正在进行【单播 SSDP 扫描】模式：<br><span style="font-size:11px; color:#666;">正在向 ' + ip + ' 发送探测包...</span></div>';
-        
-        var promptTimer = setTimeout(function() {
-            if (list.innerHTML.indexOf('单播 SSDP') > -1) {
-                list.innerHTML = '<div style="color:#f1c40f; padding:10px;">🔍 正在进行【端口盲扫】模式：<br><span style="font-size:11px; color:#666;">正在扫描常见 DLNA 端口 (9197, 49152, 8080...)，请耐心等待...</span></div>';
-            }
-        }, 2500);
-
-        fetch('/cgi-bin/luci/dlna/probe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'ip=' + encodeURIComponent(ip)
-        })
+        list.innerHTML = '<div style="color:#f1c40f; padding:10px;">📡 单播 SSDP 扫描中...</div>';
+        fetch('/cgi-bin/luci/dlna/probe', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'ip=' + encodeURIComponent(ip) })
         .then(function(r) { return r.json(); })
         .then(function(res) {
-            clearTimeout(promptTimer);
-            if (res.status === 'success') {
-                list.innerHTML = '<div style="color:#2ecc71; padding:10px;">✓ 扫描成功，找到 DLNA 控制接口，正在投送...</div>';
-                doCast(res.control_url, videoUrl, list);
-            } else {
-                list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 扫描失败，建议输入 "IP:端口" 强制投送。<br><span style="font-size:11px; color:#666;">常见端口：9197, 49152, 2869, 10243</span></div>';
-            }
+            if (res.status === 'success') { doCast(res.control_url, videoUrl, list); }
+            else { list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 扫描失败，建议输入 "IP:端口" 强制投送。</div>'; }
         })
-        .catch(function() {
-            clearTimeout(promptTimer);
-            list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求后端失败，请检查网络或路由器状态。</div>';
-        });
+        .catch(function() { list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求后端失败。</div>'; });
     }
 };
 
-// 发送投屏指令的辅助函数
 function doCast(control_url, videoUrl, listEl, callback) {
     fetch('/cgi-bin/luci/dlna/cast', {
         method: 'POST',
@@ -592,20 +788,35 @@ function doCast(control_url, videoUrl, listEl, callback) {
     .then(function(r) { return r.json(); })
     .then(function(res) {
         if (res.status === 'success') {
-            listEl.innerHTML = '<div style="color:#2ecc71; padding:10px;">✓ 投屏指令发送成功！电视即将播放</div>';
-            setTimeout(function() { document.getElementById('dlna-modal').style.display='none'; }, 2000);
-            if (callback) callback(true);
+            listEl.innerHTML = '<div style="color:#2ecc71; padding:10px;">✓ 投屏指令发送成功！</div>';
+            dlnaControlUrl = control_url; 
+            window.dlnaIsPaused = false;
+            document.getElementById('dlna-control-panel').style.display = 'block'; 
+            startDlnaPolling(); // ★ 启动轮询
         } else {
             listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 发送失败: ' + (res.message || '') + '</div>';
-            if (callback) callback(false);
         }
+        if (callback) callback(res.status === 'success');
     })
     .catch(function() {
-        listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求发送失败</div>';
+        listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求失败</div>';
         if (callback) callback(false);
     });
 }
 
+window.dlnaControl = function(action, value) {
+    if (!dlnaControlUrl) { alert('请先完成投屏'); return; }
+    fetch('/cgi-bin/luci/dlna/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'action=' + encodeURIComponent(action) + '&control_url=' + encodeURIComponent(dlnaControlUrl) + '&value=' + encodeURIComponent(value || '')
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) { if (res.status !== 'success') console.warn('控制指令发送失败:', res.message); })
+    .catch(function() { console.warn('控制请求失败'); });
+};
+
+// 后面剩下的音频背景、列表渲染、播放逻辑等（完整无删减）
 var COVER_NAMES=/^(cover|front|folder|album|poster|thumb|default|artwork|cd|disc|scan)$/i;
 
 function findBgImages(audioName){
@@ -640,7 +851,6 @@ function setBgImage(url){
   },400);
 }
 
-// ★ 音频模式背景（支持自动联网获取封面）
 function startAudioBackground(audioName) {
     stopAudioBackground();
     var imgs = findBgImages(audioName);
@@ -1005,8 +1215,11 @@ function applyTextDecode(forced){
 encSelEl.addEventListener('change',function(){applyTextDecode(encSelEl.value)});
 
 videoEl.addEventListener('ended',function(){
+  // ★ 只有在明确选择播放模式时，才自动切集
   if(playMode==='repeat-one'){if(currentIndex>=0&&listItems[currentIndex].kind==='media')playIndex(currentIndex);return}
-  playNextAuto();
+  if(playMode==='sequential' || playMode==='repeat-all' || playMode==='random'){
+      playNextAuto();
+  }
 });
 function playNextAuto(){
   if(playMode==='random'){
@@ -1017,7 +1230,17 @@ function playNextAuto(){
   for(var j=currentIndex+1;j<listItems.length;j++)if(listItems[j].kind==='media'){playIndex(j);return}
   if(playMode==='repeat-all')for(var k=0;k<listItems.length;k++)if(listItems[k].kind==='media'){playIndex(k);return}
 }
-videoEl.addEventListener('error',function(){if(videoEl.src&&!mpegtsPlayer)setTimeout(playNextAuto,500)});
+
+// ★ 播放出错时，不要盲目自动切集，除非用户明确选择了列表循环/随机
+videoEl.addEventListener('error', function() {
+    if (videoEl.src && !mpegtsPlayer) {
+        console.warn('播放错误，已停止自动切换');
+        // 只有在明确选择列表循环或随机模式时，才尝试自动切下一集
+        if (playMode === 'repeat-all' || playMode === 'random') {
+            setTimeout(playNextAuto, 1000);
+        }
+    }
+});
 
 document.addEventListener('keydown',function(e){
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
