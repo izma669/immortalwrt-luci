@@ -13,15 +13,15 @@ function index()
     entry({"admin", "services", "nginx-manager", "get_logs"}, call("get_logs")).leaf = true
     entry({"admin", "services", "nginx-manager", "clear_logs"}, post("clear_logs")).leaf = true
 
-    -- ★ 关键补漏：DLNA 接口路由（供 880 播放器调用）
+    -- ★ DLNA 接口路由（供 880 播放器调用）
     entry({"dlna", "discover"}, call("dlna_discover")).leaf = true
     entry({"dlna", "cast"}, post("dlna_cast")).leaf = true
     entry({"dlna", "probe"}, post("dlna_probe")).leaf = true
     entry({"dlna", "cover"}, call("dlna_cover")).leaf = true
+    entry({"dlna", "control"}, post("dlna_control")).leaf = true
+    entry({"dlna", "get_position"}, call("dlna_get_position")).leaf = true  -- ★ 新增路由
 end
 
--- ========== 以下函数可以直接沿用你路由器里现有的 ==========
--- 为了省事，我把最关键的 dlna_discover 和 dlna_cast 复制过来：
 function dlna_discover()
     local http = require "luci.http"
     local devices = {}
@@ -67,9 +67,6 @@ function dlna_cast()
     end
 end
 
--- 其他的 do_save, get_logs 等函数你路由器里本来就有，不需要重复写，LuCI 会自动合并
-
--- ★ 补漏：封面获取函数（解决重刷后封面功能失效）
 function dlna_cover()
     local http = require "luci.http"
     local sys = require "luci.sys"
@@ -87,5 +84,100 @@ function dlna_cover()
     else
         http.prepare_content("application/json")
         http.write_json({status = "error", message = "未找到封面"})
+    end
+end
+
+function dlna_control()
+    local http = require "luci.http"
+    local sys = require "luci.sys"
+    local action = http.formvalue("action") or ""
+    local ctrl_url = http.formvalue("control_url") or ""
+    local value = http.formvalue("value") or ""
+
+    if action == "" or ctrl_url == "" then
+        http.write_json({status = "error", message = "参数缺失"})
+        return
+    end
+
+    local target_url = ctrl_url
+    local soap = ""
+
+    if action == "pause" then
+        soap = string.format([[<?xml version="1.0"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+<s:Body><u:Pause xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID></u:Pause></s:Body></s:Envelope>]])
+    elseif action == "play" then
+        soap = string.format([[<?xml version="1.0"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+<s:Body><u:Play xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID><Speed>1</Speed></u:Play></s:Body></s:Envelope>]])
+    elseif action == "stop" then
+        soap = string.format([[<?xml version="1.0"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+<s:Body><u:Stop xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID></u:Stop></s:Body></s:Envelope>]])
+    elseif action == "seek" then
+        soap = string.format([[<?xml version="1.0"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+<s:Body><u:Seek xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID><Unit>REL_TIME</Unit><Target>%s</Target></u:Seek></s:Body></s:Envelope>]], value)
+    elseif action == "volume" then
+        target_url = ctrl_url:gsub("AVTransport", "RenderingControl"):gsub("rendertransport", "rendercontrol")
+        soap = string.format([[<?xml version="1.0"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+<s:Body><u:SetVolume xmlns:u="urn:schemas-upnp-org:service:RenderingControl:1"><InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>%s</DesiredVolume></u:SetVolume></s:Body></s:Envelope>]], value)
+    end
+
+    if soap == "" then
+        http.write_json({status = "error", message = "不支持的指令"})
+        return
+    end
+
+    local soap_action = "urn:schemas-upnp-org:service:AVTransport:1#" .. action:gsub("^%l", string.upper)
+    if action == "volume" then
+        soap_action = "urn:schemas-upnp-org:service:RenderingControl:1#SetVolume"
+    end
+
+    local cmd = string.format("curl -s -w '%%{http_code}' --connect-timeout 3 -X POST '%s' -H 'Content-Type: text/xml; charset=\"utf-8\"' -H 'SOAPAction: \"%s\"' -d '%s'", target_url, soap_action, soap:gsub("'", "'\\''"))
+    local out = sys.exec(cmd)
+
+    if out ~= "000" then
+        http.write_json({status = "success", message = "指令已发送"})
+    else
+        http.write_json({status = "error", message = "连接失败: " .. out})
+    end
+end
+
+-- ★ 新增：获取远端 DLNA 播放进度（UnPlay / AirPin 通用版）
+function dlna_get_position()
+    local http = require "luci.http"
+    local sys = require "luci.sys"
+    local ctrl_url = http.formvalue("control_url") or ""
+
+    if ctrl_url == "" then
+        http.write_json({status = "error", message = "缺少 control_url"})
+        return
+    end
+
+    -- 路径兼容处理：UnPlay 需要 /AVTransport/action 后缀
+    if not ctrl_url:match("/AVTransport/action") then
+        ctrl_url = ctrl_url:gsub("/$", "") .. "/AVTransport/action"
+    end
+
+    local soap = string.format([[<?xml version="1.0"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+<s:Body><u:GetPositionInfo xmlns:u="urn:schemas-upnp-org:service:AVTransport:1">
+<InstanceID>0</InstanceID></u:GetPositionInfo></s:Body></s:Envelope>]])
+
+    local cmd = string.format("curl -s -w '%%{http_code}' --connect-timeout 1 --max-time 2 -X POST '%s' -H 'Content-Type: text/xml; charset=\"utf-8\"' -H 'SOAPAction: \"urn:schemas-upnp-org:service:AVTransport:1#GetPositionInfo\"' -d '%s'", ctrl_url, soap:gsub("'", "'\\''"))
+
+    local out = sys.exec(cmd)
+    local rel_time = out:match("<[rR]elTime>(.-)</[rR]elTime>")
+    local track_duration = out:match("<[tT]rackDuration>(.-)</[tT]trackDuration>")
+    local transport_state = out:match("<[tT]ransportState>(.-)</[tT]transportState>")
+
+    if rel_time then
+        http.prepare_content("application/json")
+        http.write_json({status = "success", rel_time = rel_time, duration = track_duration, state = transport_state})
+    else
+        http.prepare_content("application/json")
+        http.write_json({status = "error", message = "设备未返回时间"})
     end
 end
