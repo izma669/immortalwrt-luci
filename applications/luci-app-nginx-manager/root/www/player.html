@@ -234,9 +234,13 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
         <!-- ★ 投屏控制面板（默认隐藏） -->
         <div id="dlna-control-panel" style="display:none; padding: 15px 20px; border-top: 1px solid #333; background: #151515;">
             <div style="color:#2ecc71; font-size:12px; margin-bottom:10px; text-align:center;">🎉 投屏成功！远端遥控器已就绪</div>
-            <div style="display:flex; gap:8px; justify-content:center; margin-bottom:12px;">
+            
+            <!-- 第一行：上一集、播放、暂停、下一集、停止 -->
+            <div style="display:flex; gap:6px; justify-content:center; margin-bottom:12px; flex-wrap:wrap;">
+                <button onclick="dlnaPrevNext('prev')" style="background:#333; border:none; color:#fff; padding:6px 10px; border-radius:4px; cursor:pointer;">⏮ 上一集</button>
                 <button onclick="dlnaAction('play')" style="background:#333; border:none; color:#fff; padding:6px 12px; border-radius:4px; cursor:pointer;">▶ 播放</button>
                 <button onclick="dlnaAction('pause')" style="background:#333; border:none; color:#fff; padding:6px 12px; border-radius:4px; cursor:pointer;">⏸ 暂停</button>
+                <button onclick="dlnaPrevNext('next')" style="background:#333; border:none; color:#fff; padding:6px 10px; border-radius:4px; cursor:pointer;">⏭ 下一集</button>
                 <button onclick="dlnaAction('stop')" style="background:#c0392b; border:none; color:#fff; padding:6px 12px; border-radius:4px; cursor:pointer;">⏹ 停止</button>
             </div>
             
@@ -244,7 +248,8 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
             <div style="margin-bottom:10px;">
                 <div style="color:#aaa; font-size:12px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
                     <span>进度跳转（自动走时，拖动可跳转）</span>
-                    <span id="dlna-duration-label" style="color:#666; font-size:11px;">总时长: 加载中...</span>
+                    <!-- ★ 总时长字体调亮 -->
+                    <span id="dlna-duration-label" style="color:#ccc; font-size:11px;">总时长: 加载中...</span>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center;">
                     <input type="range" id="dlna-seek-bar" min="0" max="100" value="0" step="1" 
@@ -254,10 +259,12 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
                 </div>
             </div>
             
-            <div>
-                <div style="color:#aaa; font-size:12px; margin-bottom:4px;">音量控制：<span id="dlna-vol-val">50</span></div>
-                <input type="range" id="dlna-vol" min="0" max="100" value="50" style="width:100%;" oninput="document.getElementById('dlna-vol-val').innerText=this.value" onchange="dlnaControl('volume', this.value)">
+            <!-- ★ 音量控制行，新增静音按钮 -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                <div style="color:#aaa; font-size:12px;">音量控制：<span id="dlna-vol-val">50</span></div>
+                <button id="dlna-mute-btn" onclick="toggleDlnaMute()" style="background:#333; border:none; color:#fff; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:12px;">🔊 静音</button>
             </div>
+            <input type="range" id="dlna-vol" min="0" max="100" value="50" style="width:100%; margin-top:6px;" oninput="document.getElementById('dlna-vol-val').innerText=this.value" onchange="dlnaControl('volume', this.value)">
         </div>
 
         <div class="ftr"><button onclick="document.getElementById('dlna-modal').style.display='none'">取消</button></div>
@@ -272,7 +279,9 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 var dlnaControlUrl = "";
 window.isDlnaDragging = false;
 window.dlnaIsPaused = false; // 全局远端暂停标志
-window.isAutoSwitching = false; // ★ 新增：标记是否正在自动切集
+window.isAutoSwitching = false; // 标记是否正在自动切集
+window.dlnaMuted = false; // 静音状态
+var lastVolume = 50; // 记忆取消静音后的音量
 
 var VIDEO_EXTS=['.mp4','.webm','.mkv','.mov','.avi','.m4v','.ogv','.flv','.3gp','.ts','.m2ts','.wmv'];
 var AUDIO_EXTS=['.mp3','.m4a','.flac','.aac','.ogg','.wav','.ape','.wv','.aiff','.aif','.alac'];
@@ -670,10 +679,55 @@ window.dlnaAction = function(action) {
     }
 };
 
+// ★ 新增：切换上一集/下一集
+window.dlnaPrevNext = function(direction) {
+    if (!dlnaControlUrl) { alert('请先完成投屏'); return; }
+    
+    var targetIndex = -1;
+    if (direction === 'prev') {
+        for (var i = currentIndex - 1; i >= 0; i--) {
+            if (listItems[i].kind === 'media') { targetIndex = i; break; }
+        }
+        if (targetIndex === -1) { console.log('已经是第一集'); return; }
+    } else if (direction === 'next') {
+        for (var i = currentIndex + 1; i < listItems.length; i++) {
+            if (listItems[i].kind === 'media') { targetIndex = i; break; }
+        }
+        if (targetIndex === -1) { console.log('已经是最后一集'); return; }
+    }
+    
+    if (targetIndex >= 0) {
+        playIndex(targetIndex);
+    }
+};
+
+// ★ 新增：静音控制
+window.toggleDlnaMute = function() {
+    var btn = document.getElementById('dlna-mute-btn');
+    if (!window.dlnaMuted) {
+        // 静音
+        lastVolume = parseInt(document.getElementById('dlna-vol').value) || 50;
+        window.dlnaMuted = true;
+        videoEl.muted = true;
+        dlnaControl('volume', '0');
+        document.getElementById('dlna-vol-val').innerText = '0';
+        document.getElementById('dlna-vol').value = 0;
+        if (btn) btn.innerText = '🔇 取消静音';
+    } else {
+        // 取消静音
+        window.dlnaMuted = false;
+        videoEl.muted = false;
+        dlnaControl('volume', lastVolume);
+        document.getElementById('dlna-vol-val').innerText = lastVolume;
+        document.getElementById('dlna-vol').value = lastVolume;
+        if (btn) btn.innerText = '🔊 静音';
+    }
+};
+
 // ★ 本地播放/暂停时，自动同步远端
 videoEl.addEventListener('play', function() {
     window.dlnaIsPaused = false;
-    // ★ 加上判断：如果是自动切集，等上面的 cast 逻辑发完 SetAVTransportURI，不要在这里抢跑
+    // 如果是自动切集，等上面的 cast 逻辑发完 SetAVTransportURI，不要在这里抢跑
     if (dlnaControlUrl && !window.isAutoSwitching) dlnaControl('play');
 });
 videoEl.addEventListener('pause', function() {
