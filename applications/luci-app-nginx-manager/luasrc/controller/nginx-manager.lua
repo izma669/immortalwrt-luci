@@ -145,7 +145,7 @@ function dlna_control()
     end
 end
 
--- ★ 新增：获取远端 DLNA 播放进度（UnPlay / AirPin 通用版）
+-- ★ 获取远端 DLNA 播放进度（AirPin 完美支持版）
 function dlna_get_position()
     local http = require "luci.http"
     local sys = require "luci.sys"
@@ -156,10 +156,8 @@ function dlna_get_position()
         return
     end
 
-    -- 路径兼容处理：UnPlay 需要 /AVTransport/action 后缀
-    if not ctrl_url:match("/AVTransport/action") then
-        ctrl_url = ctrl_url:gsub("/$", "") .. "/AVTransport/action"
-    end
+    -- ★ 关键：直接使用前端传来的原路径，不要再做任何字符串拼接或替换！
+    -- AirPin 的路径：http://192.168.0.142:49153/upnp/control/rendertransport1
 
     local soap = string.format([[<?xml version="1.0"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
@@ -171,7 +169,7 @@ function dlna_get_position()
     local out = sys.exec(cmd)
     local rel_time = out:match("<[rR]elTime>(.-)</[rR]elTime>")
     local track_duration = out:match("<[tT]rackDuration>(.-)</[tT]trackDuration>")
-    local transport_state = out:match("<[tT]ransportState>(.-)</[tT]transportState>")
+    local transport_state = out:match("<[tT]ransportState>(.-)</[tT]transportState>") -- 如果以后抓到了状态，也能用
 
     if rel_time then
         http.prepare_content("application/json")
