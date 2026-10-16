@@ -2,10 +2,10 @@ msgid "Tcpdump"
 msgstr "Tcpdump 流量监控"
 
 msgid "Start network capture"
-msgstr "Tcpdump 流量监控"
+msgstr "开始网络抓包"
 
 msgid "Interface"
-msgstr "捕获指定的接口"
+msgstr "网络接口"
 
 msgid "seconds, packets"
 msgstr "捕获限制"
@@ -41,7 +41,7 @@ msgid "Capture file"
 msgstr "文件名"
 
 msgid "Modification date"
-msgstr "停止时间"
+msgstr "修改日期"
 
 msgid "Capture size"
 msgstr "文件大小"
