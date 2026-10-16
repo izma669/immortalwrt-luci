@@ -15,6 +15,6 @@ PKG_VERSION:=1.0
 PKG_RELEASE:=2
 PKG_MAINTAINER:=<https://github.com/KFERMercer/luci-app-tcpdump>
 
-include $(TOPDIR)/feeds/luci/luci.mk
+include ../../luci.mk
 
 # call BuildPackage - OpenWrt buildroot signature
