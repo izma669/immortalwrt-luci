@@ -233,7 +233,8 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
         
         <!-- ★ 投屏控制面板（默认隐藏） -->
         <div id="dlna-control-panel" style="display:none; padding: 15px 20px; border-top: 1px solid #333; background: #151515;">
-            <div style="color:#2ecc71; font-size:12px; margin-bottom:10px; text-align:center;">🎉 投屏成功！远端遥控器已就绪</div>
+            <!-- ★ 显示当前播放的文件名 -->
+            <div id="dlna-current-file" style="color:#2ecc71; font-size:13px; font-weight:bold; margin-bottom:10px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 10px;">正在连接...</div>
             
             <!-- 第一行：上一集、播放、暂停、下一集、停止 -->
             <div style="display:flex; gap:6px; justify-content:center; margin-bottom:12px; flex-wrap:wrap;">
@@ -244,22 +245,23 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
                 <button onclick="dlnaAction('stop')" style="background:#c0392b; border:none; color:#fff; padding:6px 12px; border-radius:4px; cursor:pointer;">⏹ 停止</button>
             </div>
             
-            <!-- ★ 跟踪走时的进度条 -->
+            <!-- ★ 跟踪走时的进度条，新增快进快退按钮 -->
             <div style="margin-bottom:10px;">
                 <div style="color:#aaa; font-size:12px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
                     <span>进度跳转（自动走时，拖动可跳转）</span>
-                    <!-- ★ 总时长字体调亮 -->
                     <span id="dlna-duration-label" style="color:#ccc; font-size:11px;">总时长: 加载中...</span>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center;">
+                    <button onclick="dlnaSkip(-60)" style="background:#333; border:none; color:#fff; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px; flex-shrink:0;">⏪ -60s</button>
                     <input type="range" id="dlna-seek-bar" min="0" max="100" value="0" step="1" 
                            oninput="window.isDlnaDragging=true; updateSeekDisplay(this.value);" 
-                           onchange="window.isDlnaDragging=false; executeSeek(this.value);">
+                           onchange="window.isDlnaDragging=false; executeSeek(this.value);" style="flex:1;">
+                    <button onclick="dlnaSkip(60)" style="background:#333; border:none; color:#fff; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px; flex-shrink:0;">+60s ⏩</button>
                     <span id="dlna-seek-label" style="color:#4a9eff; font-size:13px; min-width:60px; text-align:right; font-variant-numeric:tabular-nums;">00:00:00</span>
                 </div>
             </div>
             
-            <!-- ★ 音量控制行，新增静音按钮 -->
+            <!-- ★ 音量控制行，静音按钮 -->
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
                 <div style="color:#aaa; font-size:12px;">音量控制：<span id="dlna-vol-val">50</span></div>
                 <button id="dlna-mute-btn" onclick="toggleDlnaMute()" style="background:#333; border:none; color:#fff; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:12px;">🔊 静音</button>
@@ -493,6 +495,20 @@ function getCueBadge(idx){
   return '曲目 '+(pos+1)+'/'+siblings.length;
 }
 
+// ★ 更新 DLNA 控制面板中显示的文件名
+function updateDlnaFileName() {
+    var el = document.getElementById('dlna-current-file');
+    if (!el) return;
+    if (currentIndex >= 0 && listItems[currentIndex]) {
+        var it = listItems[currentIndex];
+        var name = it.displayName || it.name;
+        el.innerText = '正在播放: ' + name;
+        el.title = name;
+    } else {
+        el.innerText = '未选择文件';
+    }
+}
+
 var modeBtns=document.querySelectorAll('#mode-bar button[data-mode]');
 modeBtns.forEach(function(b){b.onclick=function(){playMode=b.getAttribute('data-mode');modeBtns.forEach(function(x){x.classList.toggle('active',x===b)})}});
 // ★ 默认不选中任何模式，避免自动切集导致飞快换片
@@ -535,6 +551,15 @@ window.executeSeek = function(seconds) {
     if (videoEl.duration) {
         try { videoEl.currentTime = seconds; } catch(e) {}
     }
+};
+
+// ★ 新增：快进/快退 60 秒
+window.dlnaSkip = function(offset) {
+    if (!dlnaControlUrl) { alert('请先完成投屏'); return; }
+    var newTime = videoEl.currentTime + offset;
+    if (newTime < 0) newTime = 0;
+    if (videoEl.duration && newTime > videoEl.duration) newTime = videoEl.duration;
+    executeSeek(newTime);
 };
 
 // ★ 本地走时兜底：如果远端不支持回传，靠本地 timeupdate 驱动进度条
@@ -649,6 +674,7 @@ function startDlnaPolling() {
 
 videoEl.addEventListener('loadedmetadata', function() {
     updateDlnaDuration(videoEl.duration);
+    updateDlnaFileName(); // ★ 加载元数据时刷新文件名
 });
 videoEl.addEventListener('durationchange', function() {
     updateDlnaDuration(videoEl.duration);
@@ -679,7 +705,7 @@ window.dlnaAction = function(action) {
     }
 };
 
-// ★ 新增：切换上一集/下一集
+// ★ 切换上一集/下一集
 window.dlnaPrevNext = function(direction) {
     if (!dlnaControlUrl) { alert('请先完成投屏'); return; }
     
@@ -701,7 +727,7 @@ window.dlnaPrevNext = function(direction) {
     }
 };
 
-// ★ 新增：静音控制
+// ★ 静音控制
 window.toggleDlnaMute = function() {
     var btn = document.getElementById('dlna-mute-btn');
     if (!window.dlnaMuted) {
@@ -748,6 +774,7 @@ document.getElementById('dlna-cast-btn').onclick = function() {
     manualArea.style.display = 'none';
     document.getElementById('dlna-control-panel').style.display = 'none';
     updateDlnaDuration(videoEl.duration);
+    updateDlnaFileName(); // ★ 打开面板时显示当前文件名
     list.innerHTML = '<div style="color:#f1c40f; padding:10px;">📡 正在进行【SSDP 广播扫描】自动发现设备...</div>';
     
     var apiBase = '/cgi-bin/luci/dlna';
@@ -783,6 +810,7 @@ document.getElementById('dlna-cast-btn').onclick = function() {
                             dlnaControlUrl = dev.control_url;
                             window.dlnaIsPaused = false;
                             document.getElementById('dlna-control-panel').style.display = 'block';
+                            updateDlnaFileName(); // ★ 投屏成功后更新文件名
                             startDlnaPolling(); // ★ 启动轮询
                         } else {
                             list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 失败: ' + (res.message || '未知错误') + '</div>';
@@ -848,6 +876,7 @@ function doCast(control_url, videoUrl, listEl, callback) {
             dlnaControlUrl = control_url; 
             window.dlnaIsPaused = false;
             document.getElementById('dlna-control-panel').style.display = 'block'; 
+            updateDlnaFileName(); // ★ 投屏成功后更新文件名
             startDlnaPolling(); // ★ 启动轮询
         } else {
             listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 发送失败: ' + (res.message || '') + '</div>';
@@ -1208,9 +1237,11 @@ function playIndex(idx){
       .then(function(res) {
           if (res.status === 'success') console.log('自动切集：远端 URL 已更新');
           window.isAutoSwitching = false;
+          updateDlnaFileName(); // ★ 自动切集后更新文件名
       })
       .catch(function() {
           window.isAutoSwitching = false;
+          updateDlnaFileName(); // ★ 自动切集后更新文件名
       });
   }
 
@@ -1231,6 +1262,7 @@ function playIndex(idx){
   } else {
     videoEl.src=it.url;videoEl.play().catch(function(){});
   }
+  updateDlnaFileName(); // ★ 手动切换/自动切集时更新文件名
   var active=listEl.querySelector('li.active');
   if(active)active.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
