@@ -272,6 +272,7 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 var dlnaControlUrl = "";
 window.isDlnaDragging = false;
 window.dlnaIsPaused = false; // 全局远端暂停标志
+window.isAutoSwitching = false; // ★ 新增：标记是否正在自动切集
 
 var VIDEO_EXTS=['.mp4','.webm','.mkv','.mov','.avi','.m4v','.ogv','.flv','.3gp','.ts','.m2ts','.wmv'];
 var AUDIO_EXTS=['.mp3','.m4a','.flac','.aac','.ogg','.wav','.ape','.wv','.aiff','.aif','.alac'];
@@ -672,7 +673,8 @@ window.dlnaAction = function(action) {
 // ★ 本地播放/暂停时，自动同步远端
 videoEl.addEventListener('play', function() {
     window.dlnaIsPaused = false;
-    if (dlnaControlUrl) dlnaControl('play');
+    // ★ 加上判断：如果是自动切集，等上面的 cast 逻辑发完 SetAVTransportURI，不要在这里抢跑
+    if (dlnaControlUrl && !window.isAutoSwitching) dlnaControl('play');
 });
 videoEl.addEventListener('pause', function() {
     window.dlnaIsPaused = true;
@@ -1138,6 +1140,25 @@ function playIndex(idx){
   setSize(it.size);
   clearInfo();
   fillGuessedInfo(it.name);
+
+  // ★ 新增：如果是自动切集且已投屏，需要重新推送新视频的 URL 给远端
+  if (dlnaControlUrl) {
+      window.isAutoSwitching = true;
+      var newVideoUrl = window.location.origin + it.url;
+      fetch('/cgi-bin/luci/dlna/cast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'control_url=' + encodeURIComponent(dlnaControlUrl) + '&video_url=' + encodeURIComponent(newVideoUrl)
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+          if (res.status === 'success') console.log('自动切集：远端 URL 已更新');
+          window.isAutoSwitching = false;
+      })
+      .catch(function() {
+          window.isAutoSwitching = false;
+      });
+  }
 
   if(isAudioOnly(it.url)){
     startAudioBackground(it.name);
