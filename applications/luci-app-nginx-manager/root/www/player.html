@@ -46,14 +46,46 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 
 #video{width:100%;height:100%;object-fit:contain;background:#000;position:relative;z-index:2}
 
+#cast-overlay{display:none; position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.9); z-index:5; flex-direction:column; align-items:center; justify-content:center; gap:15px; color:#fff;}
+#cast-overlay .ico{font-size:56px;}
+#cast-overlay .msg{font-size:16px; color:#ddd;}
+#cast-overlay .name{font-size:13px; color:#4a9eff; padding:0 30px; text-align:center; word-break:break-all;}
+#cast-overlay .hint{font-size:12px; color:#666; margin-top:10px;}
+
 #video-wrap.audio-mode #video{
   position:absolute !important; left:-99999px !important; top:-99999px !important;
   width:10px !important; height:10px !important; opacity:0 !important;
   pointer-events:none !important; visibility:hidden !important;
 }
 
-#audio-bg{position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;object-fit:contain;z-index:1;display:none;pointer-events:none;background:#000}
-#audio-bg.on{display:block}
+/* ★ 背景图包裹层（用于叠加旋转/摆动动画） */
+#bg-rotator {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+  transform-origin: center center;
+  background: #000;
+}
+/* ★ 自动下载的封面：缓慢左右摆动（呼吸感） */
+#bg-rotator.swing {
+  animation: bgSwing 8s ease-in-out infinite;
+}
+@keyframes bgSwing {
+  0%, 100% { transform: scale(1.05) rotate(-1.2deg); }
+  50%      { transform: scale(1.05) rotate( 1.2deg); }
+}
+
+#audio-bg, #audio-bg2 {
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  width:100%;height:100%;object-fit:contain;
+  z-index:1;pointer-events:none;
+  transform: translateX(100%);
+  will-change: transform, opacity, clip-path;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: #000;
+}
 
 #audio-bg-info{position:absolute;bottom:70px;left:20px;color:#ddd;font-size:12px;background:rgba(0,0,0,.55);padding:5px 10px;border-radius:5px;z-index:6;display:none;pointer-events:none}
 #audio-bg-info.on{display:block}
@@ -101,13 +133,14 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 #mode-bar button.active{background:#1e3a5f;border-color:#4a9eff;color:#4a9eff}
 #dlna-cast-btn { margin-left: 10px; background: #1e3a5f; border-color: #4a9eff; color: #4a9eff; }
 
-#dlna-modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:99999; align-items:center; justify-content:center; }
-#dlna-modal .box { background:#1a1a1a; border:1px solid #333; border-radius:12px; width:420px; max-width:90vw; }
-#dlna-modal .hdr { padding:16px 20px; background:#222; font-size:15px; color:#fff; border-bottom:1px solid #333; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#dlna-modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:99999; }
+#dlna-modal .box { background:#1a1a1a; border:1px solid #333; border-radius:12px; width:420px; max-width:92vw; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); }
+#dlna-modal .hdr { padding:16px 20px; background:#222; font-size:15px; color:#fff; border-bottom:1px solid #333; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:move; user-select:none; -webkit-user-select:none; touch-action:none; border-radius:12px 12px 0 0; }
+#dlna-modal .hdr::after { content:" ⋮⋮"; color:#666; font-size:12px; float:right; }
 #dlna-modal .lst { max-height:250px; overflow-y:auto; padding:10px; }
 #dlna-modal .it { padding:12px; cursor:pointer; background:#2a2a2a; margin-bottom:5px; border-radius:6px; color:#ddd; font-size:14px; display:flex; align-items:center; gap:10px; }
 #dlna-modal .it:hover { background:#1e3a5f; color:#4a9eff; }
-#dlna-modal .ftr { padding:12px 20px; background:#222; border-top:1px solid #333; text-align:right; }
+#dlna-modal .ftr { padding:12px 20px; background:#222; border-top:1px solid #333; text-align:right; border-radius:0 0 12px 12px; }
 #dlna-modal .ftr button { background:#333; border:none; color:#ccc; padding:6px 16px; border-radius:6px; cursor:pointer; }
 
 #dlna-seek-bar {
@@ -146,6 +179,7 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
   #sidebar{width:100%;height:38vh;min-height:150px;border-right:none;border-bottom:1px solid #2a2a2a}
   #main{flex:1 1 0;min-height:0}
   #info-panel{font-size:11px;gap:8px}
+  #dlna-modal .box { width:92vw; }
 }
 
 @media (max-width: 900px) and (orientation: landscape) {
@@ -175,7 +209,17 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
   <main id="main">
     <div id="video-wrap">
       <video id="video" controls playsinline webkit-playsinline x5-playsinline controlsList="nodownload"></video>
-      <img id="audio-bg" alt="">
+      <div id="cast-overlay">
+        <div class="ico">📺</div>
+        <div class="msg">正在投屏播放，画面在电视上</div>
+        <div class="name" id="cast-overlay-name"></div>
+        <div class="hint">关闭投屏弹窗即可恢复本地播放</div>
+      </div>
+      <!-- ★ 背景图包裹层 -->
+      <div id="bg-rotator">
+        <img id="audio-bg" alt="">
+        <img id="audio-bg2" alt="">
+      </div>
       <div id="audio-bg-info"></div>
       <img id="preview" alt="">
       <iframe id="pdf-preview" src="about:blank"></iframe>
@@ -220,7 +264,6 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
   </main>
 </div>
 
-<!-- ★ DLNA 投屏弹窗 -->
 <div id="dlna-modal">
     <div class="box">
         <div class="hdr" id="dlna-modal-title">📺 选择投屏设备</div>
@@ -229,14 +272,11 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
             <div style="color:#f28b82; font-size:12px; margin-bottom:8px;">未自动发现设备，请手动输入电视IP：</div>
             <div style="display:flex; gap:8px;">
                 <input type="text" id="manual-tv-ip" placeholder="例如: 192.168.0.120" style="flex:1; padding:8px 10px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; font-size:13px;">
-                <button type="button" class="nm-btn green" onclick="manualCast()" style="margin:0;">开始投屏</button>
+                <button type="button" class="nm-btn green" onclick="manualCast()" style="margin:0;background:#2f9e44;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;">开始投屏</button>
             </div>
         </div>
         
-        <!-- ★ 投屏控制面板（默认隐藏） -->
         <div id="dlna-control-panel" style="display:none; padding: 15px 20px; border-top: 1px solid #333; background: #151515;">
-            
-            <!-- ★ 第一排：快退、播放、暂停、快进 -->
             <div style="display:flex; gap:8px; justify-content:center; margin-bottom:8px; align-items:center;">
                 <button onclick="dlnaSkip(-60)" style="flex:1; background:#333; border:none; color:#fff; padding:8px 8px; border-radius:4px; cursor:pointer; font-size:13px;">⏪ -60s</button>
                 <button onclick="dlnaAction('play')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px;">▶ 播放</button>
@@ -244,14 +284,12 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
                 <button onclick="dlnaSkip(60)" style="flex:1; background:#333; border:none; color:#fff; padding:8px 8px; border-radius:4px; cursor:pointer; font-size:13px;">+60s ⏩</button>
             </div>
             
-            <!-- ★ 第二排：上一集、停止、下一集 -->
             <div style="display:flex; gap:8px; justify-content:center; margin-bottom:12px; align-items:center;">
                 <button onclick="dlnaPrevNext('prev')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 10px; border-radius:4px; cursor:pointer; font-size:13px;">⏮ 上一集</button>
                 <button onclick="dlnaAction('stop')" style="flex:1; background:#c0392b; border:none; color:#fff; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px;">⏹ 停止</button>
                 <button onclick="dlnaPrevNext('next')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 10px; border-radius:4px; cursor:pointer; font-size:13px;">⏭ 下一集</button>
             </div>
             
-            <!-- ★ 进度条区域：时间显示单独一行，进度条独占一整行 -->
             <div style="margin-bottom:10px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                     <span id="dlna-seek-label" style="color:#4a9eff; font-size:13px; font-variant-numeric:tabular-nums;">00:00:00</span>
@@ -262,7 +300,6 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
                        onchange="window.isDlnaDragging=false; executeSeek(this.value);" style="width:100%;">
             </div>
             
-            <!-- ★ 音量控制：全部一行，音量条前是"音量"，后是"静音"按钮 -->
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:8px;">
                 <span style="color:#aaa; font-size:12px; flex-shrink:0;">音量 <span id="dlna-vol-val">50</span></span>
                 <input type="range" id="dlna-vol" min="0" max="100" value="50" style="flex:1; min-width:0;" oninput="document.getElementById('dlna-vol-val').innerText=this.value" onchange="dlnaControl('volume', this.value)">
@@ -283,6 +320,9 @@ window.isDlnaDragging = false;
 window.dlnaIsPaused = false;
 window.isAutoSwitching = false;
 window.dlnaMuted = false;
+window.castOnlyMode = false;
+window.__dragX = 0;
+window.__dragY = 0;
 var lastVolume = 50;
 
 var VIDEO_EXTS=['.mp4','.webm','.mkv','.mov','.avi','.m4v','.ogv','.flv','.3gp','.ts','.m2ts','.wmv'];
@@ -310,7 +350,9 @@ var ACODEC_KEYWORDS=[[/(?:^|[.\s_\-])truehd(?:[.\s_\-]|$)/i,'TrueHD'],[/(?:^|[.\
 
 var videoEl=document.getElementById('video');
 var audioBgEl=document.getElementById('audio-bg');
+var audioBg2El=document.getElementById('audio-bg2');
 var audioBgInfoEl=document.getElementById('audio-bg-info');
+var bgRotatorEl=document.getElementById('bg-rotator');
 var acPlayEl=document.getElementById('ac-play');
 var acSeekEl=document.getElementById('ac-seek');
 var acCurEl=document.getElementById('ac-cur');
@@ -328,6 +370,264 @@ var dirnameEl=document.getElementById('dirname');
 var upBtn=document.getElementById('upbtn');
 var videoWrap=document.getElementById('video-wrap');
 
+var bgEls = [audioBgEl, audioBg2El];
+var bgElActive = 0;
+var bgLoadToken = 0;
+
+function resetBgEl(el){
+    el.style.transition = 'none';
+    el.style.transform = 'translateX(100%)';
+    el.style.transformOrigin = '';
+    el.style.opacity = '1';
+    el.style.clipPath = '';
+    el.style.webkitClipPath = '';
+    el.style.zIndex = '1';
+}
+
+function makeBgEffect(setup, start){
+    return function(prev, next, url){
+        prev.style.transition = 'none';
+        prev.style.transform = 'none';
+        prev.style.transformOrigin = '';
+        prev.style.opacity = '1';
+        prev.style.clipPath = '';
+        prev.style.webkitClipPath = '';
+        prev.style.zIndex = '1';
+
+        next.style.transition = 'none';
+        next.style.transform = 'none';
+        next.style.transformOrigin = '';
+        next.style.opacity = '1';
+        next.style.clipPath = '';
+        next.style.webkitClipPath = '';
+        next.style.zIndex = '2';
+
+        if (setup) setup(next, prev);
+
+        next.src = url;
+        void next.offsetWidth;
+
+        if (start) start(next, prev);
+
+        setTimeout(function(){
+            resetBgEl(prev);
+        }, BG_CLEANUP_MS);
+    };
+}
+
+var BG_TRANSITION_TIME = 1.8;
+var BG_CLEANUP_MS = 2000;
+var BG_EASE_SOFT = 'ease-in-out';
+var BG_EASE_OUT = 'ease-out';
+var BG_EASE_BOUNCE = 'cubic-bezier(0.34, 1.56, 0.64, 1)';
+
+var bgEffects = [
+    // 1. 右→左平移
+    makeBgEffect(
+        function(next, prev){ next.style.transform = 'translateX(100%)'; prev.style.transform = 'translateX(0)'; },
+        function(next, prev){
+            var t = 'transform ' + BG_TRANSITION_TIME + 's ' + BG_EASE_SOFT;
+            next.style.transition = t; prev.style.transition = t;
+            next.style.transform = 'translateX(0)';
+            prev.style.transform = 'translateX(-100%)';
+        }
+    ),
+    // 2. 左→右平移
+    makeBgEffect(
+        function(next, prev){ next.style.transform = 'translateX(-100%)'; prev.style.transform = 'translateX(0)'; },
+        function(next, prev){
+            var t = 'transform ' + BG_TRANSITION_TIME + 's ' + BG_EASE_SOFT;
+            next.style.transition = t; prev.style.transition = t;
+            next.style.transform = 'translateX(0)';
+            prev.style.transform = 'translateX(100%)';
+        }
+    ),
+    // 3. 上→下平移
+    makeBgEffect(
+        function(next, prev){ next.style.transform = 'translateY(-100%)'; prev.style.transform = 'translateY(0)'; },
+        function(next, prev){
+            var t = 'transform ' + BG_TRANSITION_TIME + 's ' + BG_EASE_SOFT;
+            next.style.transition = t; prev.style.transition = t;
+            next.style.transform = 'translateY(0)';
+            prev.style.transform = 'translateY(100%)';
+        }
+    ),
+    // 4. 下→上平移
+    makeBgEffect(
+        function(next, prev){ next.style.transform = 'translateY(100%)'; prev.style.transform = 'translateY(0)'; },
+        function(next, prev){
+            var t = 'transform ' + BG_TRANSITION_TIME + 's ' + BG_EASE_SOFT;
+            next.style.transition = t; prev.style.transition = t;
+            next.style.transform = 'translateY(0)';
+            prev.style.transform = 'translateY(-100%)';
+        }
+    ),
+    // 5. 圆圈放大
+    makeBgEffect(
+        function(next, prev){
+            next.style.clipPath = 'circle(0% at 50% 50%)';
+            next.style.webkitClipPath = 'circle(0% at 50% 50%)';
+        },
+        function(next, prev){
+            var t = 'clip-path ' + BG_TRANSITION_TIME + 's ' + BG_EASE_SOFT + ', -webkit-clip-path ' + BG_TRANSITION_TIME + 's ' + BG_EASE_SOFT;
+            next.style.transition = t;
+            next.style.clipPath = 'circle(150% at 50% 50%)';
+            next.style.webkitClipPath = 'circle(150% at 50% 50%)';
+        }
+    ),
+    // 6. 圆圈缩小
+    makeBgEffect(
+        function(next, prev){
+            prev.style.zIndex = '2';
+            next.style.zIndex = '1';
+            prev.style.clipPath = 'circle(150% at 50% 50%)';
+            prev.style.webkitClipPath = 'circle(150% at 50% 50%)';
+        },
+        function(next, prev){
+            var t = 'clip-path ' + BG_TRANSITION_TIME + 's ' + BG_EASE_SOFT + ', -webkit-clip-path ' + BG_TRANSITION_TIME + 's ' + BG_EASE_SOFT;
+            prev.style.transition = t;
+            prev.style.clipPath = 'circle(0% at 50% 50%)';
+            prev.style.webkitClipPath = 'circle(0% at 50% 50%)';
+        }
+    ),
+    // 7. 缩放放大淡入
+    makeBgEffect(
+        function(next, prev){
+            next.style.transform = 'scale(1.3)';
+            next.style.opacity = '0';
+        },
+        function(next, prev){
+            var t = 'transform ' + BG_TRANSITION_TIME + 's ' + BG_EASE_OUT + ', opacity ' + BG_TRANSITION_TIME + 's ' + BG_EASE_OUT;
+            next.style.transition = t;
+            next.style.transform = 'scale(1)';
+            next.style.opacity = '1';
+        }
+    ),
+    // 8. 缩放缩小淡入
+    makeBgEffect(
+        function(next, prev){
+            next.style.transform = 'scale(0.7)';
+            next.style.opacity = '0';
+        },
+        function(next, prev){
+            var t = 'transform ' + BG_TRANSITION_TIME + 's ' + BG_EASE_OUT + ', opacity ' + BG_TRANSITION_TIME + 's ' + BG_EASE_OUT;
+            next.style.transition = t;
+            next.style.transform = 'scale(1)';
+            next.style.opacity = '1';
+        }
+    ),
+    // 9. 3D 翻转
+    makeBgEffect(
+        function(next, prev){
+            next.style.transformOrigin = 'left center';
+            prev.style.transformOrigin = 'right center';
+            next.style.transform = 'perspective(1200px) rotateY(-90deg)';
+            prev.style.transform = 'perspective(1200px) rotateY(0deg)';
+        },
+        function(next, prev){
+            var t = 'transform ' + BG_TRANSITION_TIME + 's ' + BG_EASE_SOFT;
+            next.style.transition = t; prev.style.transition = t;
+            next.style.transform = 'perspective(1200px) rotateY(0deg)';
+            prev.style.transform = 'perspective(1200px) rotateY(90deg)';
+        }
+    ),
+    // 10. 对角线滑入
+    makeBgEffect(
+        function(next, prev){
+            next.style.transform = 'translate(100%, -100%)';
+            prev.style.transform = 'translate(0, 0)';
+        },
+        function(next, prev){
+            var t = 'transform ' + BG_TRANSITION_TIME + 's ' + BG_EASE_SOFT;
+            next.style.transition = t; prev.style.transition = t;
+            next.style.transform = 'translate(0, 0)';
+            prev.style.transform = 'translate(-100%, 100%)';
+        }
+    ),
+    // 11. 弹性放大
+    makeBgEffect(
+        function(next, prev){
+            next.style.transform = 'scale(0.3)';
+            next.style.opacity = '0';
+        },
+        function(next, prev){
+            var t = 'transform ' + BG_TRANSITION_TIME + 's ' + BG_EASE_BOUNCE + ', opacity ' + (BG_TRANSITION_TIME * 0.6) + 's ease-out';
+            next.style.transition = t;
+            next.style.transform = 'scale(1)';
+            next.style.opacity = '1';
+        }
+    ),
+    // 12. 纯淡入淡出
+    makeBgEffect(
+        function(next, prev){ next.style.opacity = '0'; },
+        function(next, prev){
+            var t = 'opacity ' + BG_TRANSITION_TIME + 's ' + BG_EASE_SOFT;
+            next.style.transition = t; prev.style.transition = t;
+            next.style.opacity = '1';
+            prev.style.opacity = '0';
+        }
+    ),
+    // 13. 旋转淡入
+    makeBgEffect(
+        function(next, prev){
+            next.style.transform = 'rotate(-12deg) scale(1.15)';
+            next.style.opacity = '0';
+        },
+        function(next, prev){
+            var t = 'transform ' + BG_TRANSITION_TIME + 's ' + BG_EASE_OUT + ', opacity ' + BG_TRANSITION_TIME + 's ' + BG_EASE_OUT;
+            next.style.transition = t;
+            next.style.transform = 'rotate(0deg) scale(1)';
+            next.style.opacity = '1';
+        }
+    ),
+    // 14. 硬边擦除（左→右）
+    makeBgEffect(
+        function(next, prev){
+            next.style.clipPath = 'inset(0 100% 0 0)';
+            next.style.webkitClipPath = 'inset(0 100% 0 0)';
+        },
+        function(next, prev){
+            var t = 'clip-path ' + BG_TRANSITION_TIME + 's linear, -webkit-clip-path ' + BG_TRANSITION_TIME + 's linear';
+            next.style.transition = t;
+            next.style.clipPath = 'inset(0 0 0 0)';
+            next.style.webkitClipPath = 'inset(0 0 0 0)';
+        }
+    ),
+    // 15. 硬边擦除（上→下）
+    makeBgEffect(
+        function(next, prev){
+            next.style.clipPath = 'inset(0 0 100% 0)';
+            next.style.webkitClipPath = 'inset(0 0 100% 0)';
+        },
+        function(next, prev){
+            var t = 'clip-path ' + BG_TRANSITION_TIME + 's linear, -webkit-clip-path ' + BG_TRANSITION_TIME + 's linear';
+            next.style.transition = t;
+            next.style.clipPath = 'inset(0 0 0 0)';
+            next.style.webkitClipPath = 'inset(0 0 0 0)';
+        }
+    ),
+    // 16. 对角硬边擦除
+    makeBgEffect(
+        function(next, prev){
+            next.style.clipPath = 'polygon(0 0, 0 0, 0 0)';
+            next.style.webkitClipPath = 'polygon(0 0, 0 0, 0 0)';
+        },
+        function(next, prev){
+            var t = 'clip-path ' + BG_TRANSITION_TIME + 's linear, -webkit-clip-path ' + BG_TRANSITION_TIME + 's linear';
+            next.style.transition = t;
+            next.style.clipPath = 'polygon(0 0, 400% 0, 0 400%)';
+            next.style.webkitClipPath = 'polygon(0 0, 400% 0, 0 400%)';
+        }
+    )
+];
+
+var BG_EFFECT_NAMES = [
+    '右→左平移','左→右平移','上→下平移','下→上平移',
+    '圆圈放大','圆圈缩小','缩放放大淡入','缩放缩小淡入',
+    '3D翻转','对角线滑入','弹性放大','纯淡入淡出','旋转淡入',
+    '硬边擦除左→右','硬边擦除上→下','对角硬边擦除'
+];
+
 (function detectBrowserInfo() {
     var ua = navigator.userAgent;
     var platform = navigator.platform || '';
@@ -343,11 +643,7 @@ var videoWrap=document.getElementById('video-wrap');
         else { kernel = 'WebKit'; }
     } else if (/Gecko/.test(ua) && /Firefox/.test(ua)) { kernel = 'Gecko (Firefox)'; }
     else if (/Trident/.test(ua)) { kernel = 'Trident (IE)'; }
-    
-    if (os === 'iOS/iPadOS') { 
-        warning = ' (注意：iOS系统会强制任何浏览器使用WebKit内核)'; 
-    }
-    
+    if (os === 'iOS/iPadOS') { warning = ' (注意：iOS系统会强制任何浏览器使用WebKit内核)'; }
     var el = document.getElementById('i-browser');
     if (el) { el.textContent = os + ' / ' + kernel + warning; if (os === 'iOS/iPadOS') { el.style.color = '#f28b82'; } }
 })();
@@ -453,6 +749,7 @@ function acUpdateTime(){
 }
 acPlayEl.onclick=function(e){
   e.stopPropagation();
+  if(window.castOnlyMode){ alert('投屏中，请用遥控器操作'); return; }
   if(videoEl.paused) videoEl.play().catch(function(){});
   else videoEl.pause();
 };
@@ -503,10 +800,82 @@ function updateDlnaFileName() {
         var name = it.displayName || it.name;
         el.innerText = '📺 正在播放: ' + name;
         el.title = name;
+        var ov = document.getElementById('cast-overlay-name');
+        if (ov) ov.innerText = name;
     } else {
         el.innerText = '📺 选择投屏设备';
     }
 }
+
+function showCastOverlay() {
+    var ov = document.getElementById('cast-overlay');
+    if (ov) { ov.style.display = 'flex'; updateDlnaFileName(); }
+}
+function hideCastOverlay() {
+    var ov = document.getElementById('cast-overlay');
+    if (ov) ov.style.display = 'none';
+}
+
+function resetDlnaModalPosition() {
+    var box = document.querySelector('#dlna-modal .box');
+    if (box) {
+        box.style.transform = 'translate(-50%,-50%)';
+    }
+    window.__dragX = 0;
+    window.__dragY = 0;
+}
+
+(function initDlnaDrag(){
+    var modal = document.getElementById('dlna-modal');
+    if (!modal) return;
+    var box = modal.querySelector('.box');
+    var hdr = modal.querySelector('.hdr');
+    if (!box || !hdr || hdr.__dragInit) return;
+    hdr.__dragInit = true;
+    
+    var dragging = false, lastX = 0, lastY = 0;
+    
+    function onStart(e) {
+        var p = e.touches ? e.touches[0] : e;
+        lastX = p.clientX;
+        lastY = p.clientY;
+        dragging = true;
+        if (e.cancelable) e.preventDefault();
+    }
+    
+    function onMove(e) {
+        if (!dragging) return;
+        var p = e.touches ? e.touches[0] : e;
+        var dx = p.clientX - lastX;
+        var dy = p.clientY - lastY;
+        lastX = p.clientX;
+        lastY = p.clientY;
+        
+        window.__dragX += dx;
+        window.__dragY += dy;
+        
+        var boxW = box.offsetWidth;
+        var boxH = box.offsetHeight;
+        var baseLeft = (window.innerWidth - boxW) / 2;
+        var baseTop = (window.innerHeight - boxH) / 2;
+        if (baseLeft + window.__dragX < 0) window.__dragX = -baseLeft;
+        if (baseTop + window.__dragY < 0) window.__dragY = -baseTop;
+        if (baseLeft + window.__dragX + boxW > window.innerWidth) window.__dragX = window.innerWidth - boxW - baseLeft;
+        if (baseTop + window.__dragY + boxH > window.innerHeight) window.__dragY = window.innerHeight - boxH - baseTop;
+        
+        box.style.transform = 'translate(-50%,-50%) translate(' + window.__dragX + 'px,' + window.__dragY + 'px)';
+        if (e.cancelable) e.preventDefault();
+    }
+    
+    function onEnd() { dragging = false; }
+    
+    hdr.addEventListener('mousedown', onStart);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    hdr.addEventListener('touchstart', onStart, {passive:false});
+    document.addEventListener('touchmove', onMove, {passive:false});
+    document.addEventListener('touchend', onEnd);
+})();
 
 window.closeDlnaModal = function() {
     document.getElementById('dlna-modal').style.display = 'none';
@@ -514,14 +883,21 @@ window.closeDlnaModal = function() {
     document.getElementById('dlna-modal-title').innerText = '📺 选择投屏设备';
     document.getElementById('dlna-control-panel').style.display = 'none';
     document.getElementById('manual-ip-area').style.display = 'none';
+    resetDlnaModalPosition();
+    if (window.castOnlyMode) {
+        window.castOnlyMode = false;
+        hideCastOverlay();
+        dlnaControl('stop');
+        dlnaControlUrl = '';
+        if (dlnaPollTimer) { clearInterval(dlnaPollTimer); dlnaPollTimer = null; }
+        if (videoEl.src) {
+            videoEl.play().catch(function(){});
+        }
+    }
 };
 
 var modeBtns=document.querySelectorAll('#mode-bar button[data-mode]');
 modeBtns.forEach(function(b){b.onclick=function(){playMode=b.getAttribute('data-mode');modeBtns.forEach(function(x){x.classList.toggle('active',x===b)})}});
-
-// =========================================================
-// ★ 混合模式
-// =========================================================
 
 function formatToHHMMSS(seconds) {
     var h = Math.floor(seconds / 3600);
@@ -536,9 +912,7 @@ function updateDlnaDuration(dur) {
     var label = document.getElementById('dlna-duration-label');
     if (bar && dur && isFinite(dur) && dur > 0) {
         bar.max = Math.floor(dur);
-        if (label) {
-            label.innerText = '总时长: ' + formatToHHMMSS(dur);
-        }
+        if (label) label.innerText = '总时长: ' + formatToHHMMSS(dur);
     } else {
         if (label) label.innerText = '总时长: --:--:--';
     }
@@ -546,27 +920,31 @@ function updateDlnaDuration(dur) {
 
 window.updateSeekDisplay = function(seconds) {
     var label = document.getElementById('dlna-seek-label');
-    if (label) {
-        label.innerText = formatToHHMMSS(seconds);
-    }
+    if (label) label.innerText = formatToHHMMSS(seconds);
 };
 
 window.executeSeek = function(seconds) {
     dlnaControl('seek', formatToHHMMSS(seconds));
-    if (videoEl.duration) {
+    if (!window.castOnlyMode && videoEl.duration) {
         try { videoEl.currentTime = seconds; } catch(e) {}
     }
+    var label = document.getElementById('dlna-seek-label');
+    if (label) label.innerText = formatToHHMMSS(seconds);
 };
 
 window.dlnaSkip = function(offset) {
     if (!dlnaControlUrl) { alert('请先完成投屏'); return; }
-    var newTime = videoEl.currentTime + offset;
+    var bar = document.getElementById('dlna-seek-bar');
+    var baseTime = bar ? parseFloat(bar.value) : (videoEl.currentTime || 0);
+    var newTime = baseTime + offset;
+    var maxDur = bar ? parseFloat(bar.max) : (videoEl.duration || 0);
     if (newTime < 0) newTime = 0;
-    if (videoEl.duration && newTime > videoEl.duration) newTime = videoEl.duration;
+    if (maxDur && newTime > maxDur) newTime = maxDur;
     executeSeek(newTime);
 };
 
 videoEl.addEventListener('timeupdate', function() {
+    if (window.castOnlyMode) return;
     if (window.dlnaIsPaused) return;
     if (dlnaControlUrl && !window.isDlnaDragging) {
         var bar = document.getElementById('dlna-seek-bar');
@@ -600,8 +978,13 @@ function startDlnaPolling() {
         if (window.isDlnaDragging) return;
         
         if (remoteSyncFailed > 5) {
-            console.log('远端连续 5 次未返回状态，停止轮询。将仅使用本地控制。');
+            console.log('远端连续 5 次未返回状态，停止轮询。');
             clearInterval(dlnaPollTimer);
+            if (window.castOnlyMode) {
+                window.castOnlyMode = false;
+                hideCastOverlay();
+                if (videoEl.src) videoEl.play().catch(function(){});
+            }
             return;
         }
 
@@ -610,42 +993,24 @@ function startDlnaPolling() {
             .then(function(res) {
                 if (res.status === 'success') {
                     remoteSyncFailed = 0;
-                    
                     if (res.state) {
                         if (res.state === 'PAUSED_PLAYBACK' || res.state === 'STOPPED') {
                             window.dlnaIsPaused = true;
-                            if (!videoEl.paused) videoEl.pause(); 
                         } else if (res.state === 'PLAYING') {
                             window.dlnaIsPaused = false;
-                            if (videoEl.paused) videoEl.play().catch(function(){});
                         }
                     }
-                    
-                    if (res.rel_time && !window.dlnaIsPaused) {
+                    if (res.rel_time) {
                         var parts = res.rel_time.split(':');
                         if (parts.length === 3) {
                             var seconds = parseInt(parts[0])*3600 + parseInt(parts[1])*60 + parseInt(parts[2]);
-                            
-                            if (seconds === lastDlnaTime) {
-                                sameTimeCount++;
-                                if (sameTimeCount >= 2) {
-                                    window.dlnaIsPaused = true;
-                                    if (!videoEl.paused) videoEl.pause();
-                                }
-                            } else {
-                                sameTimeCount = 0;
-                                if (videoEl.paused) videoEl.play().catch(function(){});
-                            }
                             lastDlnaTime = seconds;
-                            
+                            sameTimeCount = 0;
                             var bar = document.getElementById('dlna-seek-bar');
                             var label = document.getElementById('dlna-seek-label');
                             if (bar && label) {
                                 bar.value = seconds;
                                 label.innerText = res.rel_time;
-                            }
-                            if (videoEl.duration && Math.abs(videoEl.currentTime - seconds) > 5) {
-                                try { videoEl.currentTime = seconds; } catch(e) {}
                             }
                         }
                     }
@@ -665,21 +1030,20 @@ videoEl.addEventListener('durationchange', function() {
     updateDlnaDuration(videoEl.duration);
 });
 
-// =========================================================
-
 window.dlnaAction = function(action) {
     dlnaControl(action);
-    
     if (action === 'play') {
         window.dlnaIsPaused = false;
-        videoEl.play().catch(function(){});
+        if (!window.castOnlyMode) videoEl.play().catch(function(){});
     } else if (action === 'pause') {
         window.dlnaIsPaused = true;
-        videoEl.pause();
+        if (!window.castOnlyMode) videoEl.pause();
     } else if (action === 'stop') {
         window.dlnaIsPaused = true;
-        videoEl.pause();
-        videoEl.currentTime = 0;
+        if (!window.castOnlyMode) {
+            videoEl.pause();
+            videoEl.currentTime = 0;
+        }
         var bar = document.getElementById('dlna-seek-bar');
         var label = document.getElementById('dlna-seek-label');
         if (bar && label) {
@@ -691,7 +1055,6 @@ window.dlnaAction = function(action) {
 
 window.dlnaPrevNext = function(direction) {
     if (!dlnaControlUrl) { alert('请先完成投屏'); return; }
-    
     var targetIndex = -1;
     if (direction === 'prev') {
         for (var i = currentIndex - 1; i >= 0; i--) {
@@ -704,9 +1067,26 @@ window.dlnaPrevNext = function(direction) {
         }
         if (targetIndex === -1) { console.log('已经是最后一集'); return; }
     }
-    
     if (targetIndex >= 0) {
-        playIndex(targetIndex);
+        if (window.castOnlyMode) {
+            var it = listItems[targetIndex];
+            currentIndex = targetIndex;
+            renderList();
+            setNowPlaying('▶',(it.displayName||it.name),getCueBadge(targetIndex));
+            var bar = document.getElementById('dlna-seek-bar');
+            if (bar) bar.value = 0;
+            var lbl = document.getElementById('dlna-seek-label');
+            if (lbl) lbl.innerText = '00:00:00';
+            updateDlnaFileName();
+            var newVideoUrl = window.location.origin + it.url;
+            fetch('/cgi-bin/luci/dlna/cast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'control_url=' + encodeURIComponent(dlnaControlUrl) + '&video_url=' + encodeURIComponent(newVideoUrl)
+            }).catch(function(){});
+        } else {
+            playIndex(targetIndex);
+        }
     }
 };
 
@@ -715,14 +1095,12 @@ window.toggleDlnaMute = function() {
     if (!window.dlnaMuted) {
         lastVolume = parseInt(document.getElementById('dlna-vol').value) || 50;
         window.dlnaMuted = true;
-        videoEl.muted = true;
         dlnaControl('volume', '0');
         document.getElementById('dlna-vol-val').innerText = '0';
         document.getElementById('dlna-vol').value = 0;
         if (btn) btn.innerText = '🔇 取消静音';
     } else {
         window.dlnaMuted = false;
-        videoEl.muted = false;
         dlnaControl('volume', lastVolume);
         document.getElementById('dlna-vol-val').innerText = lastVolume;
         document.getElementById('dlna-vol').value = lastVolume;
@@ -731,10 +1109,12 @@ window.toggleDlnaMute = function() {
 };
 
 videoEl.addEventListener('play', function() {
+    if (window.castOnlyMode) return;
     window.dlnaIsPaused = false;
     if (dlnaControlUrl && !window.isAutoSwitching) dlnaControl('play');
 });
 videoEl.addEventListener('pause', function() {
+    if (window.castOnlyMode) return;
     window.dlnaIsPaused = true;
     if (dlnaControlUrl && !videoEl.ended) dlnaControl('pause');
 });
@@ -747,7 +1127,8 @@ document.getElementById('dlna-cast-btn').onclick = function() {
     var list = document.getElementById('dlna-device-list');
     var manualArea = document.getElementById('manual-ip-area');
     
-    modal.style.display = 'flex';
+    modal.style.display = 'block';
+    resetDlnaModalPosition();
     manualArea.style.display = 'none';
     document.getElementById('dlna-control-panel').style.display = 'none';
     document.getElementById('dlna-modal-title').innerText = '📺 选择投屏设备';
@@ -786,6 +1167,9 @@ document.getElementById('dlna-cast-btn').onclick = function() {
                         if (res.status === 'success') {
                             dlnaControlUrl = dev.control_url;
                             window.dlnaIsPaused = false;
+                            window.castOnlyMode = true;
+                            videoEl.pause();
+                            showCastOverlay();
                             list.style.display = 'none';
                             document.getElementById('dlna-control-panel').style.display = 'block';
                             updateDlnaFileName();
@@ -852,6 +1236,9 @@ function doCast(control_url, videoUrl, listEl, callback) {
         if (res.status === 'success') {
             dlnaControlUrl = control_url; 
             window.dlnaIsPaused = false;
+            window.castOnlyMode = true;
+            videoEl.pause();
+            showCastOverlay();
             document.getElementById('dlna-device-list').style.display = 'none';
             document.getElementById('dlna-control-panel').style.display = 'block'; 
             updateDlnaFileName();
@@ -906,19 +1293,60 @@ function showBgInfo(text){
 }
 
 function setBgImage(url){
-  audioBgEl.style.opacity='0';
-  setTimeout(function(){
-    audioBgEl.src=url;
-    audioBgEl.style.opacity='1';
-  },400);
+  var prevIdx = bgElActive;
+  var nextIdx = 1 - prevIdx;
+  bgElActive = nextIdx;
+  var prevEl = bgEls[prevIdx];
+  var nextEl = bgEls[nextIdx];
+  var idx = Math.floor(Math.random() * bgEffects.length);
+  console.log('[BG] 效果 #' + idx + ' ' + (BG_EFFECT_NAMES[idx] || ''));
+  bgEffects[idx](prevEl, nextEl, url);
 }
 
+// 显示背景图（预加载完毕后调用）
+function showBgList(list, labelText, swing){
+    bgImages = list;
+    bgIdx = 0;
+    bgElActive = 0;
+    audioBgEl.style.transition = 'opacity 0.5s ease-in';
+    audioBgEl.style.transform = 'translateX(0)';
+    audioBgEl.style.transformOrigin = '';
+    audioBgEl.style.clipPath = '';
+    audioBgEl.style.webkitClipPath = '';
+    audioBgEl.style.zIndex = '2';
+    audioBgEl.src = list[0].url;
+    audioBgEl.style.opacity = '0';
+    void audioBgEl.offsetWidth;
+    audioBgEl.style.opacity = '1';
+    resetBgEl(audioBg2El);
+    videoEl.removeAttribute('controls');
+    acUpdatePlay();
+    acUpdateTime();
+    showBgInfo(labelText);
+    // ★ 自动下载的封面：加摆动效果
+    if (swing) {
+        bgRotatorEl.classList.add('swing');
+    } else {
+        bgRotatorEl.classList.remove('swing');
+    }
+    if (list.length > 1) {
+        bgTimer = setInterval(function() {
+            bgIdx = (bgIdx + 1) % bgImages.length;
+            setBgImage(bgImages[bgIdx].url);
+        }, BG_INTERVAL);
+    }
+}
+
+// 换歌时：旧图继续显示，新图预加载完再切换
 function startAudioBackground(audioName) {
-    stopAudioBackground();
-    var imgs = findBgImages(audioName);
+    if(bgTimer){clearInterval(bgTimer);bgTimer=null;}
     videoWrap.classList.add('audio-mode');
     
+    var myToken = ++bgLoadToken;
+    var imgs = findBgImages(audioName);
+    
     if (imgs.length === 0) {
+        // 没有本地图片：联网获取封面 + 摆动效果
         var baseName = audioName.replace(/\.[^.]+$/, '');
         var artist = '', title = baseName;
         if (baseName.indexOf(' - ') > -1) {
@@ -934,58 +1362,75 @@ function startAudioBackground(audioName) {
         fetch('/cgi-bin/luci/dlna/cover?artist=' + encodeURIComponent(artist) + '&title=' + encodeURIComponent(title))
             .then(function(r) { return r.json(); })
             .then(function(res) {
+                if (myToken !== bgLoadToken) return;
                 if (res.status === 'success') {
-                    bgImages = [{name: '在线封面', url: res.url}];
-                    bgIdx = 0;
-                    audioBgEl.src = res.url;
-                    audioBgEl.style.opacity = '1';
-                    audioBgEl.classList.add('on');
-                    showBgInfo('📷 在线获取的封面');
+                    var preload = new Image();
+                    preload.onload = function(){
+                        if (myToken !== bgLoadToken) return;
+                        // ★ 联网封面：传 true 启用摆动
+                        showBgList([{name:'在线封面', url: res.url}], '📷 在线获取的封面', true);
+                    };
+                    preload.onerror = function(){
+                        if (myToken !== bgLoadToken) return;
+                        showBgInfo('封面加载失败');
+                        videoEl.removeAttribute('controls');
+                        acUpdatePlay();
+                        acUpdateTime();
+                    };
+                    preload.src = res.url;
                 } else {
+                    showBgInfo('未能找到封面');
                     videoEl.removeAttribute('controls');
                     acUpdatePlay();
                     acUpdateTime();
-                    showBgInfo('未能找到封面');
                 }
             })
             .catch(function() {
+                if (myToken !== bgLoadToken) return;
+                showBgInfo('封面加载失败');
                 videoEl.removeAttribute('controls');
                 acUpdatePlay();
                 acUpdateTime();
             });
         
         videoEl.removeAttribute('controls');
-        acUpdatePlay(); 
+        acUpdatePlay();
         acUpdateTime();
         return;
     }
     
-    bgImages = imgs;
-    bgIdx = 0;
-    audioBgEl.src = imgs[0].url;
-    audioBgEl.style.opacity = '1';
-    audioBgEl.classList.add('on');
+    // 本地图片：预加载第一张，加载完成再显示（不加摆动）
+    var firstUrl = imgs[0].url;
+    var preload = new Image();
+    preload.onload = function(){
+        if (myToken !== bgLoadToken) return;
+        var labelText;
+        if (imgs.length === 1) labelText = '📷 ' + imgs[0].name;
+        else labelText = '📷 ' + imgs.length + ' 张图片轮播';
+        showBgList(imgs, labelText, false);
+    };
+    preload.onerror = function(){
+        if (myToken !== bgLoadToken) return;
+        showBgInfo('封面加载失败');
+        videoEl.removeAttribute('controls');
+        acUpdatePlay();
+        acUpdateTime();
+    };
+    preload.src = firstUrl;
+    
     videoEl.removeAttribute('controls');
     acUpdatePlay();
     acUpdateTime();
-    var label;
-    if (imgs.length === 1) label = '📷 ' + imgs[0].name;
-    else label = '📷 ' + imgs.length + ' 张图片轮播';
-    showBgInfo(label);
-    if (imgs.length > 1) {
-        bgTimer = setInterval(function() {
-            bgIdx = (bgIdx + 1) % bgImages.length;
-            setBgImage(bgImages[bgIdx].url);
-        }, BG_INTERVAL);
-    }
 }
 
 function stopAudioBackground(){
   if(bgTimer){clearInterval(bgTimer);bgTimer=null;}
-  audioBgEl.classList.remove('on');
-  audioBgEl.removeAttribute('src');
-  audioBgEl.style.opacity='1';
+  bgLoadToken++;
+  resetBgEl(audioBgEl);
+  resetBgEl(audioBg2El);
+  bgElActive = 0;
   audioBgInfoEl.classList.remove('on');
+  bgRotatorEl.classList.remove('swing'); // ★ 退出音频模式：移除摆动
   videoWrap.classList.remove('audio-mode');
   videoEl.setAttribute('controls','');
   bgImages=[];
@@ -1211,7 +1656,6 @@ function playIndex(idx){
       })
       .then(function(r) { return r.json(); })
       .then(function(res) {
-          if (res.status === 'success') console.log('自动切集：远端 URL 已更新');
           window.isAutoSwitching = false;
           updateDlnaFileName();
       })
@@ -1232,11 +1676,12 @@ function playIndex(idx){
       mpegtsPlayer=mpegts.createPlayer({type:'mpegts',isLive:false,url:it.url},{enableWorker:false,lazyLoad:false});
       mpegtsPlayer.attachMediaElement(videoEl);
       mpegtsPlayer.load();
-      mpegtsPlayer.play();
+      if (!window.castOnlyMode) mpegtsPlayer.play();
       mpegtsPlayer.on(mpegts.Events.ERROR,function(t,d){console.warn('mpegts err:',t,d);setTimeout(playNextAuto,500)});
-    }catch(e){videoEl.src=it.url;videoEl.play().catch(function(){});}
+    }catch(e){videoEl.src=it.url;if (!window.castOnlyMode) videoEl.play().catch(function(){});}
   } else {
-    videoEl.src=it.url;videoEl.play().catch(function(){});
+    videoEl.src=it.url;
+    if (!window.castOnlyMode) videoEl.play().catch(function(){});
   }
   updateDlnaFileName();
   var active=listEl.querySelector('li.active');
@@ -1298,12 +1743,14 @@ function applyTextDecode(forced){
 encSelEl.addEventListener('change',function(){applyTextDecode(encSelEl.value)});
 
 videoEl.addEventListener('ended',function(){
+  if(window.castOnlyMode) return;
   if(playMode==='repeat-one'){if(currentIndex>=0&&listItems[currentIndex].kind==='media')playIndex(currentIndex);return}
   if(playMode==='sequential' || playMode==='repeat-all' || playMode==='random'){
       playNextAuto();
   }
 });
 function playNextAuto(){
+  if(window.castOnlyMode) return;
   if(playMode==='random'){
     var c=[];for(var i=0;i<listItems.length;i++)if(listItems[i].kind==='media'&&i!==currentIndex)c.push(i);
     if(c.length===0){if(currentIndex>=0&&listItems[currentIndex].kind==='media')playIndex(currentIndex);return}
@@ -1314,8 +1761,8 @@ function playNextAuto(){
 }
 
 videoEl.addEventListener('error', function() {
+    if (window.castOnlyMode) return;
     if (videoEl.src && !mpegtsPlayer) {
-        console.warn('播放错误，已停止自动切换');
         if (playMode === 'repeat-all' || playMode === 'random') {
             setTimeout(playNextAuto, 1000);
         }
@@ -1324,6 +1771,7 @@ videoEl.addEventListener('error', function() {
 
 document.addEventListener('keydown',function(e){
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
+  if(window.castOnlyMode) return;
   if(e.key===' '){if(videoEl.style.display!=='none'&&videoEl.src){e.preventDefault();videoEl.paused?videoEl.play():videoEl.pause()}return}
   if(e.key==='ArrowLeft')for(var i=currentIndex-1;i>=0;i--){var k=listItems[i].kind;if(k==='media'){playIndex(i);return}if(k==='image'){previewImage(i);return}if(k==='doc'){previewPDF(i);return}if(k==='text'){previewText(i);return}}
   else if(e.key==='ArrowRight')for(var i=currentIndex+1;i<listItems.length;i++){var k=listItems[i].kind;if(k==='media'){playIndex(i);return}if(k==='image'){previewImage(i);return}if(k==='doc'){previewPDF(i);return}if(k==='text'){previewText(i);return}}
