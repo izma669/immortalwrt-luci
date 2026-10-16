@@ -105,12 +105,3 @@ msgstr "无法检索捕获."
 
 msgid "There are no captures available yet."
 msgstr "目前没有可用的捕获."
-
-msgid "No capture in progress"
-msgstr "没有正在进行的捕获"
-
-msgid "Capture in progress.."
-msgstr "正在捕获..."
-
-msgid "Capture has been terminated"
-msgstr "捕获已被终止"
