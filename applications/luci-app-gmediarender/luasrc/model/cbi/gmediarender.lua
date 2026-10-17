@@ -20,7 +20,7 @@ o = s:option(DummyValue, "_nowplaying", "播放信息")
 o.template = "gmediarender/nowplaying"
 
 -- ==========================================
--- 3. 基本设置模块（所有配置项都放这里）
+-- 3. 基本设置模块
 -- ==========================================
 s = m:section(NamedSection, "main", "gmediarender", "基本设置")
 s.anonymous = true
@@ -46,39 +46,15 @@ o.datatype = "port"
 o.default = "49152"
 o.rmempty = false
 
--- 新增：播放时自动下载（严格按标准 Flag 格式，保证不会白板）
 o = s:option(Flag, "auto_download", "播放时自动下载",
     "当检测到开始播放新歌曲时，自动将其下载到指定目录")
 o.default = "0"
 o.rmempty = false
 
--- 下载歌曲存放位置
 o = s:option(Value, "download_dir", "下载歌曲存放位置",
-    "下载歌曲的默认保存路径，请确保目录已挂载且有足够空间（默认 /mnt/sda1/media/music）")
-o.default = "/mnt/sda1/media/music"
+    "下载歌曲的默认保存路径，请确保目录已挂载且有足够空间")
+o.default = "/mnt/mmcblk0p1/music"
 o.rmempty = false
-
-o = s:option(Flag, "enable_log", "启用日志",
-    "把日志写入文件后解析播放数据，这是“正在播放”显示功能所必需的")
-o.default = "1"
-o.rmempty = false
-
-o = s:option(Value, "logfile", "日志文件",
-    "日志文件路径（留空则关闭）")
-o.default = "/var/log/gmediarender.log"
-o.rmempty = true
-
-o = s:option(Flag, "log_cleanup", "启用日志自动清理",
-    "向系统添加定时“计划任务”超过阈值时自动执行清空任务")
-o.default = "1"
-o.rmempty = false
-
-o = s:option(Value, "log_limit_mb", "日志大小阈值 (MB)",
-    "超过此大小将自动清空日志文件")
-o.datatype = "uinteger"
-o.default = "5"
-o.rmempty = false
-o:depends("log_cleanup", "1")
 
 -- ==========================================
 -- 4. 服务控制模块
