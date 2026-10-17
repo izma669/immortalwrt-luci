@@ -90,9 +90,10 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 #audio-bg-info{position:absolute;bottom:70px;left:20px;color:#ddd;font-size:12px;background:rgba(0,0,0,.55);padding:5px 10px;border-radius:5px;z-index:6;display:none;pointer-events:none}
 #audio-bg-info.on{display:block}
 
-#preview{display:none;width:100%;height:100%;object-fit:contain;background:#000}
-#pdf-preview{display:none;width:100%;height:100%;border:none;background:#fff}
-#text-preview{display:none;width:100%;height:100%;margin:0;padding:20px;background:#1e1e1e;color:#d4d4d4;overflow:auto;font-size:13px;line-height:1.55;font-family:Consolas,Monaco,monospace;white-space:pre-wrap;word-break:break-all;-webkit-user-select:text;user-select:text}
+/* ★ 修复：给预览元素加 position:relative; z-index:3，使其高于 #bg-rotator(1) 和 #video(2) */
+#preview{display:none;width:100%;height:100%;object-fit:contain;background:#000;position:relative;z-index:3}
+#pdf-preview{display:none;width:100%;height:100%;border:none;background:#fff;position:relative;z-index:3}
+#text-preview{display:none;width:100%;height:100%;margin:0;padding:20px;background:#1e1e1e;color:#d4d4d4;overflow:auto;font-size:13px;line-height:1.55;font-family:Consolas,Monaco,monospace;white-space:pre-wrap;word-break:break-all;-webkit-user-select:text;user-select:text;position:relative;z-index:3}
 #empty{position:absolute;color:#555;font-size:15px;padding:20px;pointer-events:none;z-index:8}
 #nowplaying{position:absolute;top:0;left:0;right:0;padding:10px 16px 14px;background:linear-gradient(180deg,rgba(0,0,0,.92),rgba(0,0,0,.65) 60%,transparent);font-size:14px;color:#fff;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:7;font-weight:500;display:flex;align-items:center;gap:8px}
 #nowplaying .np-icon{display:inline-block;color:#4a9eff;animation:npPulse 1.3s ease-in-out infinite;flex-shrink:0}
@@ -652,7 +653,7 @@ var currentIndex=-1, listItems=[], playMode='', mpegtsPlayer=null, textAbortCont
 var bgTimer=null, bgImages=[], bgIdx=0, bgInfoHideTimer=null, seeking=false;
 var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 if(isIOS){ var _am=document.getElementById('ac-mute'); var _av=document.getElementById('ac-vol'); if(_am)_am.style.display='none'; if(_av)_av.style.display='none'; }
-var TEXT_PREVIEW_MAX=2*1024*1024, BG_INTERVAL=8000;
+var TEXT_PREVIEW_MAX=2*1024*1024, BG_INTERVAL=16000;
 
 function getExt(n){var m=String(n).toLowerCase().match(/\.[^.]+$/);return m?m[0]:''}
 function isMedia(n){var e=getExt(n);return VIDEO_EXTS.indexOf(e)>=0||AUDIO_EXTS.indexOf(e)>=0}
