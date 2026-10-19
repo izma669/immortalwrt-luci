@@ -9,73 +9,53 @@ function index()
     entry({"dlna", "control"}, post("dlna_control")).leaf = true
     entry({"dlna", "get_position"}, call("dlna_get_position")).leaf = true
     entry({"dlna", "ffprobe"}, post("dlna_ffprobe")).leaf = true 
+    
+    -- 提取 AAC 音频功能路由
+    entry({"dlna", "extract_audio"}, post("dlna_extract_audio")).leaf = true
+    entry({"dlna", "get_progress"}, call("dlna_get_progress")).leaf = true
+    entry({"dlna", "cancel_extract"}, post("dlna_cancel_extract")).leaf = true
+    entry({"dlna", "check_task"}, post("dlna_check_task")).leaf = true  -- 新增：查询任务
 end
 
 function dlna_ffprobe()
     local http = require "luci.http"
     http.prepare_content("application/json")
-    
     local file = http.formvalue("file") or ""
-    if file == "" then
-        http.write('{"error":"缺少 file 参数"}')
-        return 
-    end
-    
-    -- ★ 核心修复 1：双重 URL 解码，暴力解析出中文和特殊字符
-    local function unescape(s)
-        return (s:gsub('%%(%x%x)', function(x) return string.char(tonumber(x, 16)) end))
-    end
+    if file == "" then http.write('{"error":"缺少 file 参数"}'); return end
+    local function unescape(s) return (s:gsub('%%(%x%x)', function(x) return string.char(tonumber(x, 16)) end)) end
     file = unescape(file)
-    if file:match("%%") then 
-        file = unescape(file) 
-    end
-    
+    if file:match("%%") then file = unescape(file) end
+
     local path = "/mnt" .. file
     local f_test = io.open(path, "rb")
     if not f_test then
         local alt_path = "/mnt/mmcblk0p1" .. file
         local f_alt = io.open(alt_path, "rb")
-        if f_alt then
-            f_alt:close()
-            path = alt_path
-        else
-            http.write('{"error":"文件不存在或无法读取: ' .. path:gsub('"', '') .. '"}')
-            return
-        end
+        if f_alt then f_alt:close(); path = alt_path else http.write('{"error":"文件不存在: ' .. path:gsub('"', '') .. '"}'); return end
     else
         f_test:close()
     end
     
     local safe_path = path:gsub("'", "'\\''")
     local tmp_out = "/tmp/ff_out_" .. os.time() .. math.random(100,999) .. ".txt"
-    
-    local cmd = string.format("V4L2_REQUEST_API=none LANG=C.UTF-8 /usr/bin/ffmpeg -threads 1 -hwaccel none -hide_banner -i '%s' > %s 2>&1", safe_path, tmp_out)
+    local cmd = string.format("V4L2_REQUEST_API=none LANG=C.UTF-8 /usr/bin/ffmpeg -threads 1 -hwaccel none -hide_banner -analyzeduration 50M -probesize 50M -i '%s' > %s 2>&1", safe_path, tmp_out)
     os.execute(cmd)
     
     local f = io.open(tmp_out, "r")
-    if not f then
-        http.write('{"error":"ffmpeg 执行失败"}')
-        return
-    end
+    if not f then http.write('{"error":"ffmpeg 执行失败"}'); return end
     local out = f:read("*a")
     f:close()
     os.remove(tmp_out)
     
-    if not out or out == "" then
-        http.write('{"error":"ffmpeg 未解析出内容"}')
-        return
-    end
-
-    out = out:gsub("[\128-\255]", "") -- 过滤非 ASCII 字符
+    if not out or out == "" then http.write('{"error":"ffmpeg 未解析出内容"}'); return end
+    out = out:gsub("[\128-\255]", "")
     
     local format_name = "Unknown"
     local fmt_m = out:match("Input #%d+, ([^,]+), from")
     if fmt_m then format_name = fmt_m end
-    
     local duration = "0"
     local h, m, s = out:match("Duration: (%d+):(%d+):(%d+%.%d+)")
     if h then duration = tostring(math.floor(tonumber(h)*3600 + tonumber(m)*60 + tonumber(s))) end
-    
     local bit_rate = out:match("bitrate: (%d+) kb/s") or "0"
     bit_rate = tostring(math.floor((tonumber(bit_rate) or 0) * 1000))
 
@@ -88,11 +68,8 @@ function dlna_ffprobe()
             local fps = line:match("([%d%.]+) fps") or "0"
             local vbr = line:match("(%d+) kb/s") or "0"
             local pix = line:match("Video: .-, ([^,]+),") or ""
-            
-            -- ★ 核心修复 2：彻底抛弃 string.format，纯字符串拼接，绝不报错
             local s_obj = '{"codec_type":"video","codec_name":"' .. codec:gsub('"','') .. '","width":' .. w .. ',"height":' .. h_str .. ',"r_frame_rate":"' .. fps .. '/1","bit_rate":' .. tostring(math.floor((tonumber(vbr) or 0)*1000)) .. ',"pix_fmt":"' .. pix:gsub('"','') .. '"}'
             table.insert(streams, s_obj)
-            
         elseif line:match("Stream #%d+:%d+.*: Audio:") then
             local codec = line:match("Audio: ([^%s]+)") or "unknown"
             local sr = line:match("(%d+) Hz") or "0"
@@ -100,21 +77,194 @@ function dlna_ffprobe()
             local abr = line:match("(%d+) kb/s") or "0"
             local ch = "2"
             if layout:match("mono") then ch = "1" elseif layout:match("5%.1") then ch = "6" elseif layout:match("7%.1") then ch = "8" end
-            
             local s_obj = '{"codec_type":"audio","codec_name":"' .. codec:gsub('"','') .. '","sample_rate":' .. sr .. ',"channels":' .. ch .. ',"channel_layout":"' .. layout:gsub('"','') .. '","bit_rate":' .. tostring(math.floor((tonumber(abr) or 0)*1000)) .. '}'
             table.insert(streams, s_obj)
         end
     end
-    
     local s_json = "[" .. table.concat(streams, ",") .. "]"
     local final_json = '{"format":{"format_long_name":"' .. format_name:gsub('"','') .. '","format_name":"' .. format_name:gsub('"','') .. '","duration":' .. duration .. ',"bit_rate":' .. bit_rate .. '},"streams":' .. s_json .. '}'
-        
     http.write(final_json)
 end
 
--- ==========================================
--- 以下为 DLNA 投屏相关函数，保持原样
--- ==========================================
+function dlna_extract_audio()
+    local http = require "luci.http"
+    local file = http.formvalue("file") or ""
+    local aidx = tonumber(http.formvalue("aidx")) or 0
+    
+    http.prepare_content("application/json")
+    if file == "" then http.write('{"error":"缺少 file 参数"}'); return end
+    local function unescape(s) return (s:gsub('%%(%x%x)', function(x) return string.char(tonumber(x, 16)) end)) end
+    file = unescape(file)
+    if file:match("%%") then file = unescape(file) end
+
+    local path = "/mnt" .. file
+    local f = io.open(path, "rb")
+    local actual_base = "/mnt"
+    if not f then
+        local alt_path = "/mnt/mmcblk0p1" .. file
+        f = io.open(alt_path, "rb")
+        if f then path = alt_path; actual_base = "/mnt/mmcblk0p1" else http.write('{"error":"文件不存在"}'); return end
+    end
+    f:close()
+
+    local orig_name = file:match("([^/]+)$")
+    local base_name = orig_name:gsub("%.[^.]+$", "")
+    local file_dir_url = file:gsub("([^/]+)$", "") 
+    local token = os.time() .. math.random(100, 999)
+    local new_name = base_name .. "_AAC_" .. token .. ".ts"
+    
+    local out_ts = actual_base .. file_dir_url .. new_name
+    local prog_file = "/tmp/aac_" .. token .. ".prog"
+    local log_file = "/tmp/aac_" .. token .. ".log"
+    local meta_file = "/tmp/aac_" .. token .. ".meta"
+    
+    local safe_path = path:gsub("'", "'\\''")
+    local safe_out = out_ts:gsub("'", "'\\''")
+
+    -- 写入元数据用于刷新页面后找回任务
+    local mf = io.open(meta_file, "w")
+    if mf then
+        mf:write(file, "\n", new_name, "\n")
+        mf:close()
+    end
+
+    require("luci.sys").exec("pkill -f 'AAC_" .. token .. "' 2>/dev/null")
+
+    local cmd = string.format(
+        "(V4L2_REQUEST_API=none LANG=C.UTF-8 /usr/bin/ffmpeg -threads 2 -hwaccel none -analyzeduration 50M -probesize 50M "
+        .. "-i '%s' -map 0:a:%d -vn -c:a aac -b:a 192k -ac 2 "
+        .. "-f mpegts '%s' -progress '%s' > '%s' 2>&1) &",
+        safe_path, aidx, safe_out, prog_file, log_file
+    )
+    os.execute(cmd)
+    
+    http.write('{"status":"success","token":"' .. token .. '","new_file_url":"' .. file_dir_url .. new_name .. '"}')
+end
+
+function dlna_check_task()
+    local http = require "luci.http"
+    local sys = require "luci.sys"
+    local file = http.formvalue("file") or ""
+    http.prepare_content("application/json")
+    
+    if file == "" then http.write('{"status":"none"}'); return end
+    local function unescape(s) return (s:gsub('%%(%x%x)', function(x) return string.char(tonumber(x, 16)) end)) end
+    file = unescape(file)
+    if file:match("%%") then file = unescape(file) end
+
+    local f = io.popen("ls /tmp/aac_*.meta 2>/dev/null")
+    if f then
+        for line in f:lines() do
+            local token = line:match("aac_(%d+)%.meta")
+            if token then
+                local mf = io.open(line, "r")
+                if mf then
+                    local src = mf:read("*l")
+                    local out_name = mf:read("*l")
+                    mf:close()
+                    if src == file then
+                        local is_running = sys.call("pgrep -f 'AAC_" .. token .. "'") == 0
+                        local prog_file = "/tmp/aac_" .. token .. ".prog"
+                        local is_end = false
+                        local pf = io.open(prog_file, "r")
+                        if pf then
+                            local pc = pf:read("*a")
+                            pf:close()
+                            if pc:match("progress=end") then is_end = true end
+                        end
+                        
+                        if is_running or is_end then
+                            f:close()
+                            http.write_json({status = "found", token = token, new_file_url = out_name, is_done = is_end})
+                            return
+                        end
+                    end
+                end
+            end
+        end
+        f:close()
+    end
+    http.write('{"status":"none"}')
+end
+
+function dlna_get_progress()
+    local http = require "luci.http"
+    local token = http.formvalue("token") or ""
+    http.prepare_content("application/json")
+    
+    if token == "" then http.write('{"error":"缺少 token"}'); return end
+    
+    local prog_file = "/tmp/aac_" .. token .. ".prog"
+    local log_file = "/tmp/aac_" .. token .. ".log"
+    local f = io.open(prog_file, "r")
+    
+    if not f then
+        local is_running = require("luci.sys").call("pgrep -f 'AAC_" .. token .. "'") == 0
+        if is_running then
+            http.write('{"status":"starting"}')
+        else
+            local err_msg = "未知错误"
+            local f_log = io.open(log_file, "r")
+            if f_log then
+                local log_content = f_log:read("*a")
+                f_log:close()
+                err_msg = log_content:sub(-300)
+                err_msg = err_msg:gsub("[\128-\255]", ""):gsub("\n", " ") 
+            end
+            http.write('{"status":"error","message":"FFmpeg 进程意外退出","log":' .. require("luci.jsonc").stringify(err_msg) .. '}')
+        end
+        return
+    end
+
+    local content = f:read("*a")
+    f:close()
+    local out_time_us = content:match("out_time_us=(%d+)") or 0
+    local speed_str = content:match("speed=%s*([%d%.x]+)") or "0x"
+    local is_end = false
+    if content:match("progress=end") then is_end = true end
+
+    local loadavg = "0.00"
+    local f_load = io.open("/proc/loadavg", "r")
+    if f_load then
+        local load_str = f_load:read("*l")
+        if load_str then loadavg = load_str:match("^(%S+)") or "0.00" end
+        f_load:close()
+    end
+    
+    if is_end then
+        http.write('{"status":"done","out_time_us":' .. out_time_us .. ',"speed":"' .. speed_str .. '","load":"' .. loadavg .. '"}')
+    else
+        http.write('{"status":"running","out_time_us":' .. out_time_us .. ',"speed":"' .. speed_str .. '","load":"' .. loadavg .. '"}')
+    end
+end
+
+function dlna_cancel_extract()
+    local http = require "luci.http"
+    local token = http.formvalue("token") or ""
+    local new_url = http.formvalue("new_url") or ""
+    http.prepare_content("application/json")
+    
+    if token == "" then http.write('{"error":"缺少 token"}'); return end
+    
+    require("luci.sys").exec("pkill -f 'AAC_" .. token .. "'; rm -f /tmp/aac_" .. token .. ".*")
+    
+    if new_url ~= "" then
+        local function unescape(s) return (s:gsub('%%(%x%x)', function(x) return string.char(tonumber(x, 16)) end)) end
+        local decoded_url = unescape(new_url)
+        local path = "/mnt" .. decoded_url
+        local f = io.open(path, "rb")
+        if not f then
+            path = "/mnt/mmcblk0p1" .. decoded_url
+            f = io.open(path, "rb")
+        end
+        if f then
+            f:close()
+            os.remove(path)
+        end
+    end
+    http.write('{"status":"success"}')
+end
+
 function dlna_discover() 
     local http = require "luci.http"
     local devices = {}
