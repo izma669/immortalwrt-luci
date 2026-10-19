@@ -8,7 +8,9 @@
 <script src="/hls.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none}
+html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", sans-serif;
+  overflow:hidden;-webkit-user-select:none;user-select:none}
 #app{display:flex;height:100%;overflow:hidden}
 #sidebar{width:280px;background:#1a1a1a;display:flex;flex-direction:column;border-right:1px solid #2a2a2a;min-height:0}
 #sidebar header{padding:10px 12px;background:#222;border-bottom:1px solid #2a2a2a;display:flex;gap:8px;align-items:center;flex-shrink:0}
@@ -121,9 +123,20 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
 #file-info-modal .fi-row{display:flex; padding:3px 0; border-bottom:1px solid #252525;}
 #file-info-modal .fi-k{width:110px; color:#888; flex-shrink:0}
 #file-info-modal .fi-v{color:#ddd; word-break:break-all}
-#audio-track-sel{background:#2f2f2f; border:1px solid #3a3a3a; color:#ddd;padding:2px 8px; border-radius:4px; font-size:11.5px;cursor:pointer; max-width:220px; outline:none;}
-#audio-track-sel:hover{background:#3a3a3a}
-#audio-track-wrap{align-items:center; gap:4px}
+
+#extract-progress-container {
+    display: none;
+    position: absolute; top: 45px; left: 50%; transform: translateX(-50%);
+    width: 340px; background: rgba(26, 26, 26, 0.95); border: 1px solid #4a9eff;
+    border-radius: 8px; padding: 15px 20px; z-index: 999;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+}
+#extract-progress-container .title { font-size: 13px; color: #fff; margin-bottom: 10px; font-weight: bold; display:flex; justify-content:space-between;}
+#extract-progress-container .title span.speed { color: #4a9eff; font-weight: normal; }
+#extract-progress-bar-bg { height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+#extract-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #1e3a5f, #4a9eff); transition: width 0.3s; }
+#extract-progress-text { font-size: 12px; color: #aaa; display: flex; justify-content: space-between; }
+
 @media(max-width:768px){
   #app{flex-direction:column}
   #sidebar{width:100%;height:38vh;min-height:150px;border-right:none;border-bottom:1px solid #2a2a2a}
@@ -158,6 +171,24 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
   <main id="main">
     <div id="video-wrap">
       <video id="video" controls playsinline webkit-playsinline x5-playsinline controlsList="nodownload"></video>
+      
+      <!-- 提取进度显示 -->
+      <div id="extract-progress-container">
+          <div class="title">
+              <span>正在提取 AAC 音轨</span>
+              <span class="speed" id="extract-speed">0x</span>
+          </div>
+          <div id="extract-progress-bar-bg"><div id="extract-progress-bar"></div></div>
+          <div id="extract-progress-text">
+              <span id="extract-time">已处理: 00:00:00</span>
+              <span id="extract-progress-percent">0%</span>
+          </div>
+          <div style="font-size:11px; color:#888; margin-top:8px; border-top:1px solid #333; padding-top:6px; display:flex; justify-content:space-between; align-items:center;">
+              <span>系统负载: <span id="extract-load" style="color:#fff;">0.00</span></span>
+              <button id="cancel-transcode-btn" style="background:#c0392b; border:none; color:#fff; padding:2px 10px; border-radius:4px; cursor:pointer; font-size:11px;">取消转码</button>
+          </div>
+      </div>
+
       <div id="cast-overlay">
         <div class="ico">📺</div>
         <div class="msg">正在投屏播放，画面在电视上</div>
@@ -172,7 +203,6 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
       <img id="preview" alt="">
       <iframe id="pdf-preview" src="about:blank"></iframe>
       <pre id="text-preview"></pre>
-
       <div id="audio-ctrl">
         <button id="ac-play" title="播放/暂停">▶</button>
         <span id="ac-cur" class="ac-time">0:00</span>
@@ -182,7 +212,6 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
         <input type="range" id="ac-vol" min="0" max="100" value="100" step="1" style="width:70px;flex:0 0 70px;" title="音量">
         <button id="ac-fs" title="全屏">⛶</button>
       </div>
-
       <select id="enc-sel" title="文本编码">
         <option value="auto">自动</option>
         <option value="utf-8">UTF-8</option>
@@ -191,11 +220,9 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
         <option value="big5">Big5</option>
         <option value="shift_jis">Shift-JIS</option>
       </select>
-
       <div id="empty">选择左侧列表播放</div>
       <div id="nowplaying"></div>
     </div>
-
     <div id="info-panel">
       <div id="mode-bar">
         <span class="label">播放模式：</span>
@@ -204,19 +231,12 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
         <button data-mode="repeat-one">单曲循环</button>
         <button data-mode="random">随机</button>
         <button type="button" id="dlna-cast-btn">📺 投屏</button>
-        <button type="button" id="file-info-btn">ℹ️ 文件信息</button>
+        <button type="button" id="file-info-btn">ℹ️ 检测文件信息以转码</button>
       </div>
-
       <span><span class="k">浏览器内核检测：</span><span class="v hl" id="i-browser" style="color:#4a9eff;font-weight:bold;">-</span></span>
-
-      <span id="audio-track-wrap" style="display:none;">
-        <span class="k">音轨：</span>
-        <select id="audio-track-sel" title="选择音轨"></select>
-      </span>
     </div>
   </main>
 </div>
-
 <div id="dlna-modal">
     <div class="box">
         <div class="hdr" id="dlna-modal-title">📺 选择投屏设备</div>
@@ -228,7 +248,6 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
                 <button type="button" onclick="manualCast()" style="margin:0;background:#2f9e44;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;">开始投屏</button>
             </div>
         </div>
-
         <div id="dlna-control-panel" style="display:none; padding: 15px 20px; border-top: 1px solid #333; background: #151515;">
             <div style="display:flex; gap:8px; justify-content:center; margin-bottom:8px; align-items:center;">
                 <button onclick="dlnaSkip(-60)" style="flex:1; background:#333; border:none; color:#fff; padding:8px 8px; border-radius:4px; cursor:pointer; font-size:13px;">⏪ -60s</button>
@@ -236,13 +255,11 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
                 <button onclick="dlnaAction('pause')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px;">⏸ 暂停</button>
                 <button onclick="dlnaSkip(60)" style="flex:1; background:#333; border:none; color:#fff; padding:8px 8px; border-radius:4px; cursor:pointer; font-size:13px;">+60s ⏩</button>
             </div>
-
             <div style="display:flex; gap:8px; justify-content:center; margin-bottom:12px; align-items:center;">
                 <button onclick="dlnaPrevNext('prev')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 10px; border-radius:4px; cursor:pointer; font-size:13px;">⏮ 上一集</button>
                 <button onclick="dlnaAction('stop')" style="flex:1; background:#c0392b; border:none; color:#fff; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px;">⏹ 停止</button>
                 <button onclick="dlnaPrevNext('next')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 10px; border-radius:4px; cursor:pointer; font-size:13px;">⏭ 下一集</button>
             </div>
-
             <div style="margin-bottom:10px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                     <span id="dlna-seek-label" style="color:#4a9eff; font-size:13px; font-variant-numeric:tabular-nums;">00:00:00</span>
@@ -252,33 +269,35 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;font-family:-apple-system
                        oninput="window.isDlnaDragging=true; updateSeekDisplay(this.value);"
                        onchange="window.isDlnaDragging=false; executeSeek(this.value);" style="width:100%;">
             </div>
-
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:8px;">
                 <span style="color:#aaa; font-size:12px; flex-shrink:0;">音量 <span id="dlna-vol-val">50</span></span>
                 <input type="range" id="dlna-vol" min="0" max="100" value="50" style="flex:1; min-width:0;" oninput="document.getElementById('dlna-vol-val').innerText=this.value" onchange="dlnaControl('volume', this.value)">
                 <button id="dlna-mute-btn" onclick="toggleDlnaMute()" style="background:#333; border:none; color:#fff; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:12px; flex-shrink:0;">🔊 静音</button>
             </div>
         </div>
-
         <div class="ftr"><button onclick="closeDlnaModal()">取消</button></div>
     </div>
 </div>
 
-<!-- ★ 文件信息弹窗 -->
 <div id="file-info-modal">
   <div class="fi-box">
     <div class="fi-hdr">
-      <span id="file-info-title">ℹ️ 文件信息</span>
+      <span id="file-info-title">ℹ️ 检测文件信息以转码</span>
       <button class="fi-close" type="button" onclick="closeFileInfo()">✕</button>
     </div>
     <div class="fi-body" id="file-info-content">正在加载...</div>
+    
+    <div id="file-info-footer" style="display:none; padding: 15px 20px; background: #222; border-top: 1px solid #333; display: flex; gap: 12px; align-items: center; border-radius: 0 0 12px 12px;">
+        <span style="color:#aaa; font-size:13px; white-space:nowrap;">选择音轨：</span>
+        <select id="fi-audio-sel" style="flex:1; padding:8px 10px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; font-size:13px; outline:none;"></select>
+        <button type="button" id="fi-start-transcode-btn" style="background:#2f9e44; border:none; color:#fff; padding:8px 20px; border-radius:6px; cursor:pointer; font-size:13px; white-space:nowrap; font-weight:bold;">提取并转码</button>
+    </div>
   </div>
 </div>
 
 <script>
 (function(){
 'use strict';
-
 var dlnaControlUrl = "";
 window.isDlnaDragging = false;
 window.dlnaIsPaused = false;
@@ -288,7 +307,6 @@ window.castOnlyMode = false;
 window.__dragX = 0;
 window.__dragY = 0;
 var lastVolume = 50;
-
 var VIDEO_EXTS=['.mp4','.webm','.mkv','.mov','.avi','.m4v','.ogv','.flv','.3gp','.ts','.m2ts','.wmv'];
 var AUDIO_EXTS=['.mp3','.m4a','.flac','.aac','.ogg','.wav','.ape','.wv','.aiff','.aif','.alac'];
 var IMAGE_EXTS=['.jpg','.jpeg','.png','.gif','.webp','.bmp','.svg','.ico','.tif','.tiff','.heic','.avif'];
@@ -297,7 +315,6 @@ var TEXT_EXTS=['.txt','.md','.log','.nfo','.url','.json','.xml','.yml','.yaml','
 var SUB_EXTS=['.srt','.vtt','.ass','.ssa','.sub'];
 var CUE_EXTS=['.cue'];
 var PLAYLIST_EXTS=['.m3u','.m3u8','.pls'];
-
 var ICON_MAP=[
   {icon:'📦',exts:['.zip','.rar','.7z','.tar','.gz','.tgz','.xz']},
   {icon:'📕',exts:PDF_EXTS},
@@ -308,11 +325,9 @@ var ICON_MAP=[
   {icon:'🔑',exts:['.key','.crt','.pem','.p12','.pfx','.gpg']},
   {icon:'🗄️',exts:['.db','.sqlite','.sqlite3','.bak']}
 ];
-
 var CONTAINER_MAP={'.mp4':'MP4','.m4v':'MP4','.mov':'QuickTime','.mkv':'Matroska','.webm':'WebM','.avi':'AVI','.ts':'MPEG-TS','.m2ts':'MPEG-TS','.flv':'Flash Video','.wmv':'ASF/WMV','.3gp':'3GPP','.ogv':'Ogg','.mp3':'MP3','.m4a':'MP4 Audio','.aac':'AAC','.flac':'FLAC','.ogg':'Ogg','.wav':'WAV','.ape':"Monkey's Audio",'.wv':'WavPack','.aiff':'AIFF','.aif':'AIFF'};
 var VCODEC_KEYWORDS=[[/(?:^|[.\s_\-])x265(?:[.\s_\-]|$)/i,'H.265 / HEVC'],[/(?:^|[.\s_\-])h\.?265(?:[.\s_\-]|$)/i,'H.265 / HEVC'],[/(?:^|[.\s_\-])hevc(?:[.\s_\-]|$)/i,'H.265 / HEVC'],[/(?:^|[.\s_\-])x264(?:[.\s_\-]|$)/i,'H.264 / AVC'],[/(?:^|[.\s_\-])h\.?264(?:[.\s_\-]|$)/i,'H.264 / AVC'],[/(?:^|[.\s_\-])avc(?:[.\s_\-]|$)/i,'H.264 / AVC'],[/(?:^|[.\s_\-])vp0?9(?:[.\s_\-]|$)/i,'VP9'],[/(?:^|[.\s_\-])vp0?8(?:[.\s_\-]|$)/i,'VP8'],[/(?:^|[.\s_\-])av1(?:[.\s_\-]|$)/i,'AV1'],[/(?:^|[.\s_\-])mpeg-?2(?:[.\s_\-]|$)/i,'MPEG-2'],[/(?:^|[.\s_\-])xvid(?:[.\s_\-]|$)/i,'XviD'],[/(?:^|[.\s_\-])divx(?:[.\s_\-]|$)/i,'DivX']];
 var ACODEC_KEYWORDS=[[/(?:^|[.\s_\-])truehd(?:[.\s_\-]|$)/i,'TrueHD'],[/(?:^|[.\s_\-])atmos(?:[.\s_\-]|$)/i,'Atmos'],[/(?:^|[.\s_\-])dts(?:[.\s_\-+]|$)/i,'DTS'],[/(?:^|[.\s_\-])e?ac-?3(?:[.\s_\-+]|$)/i,'AC-3'],[/(?:^|[.\s_\-])aac(?:[.\s_\-+]|$)/i,'AAC'],[/(?:^|[.\s_\-])flac(?:[.\s_\-+]|$)/i,'FLAC'],[/(?:^|[.\s_\-])mp3(?:[.\s_\-+]|$)/i,'MP3'],[/(?:^|[.\s_\-])opus(?:[.\s_\-+]|$)/i,'Opus']];
-
 var videoEl=document.getElementById('video');
 var audioBgEl=document.getElementById('audio-bg');
 var audioBg2El=document.getElementById('audio-bg2');
@@ -334,11 +349,9 @@ var countEl=document.getElementById('count');
 var dirnameEl=document.getElementById('dirname');
 var upBtn=document.getElementById('upbtn');
 var videoWrap=document.getElementById('video-wrap');
-
 var bgEls = [audioBgEl, audioBg2El];
 var bgElActive = 0;
 var bgLoadToken = 0;
-
 function resetBgEl(el){
     el.style.transition = 'none';
     el.style.transform = 'translateX(100%)';
@@ -348,7 +361,6 @@ function resetBgEl(el){
     el.style.webkitClipPath = '';
     el.style.zIndex = '1';
 }
-
 function makeBgEffect(setup, start){
     return function(prev, next, url){
         prev.style.transition = 'none';
@@ -358,7 +370,6 @@ function makeBgEffect(setup, start){
         prev.style.clipPath = '';
         prev.style.webkitClipPath = '';
         prev.style.zIndex = '1';
-
         next.style.transition = 'none';
         next.style.transform = 'none';
         next.style.transformOrigin = '';
@@ -366,26 +377,18 @@ function makeBgEffect(setup, start){
         next.style.clipPath = '';
         next.style.webkitClipPath = '';
         next.style.zIndex = '2';
-
         if (setup) setup(next, prev);
-
         next.src = url;
         void next.offsetWidth;
-
         if (start) start(next, prev);
-
-        setTimeout(function(){
-            resetBgEl(prev);
-        }, BG_CLEANUP_MS);
+        setTimeout(function(){ resetBgEl(prev); }, BG_CLEANUP_MS);
     };
 }
-
 var BG_TRANSITION_TIME = 1.8;
 var BG_CLEANUP_MS = 2000;
 var BG_EASE_SOFT = 'ease-in-out';
 var BG_EASE_OUT = 'ease-out';
 var BG_EASE_BOUNCE = 'cubic-bezier(0.34, 1.56, 0.64, 1)';
-
 var bgEffects = [
     makeBgEffect(
         function(next, prev){ next.style.transform = 'translateX(100%)'; prev.style.transform = 'translateX(0)'; },
@@ -569,7 +572,6 @@ var bgEffects = [
         }
     )
 ];
-
 (function detectBrowserInfo() {
     var ua = navigator.userAgent;
     var platform = navigator.platform || '';
@@ -589,13 +591,11 @@ var bgEffects = [
     var el = document.getElementById('i-browser');
     if (el) { el.textContent = os + ' / ' + kernel + warning; if (os === 'iOS/iPadOS') { el.style.color = '#f28b82'; } }
 })();
-
 var currentIndex=-1, listItems=[], playMode='', mpegtsPlayer=null, hlsPlayer=null, textAbortController=null, currentTextBytes=null, currentSegment={start:0,end:null};
 var bgTimer=null, bgImages=[], bgIdx=0, bgInfoHideTimer=null, seeking=false;
 var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 if(isIOS){ var _am=document.getElementById('ac-mute'); var _av=document.getElementById('ac-vol'); if(_am)_am.style.display='none'; if(_av)_av.style.display='none'; }
 var TEXT_PREVIEW_MAX=2*1024*1024, BG_INTERVAL=16000;
-
 function getExt(n){var m=String(n).toLowerCase().match(/\.[^.]+$/);return m?m[0]:''}
 function isMedia(n){var e=getExt(n);return VIDEO_EXTS.indexOf(e)>=0||AUDIO_EXTS.indexOf(e)>=0}
 function isImage(n){return IMAGE_EXTS.indexOf(getExt(n))>=0}
@@ -617,7 +617,6 @@ function iconFor(n){var e=getExt(n);for(var i=0;i<ICON_MAP.length;i++){if(ICON_M
 function guessContainer(name){return CONTAINER_MAP[getExt(name)]||null}
 function guessVCodec(name){for(var i=0;i<VCODEC_KEYWORDS.length;i++){if(VCODEC_KEYWORDS[i][0].test(name))return VCODEC_KEYWORDS[i][1]}return null}
 function guessACodec(name){var h=[];for(var i=0;i<ACODEC_KEYWORDS.length;i++){if(ACODEC_KEYWORDS[i][0].test(name))h.push(ACODEC_KEYWORDS[i][1])}return h.length?h.join(' / '):null}
-
 function detectBOM(b){if(b.length>=3&&b[0]===0xEF&&b[1]===0xBB&&b[2]===0xBF)return{enc:'utf-8',skip:3,label:'UTF-8 (BOM)'};if(b.length>=2&&b[0]===0xFF&&b[1]===0xFE)return{enc:'utf-16le',skip:2,label:'UTF-16 LE'};if(b.length>=2&&b[0]===0xFE&&b[1]===0xFF)return{enc:'utf-16be',skip:2,label:'UTF-16 BE'};return null}
 function tryDec(b,e,f){try{return new TextDecoder(e,{fatal:!!f}).decode(b)}catch(x){return null}}
 function decodeBytes(b,f){
@@ -629,7 +628,6 @@ function decodeBytes(b,f){
   var g18=tryDec(b,'gb18030',false);if(g18!==null)return{text:g18,enc:'gb18030',label:'GB18030'};
   return{text:new TextDecoder('utf-8').decode(b),enc:'utf-8',label:'UTF-8 (lossy)'};
 }
-
 function parseCue(text){
   var lines=text.split(/\r?\n/);
   var albumTitle='',albumPerformer='';
@@ -652,7 +650,6 @@ function parseCue(text){
   for(var j=0;j<tracks.length;j++){tracks[j].endTime=(j+1<tracks.length)?tracks[j+1].index01:null;}
   return {title:albumTitle,performer:albumPerformer,tracks:tracks};
 }
-
 function parseM3U(text){
     var lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
     var entries = [];
@@ -687,21 +684,17 @@ function parseM3U(text){
     }
     return entries;
 }
-
 var rawPath = window.location.pathname;
 if (rawPath.endsWith('player.html')) {
     rawPath = rawPath.substring(0, rawPath.lastIndexOf('/') + 1);
 }
 var dirPath = rawPath;
 if (dirPath.charAt(dirPath.length - 1) !== '/') dirPath += '/';
-
 var dirName = decodeURIComponent(dirPath.replace(/\/$/, '').split('/').pop() || '根目录');
 dirnameEl.textContent = dirName;
 document.title = dirName + ' - 媒体播放器';
-
 if (dirPath === '/') { upBtn.classList.add('hidden'); upBtn.onclick = null; }
 else { upBtn.classList.remove('hidden'); upBtn.onclick = function() { location.href = '../'; }; }
-
 function isRealFullscreen(){return!!(document.fullscreenElement||document.webkitFullscreenElement)}
 function exitRealFullscreen(){var fn=document.exitFullscreen||document.webkitExitFullscreen;if(fn)try{fn.call(document)}catch(e){}}
 function requestRealFullscreen(el){var fn=el.requestFullscreen||el.webkitRequestFullscreen;if(fn)return fn.call(el)}
@@ -710,17 +703,14 @@ function toggleFullscreen(){
   if(videoWrap.requestFullscreen||videoWrap.webkitRequestFullscreen){requestRealFullscreen(videoWrap);return;}
   if(isIOS && videoEl.webkitEnterFullscreen){videoEl.webkitEnterFullscreen();return;}
 }
-
 var acMuteEl=document.getElementById('ac-mute');
 var acVolEl=document.getElementById('ac-vol');
 acMuteEl.onclick=function(e){e.stopPropagation();videoEl.muted=!videoEl.muted;acMuteEl.textContent=videoEl.muted?'🔇':'🔊'};
 acVolEl.oninput=function(e){e.stopPropagation();videoEl.volume=acVolEl.value/100;videoEl.muted=(videoEl.volume===0);acMuteEl.textContent=videoEl.muted?'🔇':'🔊'};
 videoEl.addEventListener('volumechange',function(){acVolEl.value=Math.round(videoEl.volume*100);acMuteEl.textContent=videoEl.muted?'🔇':'🔊'});
-
 acFsEl.onclick=function(e){e.stopPropagation();toggleFullscreen()};
 videoWrap.addEventListener('dblclick',function(e){var t=e.target.tagName;if(t==='VIDEO'||t==='IMG'||t==='PRE'||t==='IFRAME'||e.target===videoWrap)toggleFullscreen()});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isRealFullscreen())exitRealFullscreen()});
-
 function acUpdatePlay(){acPlayEl.textContent = videoEl.paused ? '▶' : '⏸'}
 function acUpdateTime(){
   if(seeking) return;
@@ -758,7 +748,6 @@ videoEl.addEventListener('timeupdate',acUpdateTime);
 videoEl.addEventListener('loadedmetadata',acUpdateTime);
 videoEl.addEventListener('durationchange',acUpdateTime);
 videoEl.addEventListener('ended',acUpdatePlay);
-
 function setNowPlaying(icon,text,badge,isLive){
   var html='<span class="np-icon">'+icon+'</span><span class="np-text">'+esc(text)+'</span>';
   if(badge) html+='<span class="np-badge'+(isLive?' live':'')+'">'+esc(badge)+'</span>';
@@ -777,7 +766,6 @@ function getCueBadge(idx){
   if(pos<0) return '';
   return '曲目 '+(pos+1)+'/'+siblings.length;
 }
-
 function updateDlnaFileName() {
     var el = document.getElementById('dlna-modal-title');
     if (!el) return;
@@ -792,7 +780,6 @@ function updateDlnaFileName() {
         el.innerText = '📺 选择投屏设备';
     }
 }
-
 function showCastOverlay() {
     var ov = document.getElementById('cast-overlay');
     if (ov) { ov.style.display = 'flex'; updateDlnaFileName(); }
@@ -801,7 +788,6 @@ function hideCastOverlay() {
     var ov = document.getElementById('cast-overlay');
     if (ov) ov.style.display = 'none';
 }
-
 function resetDlnaModalPosition() {
     var box = document.querySelector('#dlna-modal .box');
     if (box) {
@@ -810,7 +796,6 @@ function resetDlnaModalPosition() {
     window.__dragX = 0;
     window.__dragY = 0;
 }
-
 (function initDlnaDrag(){
     var modal = document.getElementById('dlna-modal');
     if (!modal) return;
@@ -818,43 +803,30 @@ function resetDlnaModalPosition() {
     var hdr = modal.querySelector('.hdr');
     if (!box || !hdr || hdr.__dragInit) return;
     hdr.__dragInit = true;
-
     var dragging = false, lastX = 0, lastY = 0;
-
     function onStart(e) {
         var p = e.touches ? e.touches[0] : e;
-        lastX = p.clientX;
-        lastY = p.clientY;
-        dragging = true;
+        lastX = p.clientX; lastY = p.clientY; dragging = true;
         if (e.cancelable) e.preventDefault();
     }
-
     function onMove(e) {
         if (!dragging) return;
         var p = e.touches ? e.touches[0] : e;
         var dx = p.clientX - lastX;
         var dy = p.clientY - lastY;
-        lastX = p.clientX;
-        lastY = p.clientY;
-
-        window.__dragX += dx;
-        window.__dragY += dy;
-
-        var boxW = box.offsetWidth;
-        var boxH = box.offsetHeight;
+        lastX = p.clientX; lastY = p.clientY;
+        window.__dragX += dx; window.__dragY += dy;
+        var boxW = box.offsetWidth; var boxH = box.offsetHeight;
         var baseLeft = (window.innerWidth - boxW) / 2;
         var baseTop = (window.innerHeight - boxH) / 2;
         if (baseLeft + window.__dragX < 0) window.__dragX = -baseLeft;
         if (baseTop + window.__dragY < 0) window.__dragY = -baseTop;
         if (baseLeft + window.__dragX + boxW > window.innerWidth) window.__dragX = window.innerWidth - boxW - baseLeft;
         if (baseTop + window.__dragY + boxH > window.innerHeight) window.__dragY = window.innerHeight - boxH - baseTop;
-
         box.style.transform = 'translate(-50%,-50%) translate(' + window.__dragX + 'px,' + window.__dragY + 'px)';
         if (e.cancelable) e.preventDefault();
     }
-
     function onEnd() { dragging = false; }
-
     hdr.addEventListener('mousedown', onStart);
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onEnd);
@@ -862,7 +834,6 @@ function resetDlnaModalPosition() {
     document.addEventListener('touchmove', onMove, {passive:false});
     document.addEventListener('touchend', onEnd);
 })();
-
 window.closeDlnaModal = function() {
     document.getElementById('dlna-modal').style.display = 'none';
     document.getElementById('dlna-device-list').style.display = 'block';
@@ -876,15 +847,11 @@ window.closeDlnaModal = function() {
         dlnaControl('stop');
         dlnaControlUrl = '';
         if (dlnaPollTimer) { clearInterval(dlnaPollTimer); dlnaPollTimer = null; }
-        if (videoEl.src) {
-            videoEl.play().catch(function(){});
-        }
+        if (videoEl.src) { videoEl.play().catch(function(){}); }
     }
 };
-
 var modeBtns=document.querySelectorAll('#mode-bar button[data-mode]');
 modeBtns.forEach(function(b){b.onclick=function(){playMode=b.getAttribute('data-mode');modeBtns.forEach(function(x){x.classList.toggle('active',x===b)})}});
-
 function formatToHHMMSS(seconds) {
     var h = Math.floor(seconds / 3600);
     var m = Math.floor((seconds % 3600) / 60);
@@ -892,7 +859,6 @@ function formatToHHMMSS(seconds) {
     var fmt = function(n) { return n < 10 ? '0' + n : n; };
     return fmt(h) + ':' + fmt(m) + ':' + fmt(s);
 }
-
 function updateDlnaDuration(dur) {
     var bar = document.getElementById('dlna-seek-bar');
     var label = document.getElementById('dlna-duration-label');
@@ -903,12 +869,10 @@ function updateDlnaDuration(dur) {
         if (label) label.innerText = '总时长: --:--:--';
     }
 }
-
 window.updateSeekDisplay = function(seconds) {
     var label = document.getElementById('dlna-seek-label');
     if (label) label.innerText = formatToHHMMSS(seconds);
 };
-
 window.executeSeek = function(seconds) {
     dlnaControl('seek', formatToHHMMSS(seconds));
     if (!window.castOnlyMode && videoEl.duration) {
@@ -917,7 +881,6 @@ window.executeSeek = function(seconds) {
     var label = document.getElementById('dlna-seek-label');
     if (label) label.innerText = formatToHHMMSS(seconds);
 };
-
 window.dlnaSkip = function(offset) {
     if (!dlnaControlUrl) { alert('请先完成投屏'); return; }
     var bar = document.getElementById('dlna-seek-bar');
@@ -928,7 +891,6 @@ window.dlnaSkip = function(offset) {
     if (maxDur && newTime > maxDur) newTime = maxDur;
     executeSeek(newTime);
 };
-
 videoEl.addEventListener('timeupdate', function() {
     if (window.castOnlyMode) return;
     if (window.dlnaIsPaused) return;
@@ -947,22 +909,18 @@ videoEl.addEventListener('timeupdate', function() {
         }
     }
 });
-
 var dlnaPollTimer = null;
 var lastDlnaTime = -1;
 var sameTimeCount = 0;
 var remoteSyncFailed = 0;
-
 function startDlnaPolling() {
     if (dlnaPollTimer) clearInterval(dlnaPollTimer);
     lastDlnaTime = -1;
     sameTimeCount = 0;
     remoteSyncFailed = 0;
-
     dlnaPollTimer = setInterval(function() {
         if (!dlnaControlUrl) return;
         if (window.isDlnaDragging) return;
-
         if (remoteSyncFailed > 5) {
             console.log('远端连续 5 次未返回状态，停止轮询。');
             clearInterval(dlnaPollTimer);
@@ -973,7 +931,6 @@ function startDlnaPolling() {
             }
             return;
         }
-
         fetch('/cgi-bin/luci/dlna/get_position?control_url=' + encodeURIComponent(dlnaControlUrl))
             .then(function(r) { return r.json(); })
             .then(function(res) {
@@ -1007,7 +964,6 @@ function startDlnaPolling() {
             .catch(function() { remoteSyncFailed++; });
     }, 5000);
 }
-
 videoEl.addEventListener('loadedmetadata', function() {
     updateDlnaDuration(videoEl.duration);
     updateDlnaFileName();
@@ -1015,7 +971,6 @@ videoEl.addEventListener('loadedmetadata', function() {
 videoEl.addEventListener('durationchange', function() {
     updateDlnaDuration(videoEl.duration);
 });
-
 window.dlnaAction = function(action) {
     dlnaControl(action);
     if (action === 'play') {
@@ -1038,7 +993,6 @@ window.dlnaAction = function(action) {
         }
     }
 };
-
 window.dlnaPrevNext = function(direction) {
     if (!dlnaControlUrl) { alert('请先完成投屏'); return; }
     var targetIndex = -1;
@@ -1075,7 +1029,6 @@ window.dlnaPrevNext = function(direction) {
         }
     }
 };
-
 window.toggleDlnaMute = function() {
     var btn = document.getElementById('dlna-mute-btn');
     if (!window.dlnaMuted) {
@@ -1093,7 +1046,6 @@ window.toggleDlnaMute = function() {
         if (btn) btn.innerText = '🔊 静音';
     }
 };
-
 videoEl.addEventListener('play', function() {
     if (window.castOnlyMode) return;
     window.dlnaIsPaused = false;
@@ -1104,15 +1056,25 @@ videoEl.addEventListener('pause', function() {
     window.dlnaIsPaused = true;
     if (dlnaControlUrl && !videoEl.ended) dlnaControl('pause');
 });
-
 document.getElementById('dlna-cast-btn').onclick = function() {
     var it = listItems[currentIndex];
     if (!it || it.kind !== 'media') { alert('请先点击左侧列表选择一个视频进行播放，然后再投屏！'); return; }
-
+    var targetUrl = window.location.origin + it.url;
+    if (videoEl.src.indexOf('_AAC_') >= 0) {
+        targetUrl = videoEl.src;
+    } else if (currentFfprobeData && currentFfprobeData.streams && currentFfprobeData.streams.filter(function(s){return s.codec_type === 'audio'}).length > 1) {
+        var msg = '检测到多音轨。\n是否打开【检测文件信息】面板提取音轨并转码后投屏？\n\n(注：选“确定”将打开面板；选“取消”将直接投屏原视频，需你在电视上用遥控器切音轨)';
+        if (confirm(msg)) {
+            window.showFileInfo();
+            return;
+        }
+    }
+    openDlnaCastModal(targetUrl);
+};
+function openDlnaCastModal(videoUrlToCast) {
     var modal = document.getElementById('dlna-modal');
     var list = document.getElementById('dlna-device-list');
     var manualArea = document.getElementById('manual-ip-area');
-
     modal.style.display = 'block';
     resetDlnaModalPosition();
     manualArea.style.display = 'none';
@@ -1121,9 +1083,7 @@ document.getElementById('dlna-cast-btn').onclick = function() {
     list.style.display = 'block';
     updateDlnaDuration(videoEl.duration);
     list.innerHTML = '<div style="color:#f1c40f; padding:10px;">📡 正在进行【SSDP 广播扫描】自动发现设备...</div>';
-
     var apiBase = '/cgi-bin/luci/dlna';
-
     fetch(apiBase + '/discover')
         .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function(devices) {
@@ -1140,13 +1100,11 @@ document.getElementById('dlna-cast-btn').onclick = function() {
                 div.className = 'it';
                 div.innerHTML = '📺 ' + dev.name;
                 div.onclick = function() {
-                    var videoUrl = window.location.origin + it.url;
                     list.innerHTML = '<div style="color:#f1c40f; padding:10px;">📤 正在发送投屏指令...</div>';
-
                     fetch(apiBase + '/cast', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: 'control_url=' + encodeURIComponent(dev.control_url) + '&video_url=' + encodeURIComponent(videoUrl)
+                        body: 'control_url=' + encodeURIComponent(dev.control_url) + '&video_url=' + encodeURIComponent(videoUrlToCast)
                     })
                     .then(function(r) { return r.json(); })
                     .then(function(res) {
@@ -1174,8 +1132,7 @@ document.getElementById('dlna-cast-btn').onclick = function() {
             manualArea.style.display = 'block';
             document.getElementById('manual-tv-ip').focus();
         });
-};
-
+}
 window.manualCast = function() {
     var it = listItems[currentIndex];
     if (!it || it.kind !== 'media') { alert('请先选择视频播放'); return; }
@@ -1187,7 +1144,6 @@ window.manualCast = function() {
     var list = document.getElementById('dlna-device-list');
     var videoUrl = window.location.origin + it.url;
     document.getElementById('dlna-control-panel').style.display = 'none';
-
     if (hasPort) {
         list.innerHTML = '<div style="color:#f1c40f; padding:10px;">🎯 正在进行【端口强制投送】模式...</div>';
         var paths = ['/AVTransport/action','/upnp/control/rendertransport1','/upnp/control/AVTransport','/AVTransport/control','/control/AVTransport','/control','/AVTransport','/upnp/control/AVTransport1'];
@@ -1210,7 +1166,6 @@ window.manualCast = function() {
         .catch(function() { list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求后端失败。</div>'; });
     }
 };
-
 function doCast(control_url, videoUrl, listEl, callback) {
     fetch('/cgi-bin/luci/dlna/cast', {
         method: 'POST',
@@ -1239,7 +1194,6 @@ function doCast(control_url, videoUrl, listEl, callback) {
         if (callback) callback(false);
     });
 }
-
 window.dlnaControl = function(action, value) {
     if (!dlnaControlUrl) { alert('请先完成投屏'); return; }
     fetch('/cgi-bin/luci/dlna/control', {
@@ -1251,9 +1205,7 @@ window.dlnaControl = function(action, value) {
     .then(function(res) { if (res.status !== 'success') console.warn('控制指令发送失败:', res.message); })
     .catch(function() { console.warn('控制请求失败'); });
 };
-
 var COVER_NAMES=/^(cover|front|folder|album|poster|thumb|default|artwork|cd|disc|scan)$/i;
-
 function findBgImages(audioName){
   var base=audioName.replace(/\.[^.]+$/,'').toLowerCase();
   var exact=[],covers=[],others=[];
@@ -1270,14 +1222,12 @@ function findBgImages(audioName){
   }
   return exact.concat(covers, others);
 }
-
 function showBgInfo(text){
   audioBgInfoEl.textContent=text;
   audioBgInfoEl.classList.add('on');
   if(bgInfoHideTimer) clearTimeout(bgInfoHideTimer);
   bgInfoHideTimer=setTimeout(function(){audioBgInfoEl.classList.remove('on')},4000);
 }
-
 function setBgImage(url){
   var prevIdx = bgElActive;
   var nextIdx = 1 - prevIdx;
@@ -1287,7 +1237,6 @@ function setBgImage(url){
   var idx = Math.floor(Math.random() * bgEffects.length);
   bgEffects[idx](prevEl, nextEl, url);
 }
-
 function showBgList(list, labelText, swing){
     bgImages = list;
     bgIdx = 0;
@@ -1319,14 +1268,11 @@ function showBgList(list, labelText, swing){
         }, BG_INTERVAL);
     }
 }
-
 function startAudioBackground(audioName) {
     if(bgTimer){clearInterval(bgTimer);bgTimer=null;}
     videoWrap.classList.add('audio-mode');
-
     var myToken = ++bgLoadToken;
     var imgs = findBgImages(audioName);
-
     if (imgs.length === 0) {
         var baseName = audioName.replace(/\.[^.]+$/, '');
         var artist = '', title = baseName;
@@ -1337,9 +1283,7 @@ function startAudioBackground(audioName) {
         }
         title = title.replace(/^\d+\s*/, '');
         artist = artist.replace(/^\d+\s*/, '');
-
         showBgInfo('正在联网获取封面...');
-
         fetch('/cgi-bin/luci/dlna/cover?artist=' + encodeURIComponent(artist) + '&title=' + encodeURIComponent(title))
             .then(function(r) { return r.json(); })
             .then(function(res) {
@@ -1372,13 +1316,11 @@ function startAudioBackground(audioName) {
                 acUpdatePlay();
                 acUpdateTime();
             });
-
         videoEl.removeAttribute('controls');
         acUpdatePlay();
         acUpdateTime();
         return;
     }
-
     var firstUrl = imgs[0].url;
     var preload = new Image();
     preload.onload = function(){
@@ -1396,12 +1338,10 @@ function startAudioBackground(audioName) {
         acUpdateTime();
     };
     preload.src = firstUrl;
-
     videoEl.removeAttribute('controls');
     acUpdatePlay();
     acUpdateTime();
 }
-
 function stopAudioBackground(){
   if(bgTimer){clearInterval(bgTimer);bgTimer=null;}
   bgLoadToken++;
@@ -1415,7 +1355,6 @@ function stopAudioBackground(){
   bgImages=[];
   bgIdx=0;
 }
-
 function setI(id,v){var el=document.getElementById(id);if(el)el.textContent=v}
 function clearInfo(){setI('i-container','-');setI('i-vcodec','-');setI('i-acodec','-');setI('i-res','-');setI('i-dur','-');setI('i-pos','-')}
 function setSize(s){setI('i-size',formatSize(s)||'-')}
@@ -1424,7 +1363,6 @@ function fillGuessedInfo(name){
   var v=guessVCodec(name);setI('i-vcodec',v?v:'-');
   var a=guessACodec(name);setI('i-acodec',a?a:'-');
 }
-
 videoEl.addEventListener('loadedmetadata',function(){
   setI('i-res',(videoEl.videoWidth||'?')+'×'+(videoEl.videoHeight||'?'));
   setI('i-dur',formatTime(videoEl.duration));
@@ -1443,7 +1381,6 @@ videoEl.addEventListener('timeupdate',function(){
   }
 });
 previewEl.onload=function(){setI('i-res',previewEl.naturalWidth+'×'+previewEl.naturalHeight)};
-
 function hideAllViews(){
   videoEl.style.display='none';
   previewEl.style.display='none';previewEl.removeAttribute('src');
@@ -1459,7 +1396,6 @@ function destroyPlayer(){
   videoEl.removeAttribute('src');
   try{videoEl.load()}catch(e){}
 }
-
 fetch('/api/dir'+dirPath).then(function(r){
   if(!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
@@ -1473,7 +1409,6 @@ fetch('/api/dir'+dirPath).then(function(r){
   var pdfs=items.filter(function(it){return it.type==='file'&&isPDF(it.name)}).sort(cmp);
   var texts=items.filter(function(it){return it.type==='file'&&isText(it.name)&&!isSubFile(it.name)&&!isCue(it.name)}).sort(cmp);
   var others=items.filter(function(it){return it.type==='file'&&!isMedia(it.name)&&!isImage(it.name)&&!isPDF(it.name)&&!isText(it.name)&&!isCue(it.name)&&!isPlaylist(it.name)}).sort(cmp);
-
   var cuePromises=cues.map(function(c){
     return fetch(dirPath+encodeURIComponent(c.name)).then(function(r){return r.arrayBuffer()}).then(function(buf){
       var dec=decodeBytes(new Uint8Array(buf),'auto');
@@ -1481,7 +1416,6 @@ fetch('/api/dir'+dirPath).then(function(r){
       return {cueFile:c, parsed:parsed};
     }).catch(function(){return null});
   });
-
   return Promise.all(cuePromises).then(function(results){
     var cueMap={};
     results.forEach(function(r){
@@ -1496,7 +1430,6 @@ fetch('/api/dir'+dirPath).then(function(r){
         cueMap[fname]={tracks:byFile[fname],title:r.parsed.title,performer:r.parsed.performer,cueName:r.cueFile.name};
       });
     });
-
     listItems=[];
     dirs.forEach(function(d){listItems.push({kind:'dir',name:d.name})});
     media.forEach(function(m){
@@ -1511,10 +1444,8 @@ fetch('/api/dir'+dirPath).then(function(r){
     pdfs.forEach(function(m){listItems.push({kind:'doc',name:m.name,size:m.size,url:dirPath+encodeURIComponent(m.name)})});
     texts.forEach(function(m){listItems.push({kind:'text',name:m.name,size:m.size,url:dirPath+encodeURIComponent(m.name)})});
     others.forEach(function(o){listItems.push({kind:'other',name:o.name,size:o.size,url:dirPath+encodeURIComponent(o.name)})});
-
     countEl.textContent=media.length+playlists.length;
     renderList();
-
     if(media.length>0){
       currentIndex=dirs.length;
       var first=listItems[currentIndex];
@@ -1543,7 +1474,6 @@ fetch('/api/dir'+dirPath).then(function(r){
 }).catch(function(e){
   emptyEl.textContent='加载失败：'+e.message;emptyEl.style.display='';
 });
-
 function renderList(){
   listEl.innerHTML='';
   listItems.forEach(function(item,idx){
@@ -1596,7 +1526,6 @@ function renderList(){
     listEl.appendChild(li);
   });
 }
-
 function toggleAudioCue(idx){
   var it=listItems[idx];
   if(!it||it.kind!=='media'||!it.hasCue) return;
@@ -1625,11 +1554,9 @@ function toggleAudioCue(idx){
   if(currentIndex>idx) currentIndex+=newItems.length;
   renderList();
 }
-
 function togglePlaylist(idx){
   var it=listItems[idx];
   if(!it||it.kind!=='playlist') return;
-
   if(it.expanded){
     var removed=0;
     var i=idx+1;
@@ -1644,11 +1571,9 @@ function togglePlaylist(idx){
     renderList();
     return;
   }
-
   it.expanded=true;
   it._loading=true;
   renderList();
-
   fetch(it.url).then(function(r){
     if(!r.ok) throw new Error('HTTP '+r.status);
     return r.text();
@@ -1698,7 +1623,6 @@ function togglePlaylist(idx){
     alert('播放列表加载失败：'+err.message);
   });
 }
-
 function playIndex(idx){
   var it=listItems[idx];
   if(!it||it.kind!=='media') return;
@@ -1709,15 +1633,15 @@ function playIndex(idx){
   renderList();
   if(it.startTime!=null){currentSegment.start=it.startTime;currentSegment.end=it.endTime;}
   else {currentSegment.start=0;currentSegment.end=null;}
-
   var liveBadge = it.isStream ? 'LIVE' : '';
   setNowPlaying('▶',(it.displayName||it.name), (getCueBadge(idx)||liveBadge), !!liveBadge);
   emptyEl.style.display='none';
   setSize(it.size);
   clearInfo();
   fillGuessedInfo(it.name);
-
-  loadAudioTracksForCurrent(it);
+  
+  if (window.audioCheckTimeout) clearTimeout(window.audioCheckTimeout);
+  window.hasShownAudioTip = false;
 
   if (dlnaControlUrl) {
       window.isAutoSwitching = true;
@@ -1737,18 +1661,15 @@ function playIndex(idx){
           updateDlnaFileName();
       });
   }
-
   if(isAudioOnly(it.url) && !it.isStream){
     startAudioBackground(it.name);
   } else {
     stopAudioBackground();
   }
-
   var url = it.url;
   var isHls = it.isHls || isHlsUrl(url);
   var isFlv = it.isFlv || isFlvUrl(url);
   var isTsFile = isTS(url) && !it.isStream;
-
   if (isHls) {
     if (typeof Hls !== 'undefined' && Hls.isSupported()) {
       try {
@@ -1775,6 +1696,7 @@ function playIndex(idx){
         updateDlnaFileName();
         var active0=listEl.querySelector('li.active');
         if(active0)active0.scrollIntoView({block:'nearest',behavior:'smooth'});
+        checkRunningTask(it.url); // ★ 检查后台任务
         return;
       } catch(e) {
         console.warn('hls.js 初始化失败，尝试原生播放:', e);
@@ -1785,9 +1707,9 @@ function playIndex(idx){
     updateDlnaFileName();
     var active1=listEl.querySelector('li.active');
     if(active1)active1.scrollIntoView({block:'nearest',behavior:'smooth'});
+    checkRunningTask(it.url);
     return;
   }
-
   if ((isFlv || isTsFile) && typeof mpegts !== 'undefined' && mpegts.isSupported()) {
     try {
       var playerType = isFlv ? 'flv' : 'mpegts';
@@ -1813,8 +1735,8 @@ function playIndex(idx){
   updateDlnaFileName();
   var active=listEl.querySelector('li.active');
   if(active)active.scrollIntoView({block:'nearest',behavior:'smooth'});
+  checkRunningTask(it.url); // ★ 检查后台任务
 }
-
 function showImageOnly(idx){
   var it=listItems[idx];if(!it||it.kind!=='image')return;
   stopAudioBackground();
@@ -1824,10 +1746,8 @@ function showImageOnly(idx){
   setNowPlaying('🖼️',it.name,'');emptyEl.style.display='none';
   setSize(it.size);clearInfo();
   setI('i-container','图片');
-  document.getElementById('audio-track-wrap').style.display = 'none';
 }
 function previewImage(idx){showImageOnly(idx);}
-
 function previewPDF(idx){
   var it=listItems[idx];if(!it||it.kind!=='doc')return;
   stopAudioBackground();
@@ -1837,7 +1757,6 @@ function previewPDF(idx){
   setNowPlaying('📕',it.name,'');emptyEl.style.display='none';
   setSize(it.size);clearInfo();
   setI('i-container','PDF');
-  document.getElementById('audio-track-wrap').style.display = 'none';
 }
 function previewText(idx){
   var it=listItems[idx];if(!it||it.kind!=='text')return;
@@ -1856,7 +1775,6 @@ function previewText(idx){
     currentTextBytes=new Uint8Array(buf);
     applyTextDecode('auto');
   }).catch(function(e){if(e.name==='AbortError')return;textPreviewEl.textContent='加载失败：'+e.message});
-  document.getElementById('audio-track-wrap').style.display = 'none';
 }
 function applyTextDecode(forced){
   if(!currentTextBytes)return;
@@ -1871,7 +1789,6 @@ function applyTextDecode(forced){
   setI('i-vcodec','编码：'+r.label);
 }
 encSelEl.addEventListener('change',function(){applyTextDecode(encSelEl.value)});
-
 videoEl.addEventListener('ended',function(){
   if(window.castOnlyMode) return;
   if(playMode==='repeat-one'){if(currentIndex>=0&&listItems[currentIndex].kind==='media')playIndex(currentIndex);return}
@@ -1889,7 +1806,6 @@ function playNextAuto(){
   for(var j=currentIndex+1;j<listItems.length;j++)if(listItems[j].kind==='media'){playIndex(j);return}
   if(playMode==='repeat-all')for(var k=0;k<listItems.length;k++)if(listItems[k].kind==='media'){playIndex(k);return}
 }
-
 videoEl.addEventListener('error', function() {
     if (window.castOnlyMode) return;
     if (videoEl.src && !mpegtsPlayer && !hlsPlayer) {
@@ -1898,7 +1814,6 @@ videoEl.addEventListener('error', function() {
         }
     }
 });
-
 document.addEventListener('keydown',function(e){
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
   if(window.castOnlyMode) return;
@@ -1907,9 +1822,6 @@ document.addEventListener('keydown',function(e){
   else if(e.key==='ArrowRight')for(var i=currentIndex+1;i<listItems.length;i++){var k=listItems[i].kind;if(k==='media'){playIndex(i);return}if(k==='image'){previewImage(i);return}if(k==='doc'){previewPDF(i);return}if(k==='text'){previewText(i);return}}
 });
 
-/* ==========================================================
- * ★ 文件信息弹窗 + 音轨选择器 (第一阶段：只展示，不转码)
- * ========================================================== */
 var currentFfprobeData = null;
 var currentAudioTrackIdx = 0;
 
@@ -1919,9 +1831,10 @@ window.showFileInfo = function(){
   var modal = document.getElementById('file-info-modal');
   var content = document.getElementById('file-info-content');
   var title = document.getElementById('file-info-title');
-  title.textContent = 'ℹ️ ' + (it.displayName || it.name);
+  title.textContent = 'ℹ️ 检测文件信息以转码: ' + (it.displayName || it.name);
   modal.style.display = 'flex';
   content.innerHTML = '<div style="color:#4a9eff;padding:10px;">⏳ 正在使用 ffprobe 分析文件...</div>';
+  document.getElementById('file-info-footer').style.display = 'none';
 
   fetch('/cgi-bin/luci/dlna/ffprobe', {
     method: 'POST',
@@ -1938,7 +1851,7 @@ window.showFileInfo = function(){
           }
           currentFfprobeData = data;
           renderFileInfo(data);
-          updateAudioTrackSelector(data);
+          updateFiAudioSelector(data);
       } catch(e) {
           content.innerHTML = '<div style="color:#e74c3c;padding:10px; word-break:break-all;">❌ 后端返回了非 JSON 数据:<br><pre style="margin-top:10px; font-size:11px; white-space:pre-wrap;">' + esc(text) + '</pre></div>';
       }
@@ -1947,11 +1860,9 @@ window.showFileInfo = function(){
       content.innerHTML = '<div style="color:#e74c3c;padding:10px;">❌ 请求失败: ' + esc(e.message) + '</div>';
     });
 };
-
 window.closeFileInfo = function(){
   document.getElementById('file-info-modal').style.display = 'none';
 };
-
 function renderFileInfo(data){
   var fmt = data.format || {};
   var streams = data.streams || [];
@@ -1962,7 +1873,6 @@ function renderFileInfo(data){
   if(fmt.size)     html += '<div class="fi-row"><span class="fi-k">文件大小</span><span class="fi-v">' + formatSize(parseInt(fmt.size)) + '</span></div>';
   if(fmt.bit_rate) html += '<div class="fi-row"><span class="fi-k">总码率</span><span class="fi-v">' + (parseInt(fmt.bit_rate)/1000).toFixed(0) + ' kbps</span></div>';
   html += '</div>';
-
   streams.forEach(function(s, idx){
     var t = s.codec_type;
     var icon = t==='video'?'🎬':t==='audio'?'🎵':t==='subtitle'?'📝':'📎';
@@ -1992,22 +1902,21 @@ function renderFileInfo(data){
     if(s.disposition && s.disposition['default']) html += '<div class="fi-row"><span class="fi-k">默认</span><span class="fi-v">是</span></div>';
     html += '</div>';
   });
-
   document.getElementById('file-info-content').innerHTML = html;
 }
 
-function updateAudioTrackSelector(data){
+function updateFiAudioSelector(data){
   var streams = data.streams || [];
   var audioStreams = [];
   streams.forEach(function(s){ if(s.codec_type==='audio') audioStreams.push(s); });
-
-  var wrap = document.getElementById('audio-track-wrap');
-  var sel  = document.getElementById('audio-track-sel');
-
-  if(audioStreams.length <= 1){ wrap.style.display = 'none'; return; }
-
-  wrap.style.display = 'inline-flex';
+  var footer = document.getElementById('file-info-footer');
+  var sel = document.getElementById('fi-audio-sel');
   sel.innerHTML = '';
+  if(audioStreams.length === 0) {
+      footer.style.display = 'none';
+      return;
+  }
+  footer.style.display = 'flex';
   audioStreams.forEach(function(s, i){
     var tags = s.tags || {};
     var label = '音轨 ' + (i+1);
@@ -2021,51 +1930,215 @@ function updateAudioTrackSelector(data){
     opt.textContent = label;
     sel.appendChild(opt);
   });
+  
   var defIdx = 0;
   audioStreams.forEach(function(s, i){ if(s.disposition && s.disposition['default']) defIdx = i; });
   sel.value = defIdx;
-  currentAudioTrackIdx = defIdx;
 }
 
-function loadAudioTracksForCurrent(it){
-  var wrap = document.getElementById('audio-track-wrap');
-  if(!it || it.kind!=='media' || it.isStream || isAudioOnly(it.url)){
-    wrap.style.display = 'none';
-    return;
-  }
-  fetch('/cgi-bin/luci/dlna/ffprobe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'file=' + encodeURIComponent(it.url)
-  })
-    .then(function(r){ return r.text(); })
-    .then(function(text){
-      try {
-        var data = JSON.parse(text);
-        if(!data || data.error){ wrap.style.display = 'none'; return; }
-        if(listItems[currentIndex] !== it) return;
-        updateAudioTrackSelector(data);
-      } catch(e) {
-        wrap.style.display = 'none';
-      }
-    })
-    .catch(function(){ wrap.style.display = 'none'; });
-}
+document.getElementById('fi-start-transcode-btn').onclick = function() {
+    var it = listItems[currentIndex];
+    if(!it) return;
+    var aidx = parseInt(document.getElementById('fi-audio-sel').value);
+    closeFileInfo();
+    startTranscode(it.url, aidx);
+};
 
 var fileInfoBtn = document.getElementById('file-info-btn');
 if (fileInfoBtn) {
     fileInfoBtn.onclick = window.showFileInfo;
 }
 
-var audioSel = document.getElementById('audio-track-sel');
-if (audioSel) {
-    audioSel.addEventListener('change', function(){
-      var idx = parseInt(this.value);
-      if(idx === currentAudioTrackIdx) return;
+videoEl.addEventListener('playing', function() {
+    if (window.audioCheckTimeout) clearTimeout(window.audioCheckTimeout);
+    var it = listItems[currentIndex];
+    if (it && it.kind === 'media' && !it.isStream && !isAudioOnly(it.name) && !window.castOnlyMode) {
+        window.audioCheckTimeout = setTimeout(function() {
+            if (listItems[currentIndex] !== it) return;
+
+            let hasAudio = true;
+            if (typeof videoEl.webkitAudioDecodedByteCount !== 'undefined') {
+                hasAudio = videoEl.webkitAudioDecodedByteCount > 0;
+            } 
+            else if (typeof videoEl.mozHasAudio !== 'undefined') {
+                hasAudio = videoEl.mozHasAudio;
+            }
+
+            if (!hasAudio) {
+                showAudioUnsupportedTip();
+            }
+        }, 2000);
+    }
+});
+
+function showAudioUnsupportedTip() {
+    if (!window.hasShownAudioTip) {
+        window.hasShownAudioTip = true;
+        setTimeout(function(){
+            if(confirm('检测到当前视频音轨浏览器可能不支持（无声）。\n是否打开【检测文件信息】面板提取并转码为 AAC 格式播放？\n(注：转码后的文件将保存在源文件同目录)')) {
+                window.showFileInfo();
+            }
+        }, 500);
+    }
+}
+
+function playTranscodedAudio(fileUrl, aidx) {
+    closeFileInfo();
+    destroyPlayer();
+    hideAllViews();
+    videoEl.style.display='block';
+    
+    if (typeof mpegts !== 'undefined' && mpegts.isSupported()) {
+        try {
+            mpegtsPlayer = mpegts.createPlayer(
+                { type: 'mpegts', isLive: false, url: fileUrl },
+                { enableWorker: false, lazyLoad: false }
+            );
+            mpegtsPlayer.attachMediaElement(videoEl);
+            mpegtsPlayer.load();
+            if (!window.castOnlyMode) mpegtsPlayer.play().catch(function(){});
+        } catch(e) {
+            videoEl.src = fileUrl;
+            if (!window.castOnlyMode) videoEl.play().catch(function(){});
+        }
+    } else {
+        videoEl.src = fileUrl;
+        if (!window.castOnlyMode) videoEl.play().catch(function(){});
+    }
+    setNowPlaying('🎵', '正在播放提取的 AAC 音轨', '');
+    currentAudioTrackIdx = aidx;
+}
+
+var currentTranscodeTimer = null;
+var currentTranscodeToken = "";
+var currentTranscodeNewUrl = "";
+
+document.getElementById('cancel-transcode-btn').onclick = function() {
+    if (currentTranscodeTimer) clearInterval(currentTranscodeTimer);
+    document.getElementById('extract-progress-container').style.display = 'none';
+    
+    fetch('/cgi-bin/luci/dlna/cancel_extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'token=' + encodeURIComponent(currentTranscodeToken) + '&new_url=' + encodeURIComponent(currentTranscodeNewUrl)
+    }).catch(function(){});
+};
+
+function checkRunningTask(itUrl) {
+    fetch('/cgi-bin/luci/dlna/check_task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'file=' + encodeURIComponent(itUrl)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.status === 'found') {
+            currentTranscodeToken = res.token;
+            currentTranscodeNewUrl = res.new_file_url;
+            if (res.is_done) {
+                playTranscodedAudio(res.new_file_url, 0);
+            } else {
+                showProgressAndPoll(res.token, res.new_file_url, itUrl);
+            }
+        }
+    })
+    .catch(e => console.log('检查后台任务失败', e));
+}
+
+function showProgressAndPoll(token, newUrl, originalUrl) {
+    var progContainer = document.getElementById('extract-progress-container');
+    var progBar = document.getElementById('extract-progress-bar');
+    var progPercent = document.getElementById('extract-progress-percent');
+    var progSpeed = document.getElementById('extract-speed');
+    var progLoad = document.getElementById('extract-load');
+    var progTime = document.getElementById('extract-time');
+    
+    if(progContainer) {
+        progContainer.style.display = 'block';
+        progBar.style.width = '0%';
+        progPercent.innerText = '启动中...';
+        progSpeed.innerText = '0x';
+        progLoad.innerText = '0.00';
+        progTime.innerText = '已处理: 00:00:00';
+    }
+
+    var duration = currentFfprobeData && currentFfprobeData.format ? parseFloat(currentFfprobeData.format.duration) : 0;
+    
+    if (currentTranscodeTimer) clearInterval(currentTranscodeTimer);
+    currentTranscodeTimer = setInterval(function(){
+        fetch('/cgi-bin/luci/dlna/get_progress?token=' + token)
+        .then(function(r) { return r.json(); })
+        .then(function(prog) {
+            if (prog.status === 'error') {
+                clearInterval(currentTranscodeTimer);
+                progContainer.style.display = 'none';
+                alert("转码失败: " + (prog.log || prog.message));
+                return;
+            }
+            
+            if(progContainer) {
+                if (prog.status === 'starting') {
+                    progPercent.innerText = '启动中...';
+                    progBar.style.width = '10%';
+                } else {
+                    var pct = 0;
+                    if (duration && prog.out_time_us) {
+                        pct = Math.min(99, Math.floor((prog.out_time_us / 1000000 / duration) * 100));
+                    } else if (prog.out_time_us) {
+                        pct = -1;
+                    }
+                    if (prog.status === 'done') pct = 100;
+                    
+                    if (pct >= 0) {
+                        progBar.style.width = pct + '%';
+                        progPercent.innerText = pct + '%';
+                    } else {
+                        progBar.style.width = '50%';
+                        progPercent.innerText = '处理中...';
+                    }
+                }
+                
+                if(prog.speed) progSpeed.innerText = prog.speed;
+                if(prog.load) progLoad.innerText = prog.load;
+                if(prog.out_time_us) {
+                    progTime.innerText = '已处理: ' + formatTime(prog.out_time_us / 1000000);
+                }
+            }
+
+            if(prog.status === 'done' || (prog.out_time_us && duration && (prog.out_time_us / 1000000 / duration) >= 0.99)) {
+                clearInterval(currentTranscodeTimer);
+                if(progContainer) progContainer.style.display = 'none';
+                playTranscodedAudio(newUrl, 0);
+            }
+        }).catch(function(e){
+            console.error(e);
+        });
+    }, 1000);
+}
+
+function startTranscode(fileUrl, aidx) {
+  fetch('/cgi-bin/luci/dlna/extract_audio', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'file=' + encodeURIComponent(fileUrl) + '&aidx=' + aidx
+  })
+  .then(function(r){ return r.text(); })
+  .then(function(text){
+    try {
+      var res = JSON.parse(text);
+      if(res.status !== 'success') throw new Error(res.error || '未知错误');
       
-      alert('音轨切换功能将在下一阶段开放。\n当前只做解析展示。');
-      this.value = currentAudioTrackIdx;
-    });
+      currentTranscodeToken = res.token;
+      currentTranscodeNewUrl = res.new_file_url;
+      showProgressAndPoll(res.token, res.new_file_url, fileUrl);
+      
+    } catch(e) {
+      alert("转码请求错误: " + text);
+    }
+  })
+  .catch(function(e){
+    alert('请求后端失败: ' + e.message);
+  });
 }
 
 })();
