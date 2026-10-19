@@ -12,7 +12,7 @@ if http.getenv("REQUEST_METHOD") == "POST" then
     local action = http.formvalue("action") or ""
     local conf_path = "/etc/nginx/conf.d/media.conf"
     local bak_path = "/etc/nginx/conf.d/media.conf.bak"
-    
+
     -- 读取当前配置的辅助函数（逐行解析，100% 准确）
     local function get_current_media_config()
         local f = io.open(conf_path, "r")
@@ -32,7 +32,7 @@ if http.getenv("REQUEST_METHOD") == "POST" then
         end
         return port, root_dir
     end
-    
+
     -- 生成 media.conf 的辅助函数
     local function generate_media_conf(port, root_dir)
         local alias_dir = root_dir
@@ -47,6 +47,7 @@ server {
 
     location = /player.html { root /www; }
     location = /mpegts.min.js { root /www; }
+    location = /hls.min.js { root /www; }
 
     location /cgi-bin/luci/ {
         proxy_pass http://127.0.0.1:80;
@@ -60,6 +61,17 @@ server {
         autoindex on;
         autoindex_format json;
         autoindex_exact_size on;
+    }
+
+    # ★ 音轨转码产生的 HLS 临时文件，只允许 /tmp/hls_xxxx 目录
+    location ~ ^/hls/(hls_[0-9]+)/(.+)$ {
+        alias /tmp/$1/$2;
+        add_header Cache-Control "no-store";
+        add_header Access-Control-Allow-Origin *;
+        types {
+            application/vnd.apple.mpegurl m3u8;
+            video/mp2t ts;
+        }
     }
 
     location ~* \.(mp4|webm|mkv|mov|avi|m4v|ogv|flv|3gp|ts|m2ts|wmv|mp3|m4a|flac|aac|ogg|wav)$ {
@@ -85,7 +97,7 @@ server {
         local f = io.open(conf_path, "w")
         if f then f:write(conf); f:close() end
         sys.exec("/etc/init.d/nginx reload")
-        
+
     elseif action == "change_root" then
         local port, root_dir = get_current_media_config()
         local new_root = http.formvalue("new_root")
@@ -94,7 +106,7 @@ server {
         local f = io.open(conf_path, "w")
         if f then f:write(conf); f:close() end
         sys.exec("/etc/init.d/nginx reload")
-        
+
     elseif action == "toggle_server" then
         local enabled = http.formvalue("enabled") or "0"
         if enabled == "1" then
@@ -117,7 +129,7 @@ server {
         uci:set("nginx-manager", "server", "enabled", enabled)
         uci:commit("nginx-manager")
         sys.exec("/etc/init.d/nginx reload >/dev/null 2>&1 &")
-        
+
     elseif action == "clear_logs" then
         local log_type = http.formvalue("type") or "error"
         local log_path = "/var/log/nginx/" .. log_type .. ".log"
@@ -125,7 +137,7 @@ server {
         if not nixio.fs.access(log_path) then log_path = "/tmp/nginx-" .. log_type .. ".log" end
         sys.exec("echo -n > '" .. log_path .. "' 2>/dev/null")
     end
-    
+
     http.redirect(http.getenv("REQUEST_URI") or "/cgi-bin/luci/admin/services/nginx-manager")
     return
 end
@@ -204,7 +216,7 @@ end
 
 local server_enabled = uci:get("nginx-manager", "server", "enabled") or "1"
 
--- 读取 media.conf 的端口和根目录（逐行解析，绝不回退）
+-- 读取 media.conf 的端口和根目录
 local media_port = "880"
 local media_root = "/mnt"
 fh = io.open("/etc/nginx/conf.d/media.conf", "r")
@@ -445,7 +457,6 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
         var list = document.getElementById('nm-list');
         list.innerHTML = '<div class="ld">加载中...</div>';
         var xhr = new XMLHttpRequest();
-        // 请求当前页面，顶部 Lua 代码会直接拦截并返回 JSON
         xhr.open('GET', location.pathname + '?ajax=browse&path=' + encodeURIComponent(path), true);
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4) {
@@ -514,7 +525,6 @@ elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
     window.clearLogs = function() {
         var type = document.getElementById('log-type').value;
         if (!confirm('确定要清空当前日志吗？此操作不可恢复。')) return;
-        // 使用表单提交清空日志（走顶部的 POST 拦截）
         var form = document.createElement('form');
         form.method = 'POST';
         form.action = location.pathname;
