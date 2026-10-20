@@ -123,6 +123,12 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 #file-info-modal .fi-row{display:flex; padding:3px 0; border-bottom:1px solid #252525;}
 #file-info-modal .fi-k{width:110px; color:#888; flex-shrink:0}
 #file-info-modal .fi-v{color:#ddd; word-break:break-all}
+#file-info-modal .fi-actrow{background:#202020; border-bottom:none; border-radius:6px; padding:6px 8px; margin-top:6px; align-items:center;}
+#file-info-modal .fi-actrow .fi-k{width:auto; margin-right:12px; color:#8ecae6;}
+#file-info-modal .fi-chk{display:inline-flex; align-items:center; gap:4px; cursor:pointer; user-select:none;}
+#file-info-modal .fi-chk input{width:14px; height:14px; accent-color:#4a9eff; cursor:pointer;}
+#file-info-modal .fi-sep{color:#777; margin:0 10px;}
+#file-info-modal .fi-trans{background:#111; color:#ddd; border:1px solid #444; border-radius:5px; padding:3px 6px; font-size:12px; outline:none;}
 
 #extract-progress-container {
     display: none;
@@ -175,7 +181,7 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
       <!-- 提取进度显示 -->
       <div id="extract-progress-container">
           <div class="title">
-              <span>正在提取 AAC 音轨</span>
+              <span>正在转封装 / 转码</span>
               <span class="speed" id="extract-speed">0x</span>
           </div>
           <div id="extract-progress-bar-bg"><div id="extract-progress-bar"></div></div>
@@ -287,10 +293,14 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
     </div>
     <div class="fi-body" id="file-info-content">正在加载...</div>
     
-    <div id="file-info-footer" style="display:none; padding: 15px 20px; background: #222; border-top: 1px solid #333; display: flex; gap: 12px; align-items: center; border-radius: 0 0 12px 12px;">
-        <span style="color:#aaa; font-size:13px; white-space:nowrap;">选择音轨：</span>
-        <select id="fi-audio-sel" style="flex:1; padding:8px 10px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; font-size:13px; outline:none;"></select>
-        <button type="button" id="fi-start-transcode-btn" style="background:#2f9e44; border:none; color:#fff; padding:8px 20px; border-radius:6px; cursor:pointer; font-size:13px; white-space:nowrap; font-weight:bold;">提取并转码</button>
+    <div id="file-info-footer" style="display:none; padding: 12px 20px; background: #222; border-top: 1px solid #333; gap: 10px; align-items: center; flex-wrap: wrap; border-radius: 0 0 12px 12px;">
+        <span style="color:#aaa; font-size:13px; white-space:nowrap;">输出容器：</span>
+        <select id="fi-container-sel" style="padding:6px 8px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; font-size:13px; outline:none;">
+            <option value="mp4">MP4（推荐）</option>
+            <option value="ts">TS（MPEG-TS）</option>
+        </select>
+        <button type="button" id="fi-start-transcode-btn" style="margin-left:auto; background:#2f9e44; border:none; color:#fff; padding:8px 18px; border-radius:6px; cursor:pointer; font-size:13px; white-space:nowrap; font-weight:bold;">开始转封装</button>
+        <div style="flex-basis:100%; color:#666; font-size:11px; line-height:1.5;">勾选“复制”保留原轨；需要额外音轨时再选转码格式，可同时保留原轨 + 转一份 AAC。TS 容器不支持文本字幕。</div>
     </div>
   </div>
 </div>
@@ -1851,7 +1861,7 @@ window.showFileInfo = function(){
           }
           currentFfprobeData = data;
           renderFileInfo(data);
-          updateFiAudioSelector(data);
+          showFiFooter();
       } catch(e) {
           content.innerHTML = '<div style="color:#e74c3c;padding:10px; word-break:break-all;">❌ 后端返回了非 JSON 数据:<br><pre style="margin-top:10px; font-size:11px; white-space:pre-wrap;">' + esc(text) + '</pre></div>';
       }
@@ -1863,22 +1873,42 @@ window.showFileInfo = function(){
 window.closeFileInfo = function(){
   document.getElementById('file-info-modal').style.display = 'none';
 };
+function fiFmtName(fmt, srcName){
+  var n = fmt && (fmt.format_long_name || fmt.format_name);
+  if(!n || /^unknown$/i.test(n)) n = guessContainer(srcName || '') || '';
+  return n || '未知容器';
+}
+
+function syncSubtitleCheckbox(){
+  var csel = document.getElementById('fi-container-sel');
+  var ts = csel && csel.value === 'ts';
+  var list = document.querySelectorAll('#file-info-content .fi-subcopy');
+  for(var i=0;i<list.length;i++){
+    list[i].disabled = ts;
+    if(ts) list[i].checked = false;
+  }
+}
+
 function renderFileInfo(data){
   var fmt = data.format || {};
   var streams = data.streams || [];
+  var cur = listItems[currentIndex];
+  var srcName = cur ? cur.name : '';
   var html = '';
+  var audioSeen = 0;
   html += '<div class="fi-section"><h4>📦 容器格式</h4>';
-  html += '<div class="fi-row"><span class="fi-k">格式</span><span class="fi-v">' + esc(fmt.format_long_name || fmt.format_name || '-') + '</span></div>';
+  html += '<div class="fi-row"><span class="fi-k">格式</span><span class="fi-v">' + esc(fiFmtName(fmt, srcName)) + '</span></div>';
   if(fmt.duration) html += '<div class="fi-row"><span class="fi-k">时长</span><span class="fi-v">' + formatTime(fmt.duration) + '</span></div>';
   if(fmt.size)     html += '<div class="fi-row"><span class="fi-k">文件大小</span><span class="fi-v">' + formatSize(parseInt(fmt.size)) + '</span></div>';
   if(fmt.bit_rate) html += '<div class="fi-row"><span class="fi-k">总码率</span><span class="fi-v">' + (parseInt(fmt.bit_rate)/1000).toFixed(0) + ' kbps</span></div>';
   html += '</div>';
   streams.forEach(function(s, idx){
     var t = s.codec_type;
-    var icon = t==='video'?'🎬':t==='audio'?'🎵':t==='subtitle'?'📝':'📎';
-    var tn   = t==='video'?'视频流':t==='audio'?'音频流':t==='subtitle'?'字幕流':'未知流';
+    var sidx = (typeof s.index === 'number') ? s.index : idx;
+    var icon = t==='video'?'🎬':t==='audio'?'🎵':t==='subtitle'?'📝':t==='attachment'?'📎':'🗂️';
+    var tn   = t==='video'?'视频流':t==='audio'?'音频流':t==='subtitle'?'字幕流':t==='attachment'?'附件':'数据流';
     var tags = s.tags || {};
-    html += '<div class="fi-section"><h4>' + icon + ' ' + tn + ' #' + idx + '</h4>';
+    html += '<div class="fi-section" data-idx="' + sidx + '" data-type="' + t + '"><h4>' + icon + ' ' + tn + ' #' + sidx + '</h4>';
     html += '<div class="fi-row"><span class="fi-k">编码</span><span class="fi-v">' + esc(s.codec_name || '-') + '</span></div>';
     if(s.codec_long_name) html += '<div class="fi-row"><span class="fi-k">编码全称</span><span class="fi-v">' + esc(s.codec_long_name) + '</span></div>';
     if(t==='video'){
@@ -1900,54 +1930,82 @@ function renderFileInfo(data){
     if(tags.language) html += '<div class="fi-row"><span class="fi-k">语言</span><span class="fi-v">' + esc(tags.language) + '</span></div>';
     if(tags.title)    html += '<div class="fi-row"><span class="fi-k">标题</span><span class="fi-v">' + esc(tags.title) + '</span></div>';
     if(s.disposition && s.disposition['default']) html += '<div class="fi-row"><span class="fi-k">默认</span><span class="fi-v">是</span></div>';
+
+    var isCover = !!(s.disposition && s.disposition.attached_pic);
+    var ctrl;
+    if(isCover){
+      ctrl = '<span style="color:#666">忽略（内嵌封面）</span>';
+    }else if(t==='video'){
+      ctrl = '<label class="fi-chk"><input type="checkbox" class="fi-copy" checked> 复制</label>'
+           + '<span class="fi-sep">视频只能复制或忽略</span>';
+    }else if(t==='audio'){
+      var firstAudio = (audioSeen === 0);
+      audioSeen++;
+      var defT = (firstAudio && s.codec_name !== 'aac') ? 'aac2' : 'none';
+      ctrl = '<label class="fi-chk"><input type="checkbox" class="fi-copy"' + (firstAudio ? ' checked' : '') + '> 复制原轨</label>'
+           + '<span class="fi-sep">+ 转码</span>'
+           + '<select class="fi-trans">'
+           + '<option value="none"' + (defT==='none' ? ' selected' : '') + '>不转</option>'
+           + '<option value="aac2"' + (defT==='aac2' ? ' selected' : '') + '>AAC 2CH</option>'
+           + '<option value="aac51">AAC 5.1</option>'
+           + '<option value="ac351">AC3 5.1</option>'
+           + '</select>';
+    }else if(t==='subtitle'){
+      ctrl = '<label class="fi-chk"><input type="checkbox" class="fi-copy fi-subcopy"> 复制</label>'
+           + '<span class="fi-sep">TS 下自动忽略</span>';
+    }else{
+      ctrl = '<span style="color:#666">忽略</span>';
+    }
+    html += '<div class="fi-row fi-actrow"><span class="fi-k">处理方式</span><span class="fi-v">' + ctrl + '</span></div>';
+
     html += '</div>';
   });
   document.getElementById('file-info-content').innerHTML = html;
+  syncSubtitleCheckbox();
 }
 
-function updateFiAudioSelector(data){
-  var streams = data.streams || [];
-  var audioStreams = [];
-  streams.forEach(function(s){ if(s.codec_type==='audio') audioStreams.push(s); });
+function showFiFooter(){
   var footer = document.getElementById('file-info-footer');
-  var sel = document.getElementById('fi-audio-sel');
-  sel.innerHTML = '';
-  if(audioStreams.length === 0) {
-      footer.style.display = 'none';
-      return;
+  if(footer) footer.style.display = 'flex';
+}
+
+function buildFiPlan(){
+  var streams = [];
+  var secs = document.querySelectorAll('#file-info-content .fi-section[data-idx]');
+  for(var i=0;i<secs.length;i++){
+    var sec = secs[i];
+    var cb = sec.querySelector('input.fi-copy');
+    var tsel = sec.querySelector('select.fi-trans');
+    streams.push({
+      index: parseInt(sec.getAttribute('data-idx'), 10),
+      type: sec.getAttribute('data-type'),
+      copy: !!(cb && cb.checked),
+      transcode: tsel ? tsel.value : 'none'
+    });
   }
-  footer.style.display = 'flex';
-  audioStreams.forEach(function(s, i){
-    var tags = s.tags || {};
-    var label = '音轨 ' + (i+1);
-    if(tags.language) label += ' [' + tags.language + ']';
-    if(tags.title)    label += ' ' + tags.title;
-    label += ' (' + (s.codec_name || '?');
-    if(s.channels) label += ' ' + s.channels + 'ch';
-    label += ')';
-    var opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = label;
-    sel.appendChild(opt);
-  });
-  
-  var defIdx = 0;
-  audioStreams.forEach(function(s, i){ if(s.disposition && s.disposition['default']) defIdx = i; });
-  sel.value = defIdx;
+  var csel = document.getElementById('fi-container-sel');
+  return { container: csel ? csel.value : 'mp4', streams: streams };
 }
 
 document.getElementById('fi-start-transcode-btn').onclick = function() {
     var it = listItems[currentIndex];
     if(!it) return;
-    var aidx = parseInt(document.getElementById('fi-audio-sel').value);
+    var plan = buildFiPlan();
+    var kept = plan.streams.filter(function(x){ return x.copy || (x.transcode && x.transcode !== 'none'); });
+    if(!kept.length){ alert('至少保留一条数据流（勾选复制或选一项转码）'); return; }
+    if(plan.container === 'ts' && kept.some(function(x){ return x.type === 'subtitle'; })){
+        if(!confirm('TS 容器不支持文本字幕，字幕会被丢弃。继续？')) return;
+    }
     closeFileInfo();
-    startTranscode(it.url, aidx);
+    startTranscode(it.url, plan);
 };
 
 var fileInfoBtn = document.getElementById('file-info-btn');
 if (fileInfoBtn) {
     fileInfoBtn.onclick = window.showFileInfo;
 }
+
+document.getElementById('fi-container-sel').onchange = syncSubtitleCheckbox;
 
 videoEl.addEventListener('playing', function() {
     if (window.audioCheckTimeout) clearTimeout(window.audioCheckTimeout);
@@ -1975,7 +2033,7 @@ function showAudioUnsupportedTip() {
     if (!window.hasShownAudioTip) {
         window.hasShownAudioTip = true;
         setTimeout(function(){
-            if(confirm('检测到当前视频音轨浏览器可能不支持（无声）。\n是否打开【检测文件信息】面板提取并转码为 AAC 格式播放？\n(注：转码后的文件将保存在源文件同目录)')) {
+            if(confirm('检测到当前视频音轨浏览器可能不支持（无声）。\n是否打开【检测文件信息】面板，转码为 H.264 + AAC 的 MP4（保留画面）播放？\n(注：转码后的文件将保存在源文件同目录)')) {
                 window.showFileInfo();
             }
         }, 500);
@@ -1986,9 +2044,13 @@ function playTranscodedAudio(fileUrl, aidx) {
     closeFileInfo();
     destroyPlayer();
     hideAllViews();
+    stopAudioBackground();
+    if (emptyEl) emptyEl.style.display = 'none';
     videoEl.style.display='block';
-    
-    if (typeof mpegts !== 'undefined' && mpegts.isSupported()) {
+    videoEl.setAttribute('controls','');
+
+    var isTs = /\.ts(\?|#|$)/i.test(fileUrl);
+    if (isTs && typeof mpegts !== 'undefined' && mpegts.isSupported()) {
         try {
             mpegtsPlayer = mpegts.createPlayer(
                 { type: 'mpegts', isLive: false, url: fileUrl },
@@ -2005,7 +2067,7 @@ function playTranscodedAudio(fileUrl, aidx) {
         videoEl.src = fileUrl;
         if (!window.castOnlyMode) videoEl.play().catch(function(){});
     }
-    setNowPlaying('🎵', '正在播放提取的 AAC 音轨', '');
+    setNowPlaying('🎬', isTs ? '正在播放转码音轨（AAC）' : '正在播放转码版本（H.264 + AAC）', '转码', false);
     currentAudioTrackIdx = aidx;
 }
 
@@ -2101,7 +2163,9 @@ function showProgressAndPoll(token, newUrl, originalUrl) {
                 if(prog.speed) progSpeed.innerText = prog.speed;
                 if(prog.load) progLoad.innerText = prog.load;
                 if(prog.out_time_us) {
-                    progTime.innerText = '已处理: ' + formatTime(prog.out_time_us / 1000000);
+                    var line = '已处理: ' + formatTime(prog.out_time_us / 1000000);
+                    if(prog.total_size) line += '　已写入: ' + formatSize(prog.total_size);
+                    progTime.innerText = line;
                 }
             }
 
@@ -2116,17 +2180,20 @@ function showProgressAndPoll(token, newUrl, originalUrl) {
     }, 1000);
 }
 
-function startTranscode(fileUrl, aidx) {
+function startTranscode(fileUrl, plan) {
+  var body = 'file=' + encodeURIComponent(fileUrl)
+           + '&plan=' + encodeURIComponent(JSON.stringify(plan || { container: 'mp4', streams: [] }));
   fetch('/cgi-bin/luci/dlna/extract_audio', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'file=' + encodeURIComponent(fileUrl) + '&aidx=' + aidx
+    body: body
   })
   .then(function(r){ return r.text(); })
   .then(function(text){
     try {
       var res = JSON.parse(text);
       if(res.status !== 'success') throw new Error(res.error || '未知错误');
+      console.log('[transcode] ffmpeg args:', res.args);
       
       currentTranscodeToken = res.token;
       currentTranscodeNewUrl = res.new_file_url;
