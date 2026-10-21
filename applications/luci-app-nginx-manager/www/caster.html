@@ -35,7 +35,8 @@ input[type=text]:focus{border-color:#4a9eff}
 .ctl{flex:1;min-width:72px;background:#2b3542;color:#fff;padding:9px 5px;font-size:12.5px;border-radius:7px;border:1px solid #3a4757;cursor:pointer;font-family:inherit;}
 .ctl:hover{background:#35455a}
 .ctl.primary{background:#2f6fed;border-color:#2f6fed}
-.ctl.stop{background:#c0392b;border-color:#c0392b;flex:0 0 auto;padding:9px 12px}
+.ctl.active{background:#2f6fed;border-color:#2f6fed;color:#fff;box-shadow:0 0 0 1px rgba(74,158,255,.5) inset}
+.ctl.stop{background:#c0392b;border-color:#c0392b;flex:1;padding:9px 5px}
 .ctl.small{flex:0 0 auto;padding:6px 10px;font-size:12px}
 .seek{display:flex;align-items:center;gap:9px;margin:13px 0 9px}
 .seek input{flex:1;min-width:0}
@@ -70,10 +71,14 @@ input[type=text]:focus{border-color:#4a9eff}
     <div class="card" id="control-card" style="display:none">
         <h2>🎮 播放控制 <span id="ctl-device" style="color:#8b98a8;font-size:12px;font-weight:400;"></span></h2>
         <div class="ctl-row">
+            <button type="button" class="ctl" onclick="ctlSkip(-60)">⏪ 快退60s</button>
+            <button type="button" class="ctl" id="ctl-play" onclick="ctlPlay()">▶ 播放</button>
+            <button type="button" class="ctl" id="ctl-pause" onclick="ctlPause()">⏸ 暂停</button>
+            <button type="button" class="ctl" onclick="ctlSkip(60)">⏩ 快进60s</button>
+        </div>
+        <div class="ctl-row" style="margin-top:8px;">
             <button type="button" class="ctl" onclick="ctlPrev()">⏮ 上一曲</button>
-            <button type="button" class="ctl" onclick="ctlSkip(-60)">⏪ -60s</button>
-            <button type="button" class="ctl primary" id="ctl-playpause" onclick="ctlTogglePlay()">⏸ 暂停</button>
-            <button type="button" class="ctl" onclick="ctlSkip(60)">⏩ +60s</button>
+            <button type="button" class="ctl stop" onclick="ctlStop()">⏹ 停止</button>
             <button type="button" class="ctl" onclick="ctlNext()">⏭ 下一曲</button>
         </div>
         <div class="seek">
@@ -86,7 +91,6 @@ input[type=text]:focus{border-color:#4a9eff}
             <input type="range" id="ctl-vol" min="0" max="100" value="50" step="1">
             <span id="ctl-vol-val">50</span>
             <button type="button" class="ctl small" id="ctl-mute" onclick="ctlMute()">静音</button>
-            <button type="button" class="ctl stop" onclick="ctlStop()">⏹ 停止投屏</button>
         </div>
         <div id="ctl-status" class="hint"></div>
     </div>
@@ -185,8 +189,10 @@ function ctlRequest(action, value) {
     });
 }
 function updatePlayPause() {
-    var b = document.getElementById('ctl-playpause');
-    if (b) b.textContent = ctlPlaying ? '⏸ 暂停' : '▶ 播放';
+    var p = document.getElementById('ctl-play');
+    var q = document.getElementById('ctl-pause');
+    if (p) p.classList.toggle('active', ctlPlaying);
+    if (q) q.classList.toggle('active', !ctlPlaying);
 }
 function updateSeekUI() {
     var cur = document.getElementById('ctl-cur');
@@ -243,6 +249,22 @@ window.ctlSkip = function(delta) {
         ctlDragging = false;
         updateSeekUI();
     }).catch(function(e) { ctlStatus('快进/快退失败：' + (e.message || e), 'err'); });
+};
+window.ctlPlay = function() {
+    if (!currentControl) return;
+    ctlRequest('play').then(function() {
+        ctlPlaying = true;
+        updatePlayPause();
+        setTimeout(pollCtl, 400);
+    }).catch(function(e) { ctlStatus('播放失败：' + (e.message || e), 'err'); });
+};
+window.ctlPause = function() {
+    if (!currentControl) return;
+    ctlRequest('pause').then(function() {
+        ctlPlaying = false;
+        updatePlayPause();
+        setTimeout(pollCtl, 400);
+    }).catch(function(e) { ctlStatus('暂停失败：' + (e.message || e), 'err'); });
 };
 window.ctlTogglePlay = function() {
     if (!currentControl) return;
