@@ -4,17 +4,22 @@ function index()
     entry({"admin", "services", "nginx-manager"}, template("nginx-manager/overview"), _("Nginx 管理器"), 30).leaf = true
 
     entry({"dlna", "discover"}, call("dlna_discover")).leaf = true
-    entry({"dlna", "cast"}, post("dlna_cast")).leaf = true
-    entry({"dlna", "probe"}, post("dlna_probe")).leaf = true
+    entry({"dlna", "cast"}, call("dlna_cast")).leaf = true
+    entry({"dlna", "probe"}, call("dlna_probe")).leaf = true
     entry({"dlna", "cover"}, call("dlna_cover")).leaf = true
-    entry({"dlna", "control"}, post("dlna_control")).leaf = true
+    entry({"dlna", "control"}, call("dlna_control")).leaf = true
     entry({"dlna", "get_position"}, call("dlna_get_position")).leaf = true
+    entry({"dlna", "lyrics"}, call("dlna_lyrics")).leaf = true
+    entry({"dlna", "save_lyrics"}, post("dlna_save_lyrics")).leaf = true
+    entry({"dlna", "caster"}, call("dlna_caster")).leaf = true
 
     entry({"dlna", "ffprobe"}, post("dlna_ffprobe")).leaf = true
     entry({"dlna", "extract_audio"}, post("dlna_extract_audio")).leaf = true
     entry({"dlna", "get_progress"}, call("dlna_get_progress")).leaf = true
     entry({"dlna", "cancel_extract"}, post("dlna_cancel_extract")).leaf = true
     entry({"dlna", "check_task"}, post("dlna_check_task")).leaf = true
+    entry({"dlna", "list_dir"}, call("dlna_list_dir")).leaf = true
+    entry({"dlna", "tasks"}, call("dlna_tasks")).leaf = true
 end
 
 -------------------------------------------------------------------------------
@@ -62,7 +67,21 @@ local function media_roots()
         if not seen[p] then seen[p] = true; roots[#roots + 1] = p end
     end
 
-    -- 1) UCI 显式指定
+    -- 1) /etc/nginx/conf.d/media.conf：这是 nginx 实际使用的映射，最权威。
+    --    改端口/改根目录后即使 UCI 没同步，也不会把路径解析到错误的地方。
+    local cf = io.open("/etc/nginx/conf.d/media.conf", "r")
+    if cf then
+        local c = cf:read("*a") or ""
+        cf:close()
+        for r in c:gmatch("alias%s+([^;]+);") do
+            add((r:gsub("^%s+", ""):gsub("%s+$", "")))
+        end
+        for r in c:gmatch("root%s+([^;]+);") do
+            add((r:gsub("^%s+", ""):gsub("%s+$", "")))
+        end
+    end
+
+    -- 2) UCI 显式指定
     local ok, uci = pcall(require, "luci.model.uci")
     if ok and uci then
         local ok2, cur = pcall(uci.cursor)
@@ -72,7 +91,7 @@ local function media_roots()
         end
     end
 
-    -- 2) /proc/mounts 里的 /mnt/* 挂载点（USB、移动硬盘、第二块盘）
+    -- 3) /proc/mounts 里的 /mnt/* 挂载点（USB、移动硬盘、第二块盘）
     local mf = io.open("/proc/mounts", "r")
     if mf then
         for line in mf:lines() do
@@ -85,7 +104,7 @@ local function media_roots()
         mf:close()
     end
 
-    -- 3) 只是普通目录、不是挂载点的情况
+    -- 4) 只是普通目录、不是挂载点的情况
     local p = io.popen("ls -1 /mnt 2>/dev/null")
     if p then
         for name in p:lines() do
@@ -95,7 +114,7 @@ local function media_roots()
         p:close()
     end
 
-    -- 4) 兜底
+    -- 5) 兜底
     add("/mnt")
 
     _media_roots = roots
@@ -125,6 +144,128 @@ end
 
 local function shell_quote(s)
     return "'" .. s:gsub("'", "'\\''") .. "'"
+end
+
+-------------------------------------------------------------------------------
+-- 目录浏览（Lua 备用实现）
+--
+-- nginx 的 autoindex JSON 在个别目录上会直接断开连接（前端只看到
+-- "Failed to fetch"）：超大目录、磁盘读目录异常、或文件名不是合法 UTF-8
+-- 都可能触发。这里给网页端一份不依赖 autoindex 的列表，作为兜底。
+-------------------------------------------------------------------------------
+
+-- 把非法 UTF-8 字节替换成 ?，保证返回的 JSON 一定能被浏览器解析
+local function utf8_sanitize(s)
+    if not s or not s:find("[\128-\255]") then return s or "" end
+    local out, i, n = {}, 1, #s
+    while i <= n do
+        local c = s:byte(i)
+        local len = 0
+        if c < 0x80 then
+            len = 1
+        elseif c >= 0xC2 and c <= 0xDF then
+            len = 2
+        elseif c >= 0xE0 and c <= 0xEF then
+            len = 3
+        elseif c >= 0xF0 and c <= 0xF4 then
+            len = 4
+        end
+
+        if len == 1 then
+            out[#out + 1] = string.char(c)
+            i = i + 1
+        elseif len > 1 and i + len - 1 <= n then
+            local valid = true
+            for k = 1, len - 1 do
+                local cc = s:byte(i + k)
+                if not cc or cc < 0x80 or cc > 0xBF then
+                    valid = false
+                    break
+                end
+            end
+            if valid and len == 3 then
+                local c1 = s:byte(i + 1)
+                -- 过长编码 / UTF-16 代理区
+                if (c == 0xE0 and c1 < 0xA0) or (c == 0xED and c1 > 0x9F) then valid = false end
+            elseif valid and len == 4 then
+                local c1 = s:byte(i + 1)
+                if (c == 0xF0 and c1 < 0x90) or (c == 0xF4 and c1 > 0x8F) then valid = false end
+            end
+            if valid then
+                out[#out + 1] = s:sub(i, i + len - 1)
+                i = i + len
+            else
+                out[#out + 1] = "?"
+                i = i + 1
+            end
+        else
+            out[#out + 1] = "?"
+            i = i + 1
+        end
+    end
+    return table.concat(out)
+end
+
+local function path_is_dir(path)
+    local ok, fs = pcall(require, "nixio.fs")
+    if not ok or not fs then return false end
+    local st = fs.stat(path)
+    return st ~= nil and st.type == "dir"
+end
+
+local function resolve_media_dir(dir)
+    if not dir or dir == "" then return nil, "缺少 path 参数" end
+    if dir:find("%z") then return nil, "非法路径" end
+    if dir:sub(1, 1) ~= "/" then return nil, "非法路径：必须以 / 开头" end
+    for seg in dir:gmatch("[^/]+") do
+        if seg == ".." then return nil, "非法路径" end
+    end
+
+    local rel = dir:gsub("/+$", "")
+    local roots = media_roots()
+    for _, root in ipairs(roots) do
+        local candidate = root .. rel
+        if path_is_dir(candidate) then return candidate end
+    end
+    return nil, "目录不存在: " .. dir .. "（已尝试 " .. table.concat(roots, ", ") .. "）"
+end
+
+local function list_directory(path)
+    local ok, fs = pcall(require, "nixio.fs")
+    if not ok or not fs then return nil, "服务器缺少 nixio.fs，无法浏览目录" end
+    local ok2, iter = pcall(fs.dir, path)
+    if not ok2 or not iter then return nil, "目录读取失败（可能没有权限）" end
+
+    local entries, truncated = {}, false
+    for name in iter do
+        if name ~= "." and name ~= ".." and not name:match("%.part$") then
+            local full = path .. "/" .. name
+            local st = fs.stat(full) or fs.lstat(full)
+            if st then
+                local typ
+                if st.type == "dir" then
+                    typ = "directory"
+                elseif st.type == "file" or st.type == "link" then
+                    typ = "file"
+                end
+                if typ then
+                    entries[#entries + 1] = {
+                        name = utf8_sanitize(name),
+                        type = typ,
+                        size = (typ == "file") and tonumber(st.size) or nil,
+                    }
+                    -- 极端目录保护：避免一次生成几百 MB 的响应
+                    if #entries >= 100000 then
+                        truncated = true
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+    table.sort(entries, function(a, b) return a.name < b.name end)
+    return entries, nil, truncated
 end
 
 -------------------------------------------------------------------------------
@@ -267,6 +408,40 @@ function dlna_ffprobe()
     http.write(out)
 end
 
+-- 目录列表兜底接口：GET /cgi-bin/luci/dlna/list_dir?path=<encodeURIComponent(路径)>
+-- http.formvalue 已经解过一次编码，这里直接使用，避免文件名里的 % 被二次解码
+function dlna_list_dir()
+    local http = require "luci.http"
+    local jsonc = require "luci.jsonc"
+    http.prepare_content("application/json")
+
+    local dir = http.formvalue("path") or ""
+    -- 正常情况下 formvalue 已经解码；个别环境若仍返回 %2F 开头，这里再解一次
+    if dir:sub(1, 1) ~= "/" then
+        local d2 = unescape_file(dir)
+        if d2:sub(1, 1) == "/" then dir = d2 end
+    end
+    local path, err = resolve_media_dir(dir)
+    if not path then
+        http.write(jsonc.stringify({ error = err or "目录不存在" }))
+        return
+    end
+
+    local entries, lerr, truncated = list_directory(path)
+    if not entries then
+        http.write(jsonc.stringify({ error = lerr or "读取目录失败" }))
+        return
+    end
+
+    http.write(jsonc.stringify({
+        status = "success",
+        url = dir,
+        count = #entries,
+        truncated = truncated or false,
+        entries = entries,
+    }))
+end
+
 -------------------------------------------------------------------------------
 -- 转封装 / 转码
 -- 前端传 plan：
@@ -287,6 +462,7 @@ local function build_plan_args(plan, container)
     local args = {}
     local ov, oa, osn = 0, 0, 0
     local audio_out = {}
+    local has_video = false
 
     for _, s in ipairs(plan.streams) do
         local idx = tonumber(s.index)
@@ -299,6 +475,7 @@ local function build_plan_args(plan, container)
                 if copy then
                     args[#args + 1] = string.format("-map 0:%d -c:v:%d copy", idx, ov)
                     ov = ov + 1
+                    has_video = true
                 end
             elseif typ == "audio" then
                 -- 同一条源音轨可以先复制原轨、再转一份，这是 #4 的关键
@@ -335,7 +512,149 @@ local function build_plan_args(plan, container)
         end
     end
 
-    return table.concat(args, " "), (ov + oa + osn)
+    return table.concat(args, " "), (ov + oa + osn), has_video
+end
+
+-------------------------------------------------------------------------------
+-- 后台转封装任务状态
+--
+-- 任务元数据 /tmp/aac_<token>.meta：
+--   第 1 行：源文件 URL 路径（未编码）
+--   第 2 行：输出文件 URL（已编码）
+--   之后：key=value（token / duration / started / container）
+-- 进度写在 /tmp/aac_<token>.prog，日志 /tmp/aac_<token>.log。
+-- 刷新/关闭网页后，前端用 /dlna/tasks 找回任务；/tmp 重启即清空，
+-- 不存在“重启后还显示旧任务”的问题。
+-------------------------------------------------------------------------------
+
+local function read_task_meta(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local meta = {}
+    meta.file = f:read("*l") or ""
+    meta.new_file_url = f:read("*l") or ""
+    for line in f:lines() do
+        local k, v = line:match("^([%w_]+)=(.*)$")
+        if k then meta[k] = v end
+    end
+    f:close()
+    return meta
+end
+
+local function read_progress_file(token)
+    local f = io.open("/tmp/aac_" .. token .. ".prog", "r")
+    if not f then return nil end
+    local content = f:read("*a") or ""
+    f:close()
+
+    local out_time_us, speed, total_size = 0, "0x", 0
+    for v in content:gmatch("out_time_us=(%d+)") do out_time_us = tonumber(v) or 0 end
+    for v in content:gmatch("total_size=(%d+)") do total_size = tonumber(v) or 0 end
+    for v in content:gmatch("speed=%s*([%d%.x]+)") do speed = v end
+
+    return {
+        out_time_us = out_time_us,
+        total_size = total_size,
+        speed = speed,
+        is_end = content:match("progress=end") ~= nil,
+    }
+end
+
+local function tail_text(path, max)
+    local f = io.open(path, "r")
+    if not f then return "" end
+    local s = f:read("*a") or ""
+    f:close()
+    return s:sub(-(max or 600))
+end
+
+local function task_is_running(token)
+    if token == "" then return false end
+    return require("luci.sys").call("pgrep -f 'TRANS_" .. token .. "' >/dev/null 2>&1") == 0
+end
+
+local function system_load()
+    local f = io.open("/proc/loadavg", "r")
+    if not f then return "0.00" end
+    local s = f:read("*l") or ""
+    f:close()
+    return s:match("^(%S+)") or "0.00"
+end
+
+-- 汇总单个任务的状态；running/starting/done/error
+local function collect_task(token, meta_path, now)
+    local meta = read_task_meta(meta_path)
+    if not meta then return nil end
+
+    local fs = require "nixio.fs"
+    local st = fs.stat(meta_path)
+    local started = tonumber(meta.started or "") or (st and st.mtime) or 0
+    local duration = tonumber(meta.duration or "") or 0
+    local prog = read_progress_file(token)
+    local running = task_is_running(token)
+    local prog_path = "/tmp/aac_" .. token .. ".prog"
+    local pst = fs.stat(prog_path)
+    local updated = started
+    if pst and pst.mtime > updated then updated = pst.mtime end
+
+    local status
+    if prog and prog.is_end and running then
+        -- ffmpeg 已输出 progress=end，但进程还在收尾（trailer / +faststart / mv）
+        status = "finalizing"
+    elseif prog and prog.is_end and not running then
+        if meta.out_path and meta.out_path ~= "" and not file_exists(meta.out_path) then
+            status = "error"
+        else
+            status = "done"
+        end
+    elseif running then
+        status = prog and "running" or "starting"
+    elseif prog then
+        -- 进程刚退出时最后一块进度可能还没落盘，给 4 秒缓冲
+        if pst and (now - pst.mtime) < 4 then
+            status = "running"
+        else
+            status = "error"
+        end
+    else
+        if (now - started) < 10 then status = "starting" else status = "error" end
+    end
+
+    local percent
+    if status == "done" or status == "finalizing" then
+        percent = 100
+    elseif duration > 0 and prog and prog.out_time_us then
+        percent = math.floor(prog.out_time_us / duration / 10000)
+        if percent > 99 then percent = 99 end
+    end
+
+    local info = {
+        token = token,
+        file = meta.file or "",
+        new_file_url = meta.new_file_url or "",
+        container = meta.container or "mp4",
+        duration = duration,
+        status = status,
+        is_done = (status == "done"),
+        started = started,
+        updated = updated,
+        load = system_load(),
+    }
+    if percent then info.percent = percent end
+    if prog then
+        info.out_time_us = prog.out_time_us
+        info.total_size = prog.total_size
+        info.speed = prog.speed
+    end
+    if status == "error" then
+        if prog and prog.is_end and meta.out_path and meta.out_path ~= "" and not file_exists(meta.out_path) then
+            info.message = "输出文件未生成（可能是磁盘空间不足或改名失败）"
+        else
+            info.message = "FFmpeg 进程意外退出"
+        end
+        info.log = utf8_sanitize(tail_text("/tmp/aac_" .. token .. ".log", 600))
+    end
+    return info
 end
 
 function dlna_extract_audio()
@@ -348,8 +667,19 @@ function dlna_extract_audio()
     local path, err = resolve_media(file)
     if not path then http.write(jsonc.stringify({ error = err })); return end
 
+    if not file_exists("/usr/bin/ffmpeg") then
+        http.write(jsonc.stringify({ error = "系统缺少 /usr/bin/ffmpeg，无法转封装" }))
+        return
+    end
+
+    -- 时长由前端在“检测文件信息”时已经拿到，直接带过来，
+    -- 这样刷新页面后进度条还能算出百分比。
+    local duration = tonumber(http.formvalue("duration")) or 0
+    if duration < 0 then duration = 0 end
+
     local container = "mp4"
     local args, nstream, plan_seen = nil, 0, false
+    local has_video = false
 
     local plan_raw = http.formvalue("plan")
     if plan_raw and plan_raw ~= "" then
@@ -357,7 +687,7 @@ function dlna_extract_audio()
         if ok and type(plan) == "table" and type(plan.streams) == "table" then
             plan_seen = true
             if plan.container == "ts" then container = "ts" end
-            args, nstream = build_plan_args(plan, container)
+            args, nstream, has_video = build_plan_args(plan, container)
         end
     end
 
@@ -370,6 +700,7 @@ function dlna_extract_audio()
     else
         -- 旧前端（没有 plan）：视频直拷 + 首条音轨 AAC 2CH
         args = "-map 0:v:0? -c:v copy -map 0:a:0? -c:a aac -b:a 192k -ac 2"
+        has_video = true
     end
 
     local ext = (container == "ts") and ".ts" or ".mp4"
@@ -377,18 +708,75 @@ function dlna_extract_audio()
     local orig_name = path:match("([^/]+)$") or "media"
     local base_name = orig_name:gsub("%.[^.]+$", ""):gsub("[%c/]", "_")
     local token = tostring(os.time()) .. tostring(math.random(100, 999))
-    local new_name = base_name .. "_TRANS_" .. token .. ext
+
+    -- 音轨切换用固定名字做缓存：同一源文件的同一音轨只生成一次。
+    -- 普通转封装仍然每次生成新文件（带 token）。
+    local cache_key = (http.formvalue("cache_key") or ""):gsub("[^%w_]", "")
+    if #cache_key > 24 then cache_key = cache_key:sub(1, 24) end
+    local new_name
+    if cache_key ~= "" then
+        new_name = base_name .. "_TRANS_" .. cache_key .. ext
+    else
+        new_name = base_name .. "_TRANS_" .. token .. ext
+    end
     local out_file = dir .. "/" .. new_name
+    -- 极端情况：源文件本身就叫 xxx_TRANS_A2.mp4，避免把源文件当成缓存输出
+    if cache_key ~= "" and out_file == path then
+        cache_key = ""
+        new_name = base_name .. "_TRANS_" .. token .. ext
+        out_file = dir .. "/" .. new_name
+    end
+    -- ffmpeg 先写隐藏的 .part，成功后再原子改名，避免播放器读到半成品，
+    -- 也避免 +faststart 收尾阶段（大文件可能几十秒）被误认为已完成。
+    local part_file = dir .. "/." .. base_name .. "_TRANS_" .. token .. ".part"
 
     -- 返回给前端的 URL：保留原目录（URL 形式），文件名做百分号编码
     local url_dir = file:gsub("([^/]+)$", "")
     local new_url = uri_encode_path(url_dir .. new_name)
 
+    local nfs = require "nixio.fs"
+
+    -- 缓存命中：同一条音轨之前已经完整生成过，直接复用
+    if cache_key ~= "" and file_exists(out_file) then
+        local ost = nfs.stat(out_file)
+        local sst = nfs.stat(path)
+        if ost and ost.size and ost.size > 0
+            and (not ost.mtime or not sst or not sst.mtime or ost.mtime >= sst.mtime) then
+            http.write(jsonc.stringify({
+                status = "success", cached = true, token = "",
+                new_file_url = new_url, container = container, args = "",
+            }))
+            return
+        end
+    end
+
+    -- 空间检查：视频直拷时输出体积约等于源文件，提前失败比写到一半更好
+    local src_size = 0
+    local sstat = nfs.stat(path)
+    if sstat then src_size = tonumber(sstat.size) or 0 end
+    local need = has_video and (src_size * 1.05 + 64 * 1024 * 1024) or (128 * 1024 * 1024)
+    local vfs = nfs.statvfs and nfs.statvfs(dir) or nil
+    if vfs then
+        local frsize = tonumber(vfs.frsize or vfs.bsize)
+        local avail = tonumber(vfs.bavail or vfs.bfree)
+        if frsize and avail and frsize > 0 then
+            local free = avail * frsize
+            if free < need then
+                http.write(jsonc.stringify({
+                    error = string.format("磁盘空间不足：预计需要约 %.0f MB，当前可用约 %.0f MB",
+                        need / 1048576, free / 1048576),
+                }))
+                return
+            end
+        end
+    end
+
     local prog_file = "/tmp/aac_" .. token .. ".prog"
     local log_file = "/tmp/aac_" .. token .. ".log"
     local meta_file = "/tmp/aac_" .. token .. ".meta"
 
-    -- 同一源文件的旧任务元数据清掉，避免旧输出（如之前的纯音频 .ts）被当成当前任务
+    -- 同一源文件的旧任务清掉：避免旧输出（如之前的纯音频 .ts）被当成当前任务，
+    -- 同时结束可能还在跑的旧 ffmpeg，防止同一文件被转两份。
     local old = io.popen("ls /tmp/aac_*.meta 2>/dev/null")
     if old then
         for mline in old:lines() do
@@ -396,16 +784,37 @@ function dlna_extract_audio()
             if of then
                 local s0 = of:read("*l")
                 of:close()
-                if s0 == file then os.remove(mline) end
+                if s0 == file then
+                    local oldtoken = mline:match("aac_(%d+)%.meta")
+                    if oldtoken then
+                        if task_is_running(oldtoken) then
+                            sys.exec("pkill -f 'TRANS_" .. oldtoken .. "' 2>/dev/null")
+                        end
+                        local oldmeta = read_task_meta(mline)
+                        if oldmeta and oldmeta.part_path and oldmeta.part_path ~= "" then
+                            os.remove(oldmeta.part_path)
+                        end
+                        os.remove("/tmp/aac_" .. oldtoken .. ".prog")
+                        os.remove("/tmp/aac_" .. oldtoken .. ".log")
+                    end
+                    os.remove(mline)
+                end
             end
         end
         old:close()
     end
 
-    -- 元数据用于刷新页面后找回任务
+    -- 元数据用于刷新/关闭网页后找回任务
     local mf = io.open(meta_file, "w")
     if mf then
         mf:write(file, "\n", new_url, "\n")
+        mf:write("token=", token, "\n")
+        mf:write("duration=", tostring(math.floor(duration + 0.5)), "\n")
+        mf:write("started=", tostring(os.time()), "\n")
+        mf:write("container=", container, "\n")
+        mf:write("out_path=", out_file, "\n")
+        mf:write("part_path=", part_file, "\n")
+        mf:write("cache_key=", cache_key, "\n")
         mf:close()
     end
 
@@ -418,13 +827,16 @@ function dlna_extract_audio()
         tail = "-avoid_negative_ts make_zero -movflags +faststart -f mp4"
     end
 
+    -- 先写 .part，ffmpeg 完全退出（含 +faststart 收尾）后再 mv 成正式文件。
+    -- 这样播放器/目录不会看到半成品，进度框也能准确等到“真正完成”。
     local cmd = string.format(
         "(LANG=C.UTF-8 /usr/bin/ffmpeg -hide_banner -analyzeduration 50M -probesize 50M "
-        .. "-i %s %s %s %s -progress %s > %s 2>&1) &",
-        shell_quote(path), args, tail, shell_quote(out_file), shell_quote(prog_file), shell_quote(log_file))
+        .. "-i %s %s %s %s -progress %s && mv -f %s %s) >> %s 2>&1 &",
+        shell_quote(path), args, tail, shell_quote(part_file), shell_quote(prog_file),
+        shell_quote(part_file), shell_quote(out_file), shell_quote(log_file))
     os.execute(cmd)
 
-    http.write('{"status":"success","token":"' .. token .. '","new_file_url":' .. jsonc.stringify(new_url)
+    http.write('{"status":"success","cached":false,"token":"' .. token .. '","new_file_url":' .. jsonc.stringify(new_url)
         .. ',"container":"' .. container .. '","args":' .. jsonc.stringify(args) .. '}')
 end
 
@@ -446,12 +858,16 @@ function dlna_check_task()
                 local mf = io.open(line, "r")
                 if mf then
                     local src = mf:read("*l")
-                    local out_name = mf:read("*l")
                     mf:close()
-                    if src == file and out_name and sys.call("pgrep -f 'TRANS_" .. token .. "'") == 0 then
-                        p:close()
-                        http.write_json({ status = "found", token = token, new_file_url = out_name, is_done = false })
-                        return
+                    if src == file then
+                        local info = collect_task(token, line, os.time())
+                        if info and (info.status == "running" or info.status == "starting" or info.status == "finalizing") then
+                            p:close()
+                            info.status = "found"
+                            info.is_done = false
+                            http.write_json(info)
+                            return
+                        end
                     end
                 end
             end
@@ -468,56 +884,60 @@ function dlna_get_progress()
 
     if token == "" then http.write('{"error":"缺少 token"}'); return end
 
-    local prog_file = "/tmp/aac_" .. token .. ".prog"
-    local log_file = "/tmp/aac_" .. token .. ".log"
-    local f = io.open(prog_file, "r")
-
-    if not f then
-        local is_running = require("luci.sys").call("pgrep -f 'TRANS_" .. token .. "'") == 0
-        if is_running then
-            http.write('{"status":"starting"}')
-        else
-            local err_msg = "未知错误"
-            local f_log = io.open(log_file, "r")
-            if f_log then
-                local log_content = f_log:read("*a")
-                f_log:close()
-                err_msg = log_content:sub(-300)
-                err_msg = err_msg:gsub("[\128-\255]", ""):gsub("\n", " ")
-            end
-            http.write('{"status":"error","message":"FFmpeg 进程意外退出","log":' .. require("luci.jsonc").stringify(err_msg) .. '}')
-        end
+    local info = collect_task(token, "/tmp/aac_" .. token .. ".meta", os.time())
+    if not info then
+        http.write('{"error":"任务不存在或已被清理"}')
         return
     end
+    http.write_json(info)
+end
 
-    local content = f:read("*a")
-    f:close()
+-- 刷新/关闭网页后找回任务：返回最近的任务（运行中的优先）
+function dlna_tasks()
+    local http = require "luci.http"
+    local now = os.time()
+    http.prepare_content("application/json")
 
-    -- -progress 是逐块追加写的：必须取“最后一次”的值，
-    -- 用 match() 只会拿到第一块，表现就是进度条一直不动。
-    local out_time_us, speed_str, total_size = 0, "0x", 0
-    for v in content:gmatch("out_time_us=(%d+)") do out_time_us = tonumber(v) or 0 end
-    for v in content:gmatch("total_size=(%d+)") do total_size = tonumber(v) or 0 end
-    for v in content:gmatch("speed=%s*([%d%.x]+)") do speed_str = v end
-
-    local is_end = false
-    if content:match("progress=end") then is_end = true end
-
-    local loadavg = "0.00"
-    local f_load = io.open("/proc/loadavg", "r")
-    if f_load then
-        local load_str = f_load:read("*l")
-        if load_str then loadavg = load_str:match("^(%S+)") or "0.00" end
-        f_load:close()
+    local metas = {}
+    local p = io.popen("ls -t /tmp/aac_*.meta 2>/dev/null")
+    if p then
+        for line in p:lines() do
+            local token = line:match("aac_(%d+)%.meta$")
+            if token then metas[#metas + 1] = { token = token, path = line } end
+        end
+        p:close()
     end
 
-    if is_end then
-        http.write('{"status":"done","out_time_us":' .. out_time_us .. ',"total_size":' .. total_size
-            .. ',"speed":"' .. speed_str .. '","load":"' .. loadavg .. '"}')
-    else
-        http.write('{"status":"running","out_time_us":' .. out_time_us .. ',"total_size":' .. total_size
-            .. ',"speed":"' .. speed_str .. '","load":"' .. loadavg .. '"}')
+    local tasks = {}
+    for _, m in ipairs(metas) do
+        local info = collect_task(m.token, m.path, now)
+        if info then
+            local active = (info.status == "running" or info.status == "starting" or info.status == "finalizing")
+            local keep = active
+                or ((info.status == "done" or info.status == "error") and (now - info.updated) < 86400)
+            if keep then
+                tasks[#tasks + 1] = info
+            elseif (now - info.started) > 86400 then
+                -- /tmp 也要定期清理，避免任务多了以后越积越多
+                local oldmeta = read_task_meta(m.path)
+                if oldmeta and oldmeta.part_path and oldmeta.part_path ~= "" then
+                    os.remove(oldmeta.part_path)
+                end
+                os.remove(m.path)
+                os.remove("/tmp/aac_" .. m.token .. ".prog")
+                os.remove("/tmp/aac_" .. m.token .. ".log")
+            end
+        end
     end
+
+    table.sort(tasks, function(a, b)
+        local ar = (a.status == "running" or a.status == "starting" or a.status == "finalizing") and 1 or 0
+        local br = (b.status == "running" or b.status == "starting" or b.status == "finalizing") and 1 or 0
+        if ar ~= br then return ar > br end
+        return (a.updated or 0) > (b.updated or 0)
+    end)
+
+    http.write_json({ status = "success", tasks = tasks })
 end
 
 function dlna_cancel_extract()
@@ -528,7 +948,15 @@ function dlna_cancel_extract()
 
     if token == "" then http.write('{"error":"缺少 token"}'); return end
 
+    -- 先读元数据，拿到 .part 和最终输出路径
+    local meta = read_task_meta("/tmp/aac_" .. token .. ".meta")
+
     require("luci.sys").exec("pkill -f 'TRANS_" .. token .. "'; rm -f /tmp/aac_" .. token .. ".*")
+
+    if meta then
+        if meta.part_path and meta.part_path ~= "" then os.remove(meta.part_path) end
+        if meta.out_path and meta.out_path ~= "" then os.remove(meta.out_path) end
+    end
 
     if new_url ~= "" then
         local path = resolve_media(new_url)
@@ -541,24 +969,192 @@ end
 -- DLNA
 -------------------------------------------------------------------------------
 
+local DLNA_AGENT_FILE = "/etc/nginx-manager-dlna.conf"
+
+local function read_dlna_agent_file()
+    local f = io.open(DLNA_AGENT_FILE, "r")
+    if not f then return nil end
+    local t = {}
+    for line in f:lines() do
+        local k, v = line:match("^([%w_]+)=(.*)$")
+        if k then t[k] = v end
+    end
+    f:close()
+    return t
+end
+
+-- 远程投屏代理：开启后，允许“另一个网络里的播放页”通过本机发现/控制电视。
+-- 视频文件仍然从远程媒体服务器播放，本机只做发现和 SOAP 控制。
+-- 配置优先读 /etc/nginx-manager-dlna.conf（比 UCI 更可靠），UCI 仅作旧数据兼容。
+local function dlna_agent_config()
+    local file = read_dlna_agent_file()
+    if file and file.agent then
+        return (file.agent == "1"), (file.key or ""), (file.nokey == "1")
+    end
+
+    local ok, uci = pcall(require, "luci.model.uci")
+    if not ok or not uci then return false, "", false end
+    local ok2, cur = pcall(uci.cursor)
+    if not ok2 or not cur then return false, "", false end
+    return (cur:get("nginx-manager", "dlna", "agent") == "1"),
+        (cur:get("nginx-manager", "dlna", "key") or ""),
+        (cur:get("nginx-manager", "dlna", "nokey") == "1")
+end
+
+-- 只对“代理模式”要求密钥，并返回 CORS 头。
+-- 代理模式开启后，即使本机页面也要带密钥，避免被直接 HTTP 请求或 DNS rebinding 绕过。
+local function dlna_api_guard()
+    local http = require "luci.http"
+    local agent, key, nokey = dlna_agent_config()
+    if not agent then return true end
+
+    local origin = http.getenv("HTTP_ORIGIN") or ""
+    if origin:match("^https?://") then
+        http.header("Access-Control-Allow-Origin", origin)
+        http.header("Vary", "Origin")
+        http.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        http.header("Access-Control-Allow-Headers", "Content-Type")
+        -- Chrome 的 Private Network Access：公网页面访问 192.168.x.x 时需要这个头
+        http.header("Access-Control-Allow-Private-Network", "true")
+        http.header("Access-Control-Max-Age", "600")
+    end
+
+    if http.getenv("REQUEST_METHOD") == "OPTIONS" then
+        http.status(204, "No Content")
+        return false
+    end
+
+    -- 无密钥模式：用户明确接受风险（仅可信局域网）
+    if nokey then return true end
+
+    if key == "" then
+        http.status(403, "Forbidden")
+        http.prepare_content("application/json")
+        http.write('{"status":"error","message":"本机未配置远程投屏密钥，请到 LuCI 的“远程投屏代理”里设置"}')
+        return false
+    end
+    if (http.formvalue("key") or "") ~= key then
+        http.status(403, "Forbidden")
+        http.prepare_content("application/json")
+        http.write('{"status":"error","message":"远程投屏密钥不正确"}')
+        return false
+    end
+    return true
+end
+
+local function parse_upnp_device(xml, loc)
+    if not xml or xml == "" then return nil end
+    local name = xml:match("<[fF]riendlyName>(.-)</[fF]riendlyName>") or "未知设备"
+    name = name:gsub("^%s+", ""):gsub("%s+$", "")
+
+    local ctrl
+    for svc in xml:gmatch("<service%s*>(.-)</service>") do
+        local stype = svc:match("<serviceType>(.-)</serviceType>") or ""
+        if stype:match("AVTransport") then
+            ctrl = svc:match("<controlURL>(.-)</controlURL>")
+            if ctrl then break end
+        end
+    end
+    if not ctrl then
+        ctrl = xml:match("<[cC]ontrolURL>(.-)</[cC]ontrolURL>")
+    end
+    if not ctrl then return nil end
+    ctrl = ctrl:gsub("^%s+", ""):gsub("%s+$", "")
+
+    local base = loc:match("^(https?://[^/]+)")
+    if not base then return nil end
+    if ctrl:match("^https?://") then return ctrl, name end
+    if ctrl:sub(1, 1) ~= "/" then ctrl = "/" .. ctrl end
+    return base .. ctrl, name
+end
+
 function dlna_discover()
     local http = require "luci.http"
+    if not dlna_api_guard() then return end
+
     local devices = {}
     local f = io.open("/tmp/dlna_devices.json", "r")
     if f then
-        local content = f:read("*a")
+        local content = f:read("*a") or ""
         f:close()
-        for url, name in content:gmatch('"url":"(.-)","name":"(.-)"') do
-            table.insert(devices, { name = name, control_url = url })
+        local ok, arr = pcall(function() return require("luci.jsonc").parse(content) end)
+        if ok and type(arr) == "table" then
+            for _, d in ipairs(arr) do
+                if type(d) == "table" and d.url and d.name then
+                    table.insert(devices, { name = d.name, control_url = d.url })
+                end
+            end
+        else
+            -- 兼容旧守护进程写出的非标准顺序 JSON
+            for url, name in content:gmatch('"url":"(.-)","name":"(.-)"') do
+                table.insert(devices, { name = name, control_url = url })
+            end
         end
     end
     http.prepare_content("application/json")
     http.write_json(devices)
 end
 
+-- 手动输入电视 IP：向该 IP 单播 M-SEARCH，拿 LOCATION 后解析 AVTransport
+function dlna_probe()
+    local http = require "luci.http"
+    local jsonc = require "luci.jsonc"
+    local sys = require "luci.sys"
+    http.prepare_content("application/json")
+    if not dlna_api_guard() then return end
+
+    local ip = (http.formvalue("ip") or ""):gsub("%s", "")
+    if not ip:match("^%d+%.%d+%.%d+%.%d+$") then
+        http.write('{"status":"error","message":"IP 格式不正确"}')
+        return
+    end
+
+    local nixio = require "nixio"
+    local sock = nixio.socket("inet", "dgram")
+    if not sock then
+        http.write('{"status":"error","message":"无法创建 UDP socket"}')
+        return
+    end
+    pcall(function() sock:setopt("socket", "rcvtimeo", 2) end)
+    local function ms(st)
+        return "M-SEARCH * HTTP/1.1\r\n"
+            .. "HOST: 239.255.255.250:1900\r\n"
+            .. 'MAN: "ssdp:discover"' .. "\r\n"
+            .. "MX: 2\r\n"
+            .. "ST: " .. st .. "\r\n\r\n"
+    end
+    -- 有的电视只响应 MediaRenderer，有的只响应 ssdp:all，各发一次
+    pcall(sock.sendto, sock, ms("ssdp:all"), ip, 1900)
+    pcall(sock.sendto, sock, ms("urn:schemas-upnp-org:device:MediaRenderer:1"), ip, 1900)
+
+    local loc
+    for _ = 1, 8 do
+        local data = sock:recvfrom(4096)
+        if not data then break end
+        loc = data:match("LOCATION:%s*([^\r\n]+)") or data:match("location:%s*([^\r\n]+)")
+        if loc and loc ~= "" then break end
+    end
+    pcall(function() sock:close() end)
+
+    if not loc or loc == "" then
+        http.write('{"status":"error","message":"该 IP 没有响应 SSDP（检查电视是否开机、端口 1900 是否被拦截）"}')
+        return
+    end
+    loc = loc:gsub("%s+$", "")
+
+    local xml = sys.exec("curl -s --connect-timeout 2 --max-time 4 " .. shell_quote(loc))
+    local ctrl, name = parse_upnp_device(xml, loc)
+    if not ctrl then
+        http.write('{"status":"error","message":"设备描述里没有找到 AVTransport 控制地址"}')
+        return
+    end
+    http.write(jsonc.stringify({ status = "success", control_url = ctrl, name = name }))
+end
+
 function dlna_cast()
     local http = require "luci.http"
     local sys = require "luci.sys"
+    if not dlna_api_guard() then return end
     local control_url = http.formvalue("control_url") or ""
     local video_url = http.formvalue("video_url") or ""
     if control_url == "" or video_url == "" then http.write_json({ status = "error", message = "参数缺失" }); return end
@@ -596,10 +1192,148 @@ function dlna_cover()
     end
 end
 
+-- 在线歌词：LRCLIB 搜索，优先返回带时间轴的 syncedLyrics
+function dlna_lyrics()
+    local http = require "luci.http"
+    local sys = require "luci.sys"
+    local jsonc = require "luci.jsonc"
+    http.prepare_content("application/json")
+
+    local title = (http.formvalue("title") or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    local artist = (http.formvalue("artist") or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    local duration = tonumber(http.formvalue("duration")) or 0
+    if title == "" then
+        http.write('{"status":"error","message":"缺少歌名"}')
+        return
+    end
+
+    local function lrclib_search(track, who)
+        local cmd = "curl -s -k -A 'nginx-manager-lyrics/1.0' -G --connect-timeout 5 --max-time 10 "
+            .. shell_quote("https://lrclib.net/api/search")
+            .. " --data-urlencode " .. shell_quote("track_name=" .. track)
+        if who ~= "" then
+            cmd = cmd .. " --data-urlencode " .. shell_quote("artist_name=" .. who)
+        end
+        cmd = cmd .. " 2>/dev/null"
+        local out = sys.exec(cmd)
+        local ok, arr = pcall(function() return jsonc.parse(out) end)
+        if ok and type(arr) == "table" then return arr end
+        return nil
+    end
+
+    local function lrclib_pick(arr)
+        local best, best_score
+        for _, item in ipairs(arr or {}) do
+            if type(item) == "table" then
+                local synced = item.syncedLyrics or ""
+                local plain = item.plainLyrics or ""
+                if synced ~= "" or plain ~= "" then
+                    local score = 0
+                    if synced ~= "" then score = score + 10 end
+                    if item.instrumental then score = score - 20 end
+                    local d = tonumber(item.duration)
+                    if duration > 0 and d then
+                        local diff = math.abs(d - duration)
+                        if diff <= 2 then score = score + 5
+                        elseif diff > 15 then score = score - 5 end
+                    end
+                    if not best_score or score > best_score then
+                        best, best_score = item, score
+                    end
+                end
+            end
+        end
+        return best
+    end
+
+    -- 中文歌曲目录常见“歌名 - 歌手”，也常见“歌手 - 歌名”；
+    -- 两种顺序都查一次，避免把歌名当歌手。
+    local best = lrclib_pick(lrclib_search(title, artist))
+    if not best and artist ~= "" and title ~= "" then
+        best = lrclib_pick(lrclib_search(artist, title))
+    end
+
+    if not best then
+        http.write('{"status":"error","message":"未找到歌词"}')
+        return
+    end
+
+    http.write(jsonc.stringify({
+        status = "success",
+        instrumental = best.instrumental and true or false,
+        synced = best.syncedLyrics or "",
+        plain = best.plainLyrics or "",
+        title = best.trackName or title,
+        artist = best.artistName or artist,
+        album = best.albumName or "",
+        duration = tonumber(best.duration) or 0,
+    }))
+end
+
+-- 把在线歌词保存成音频同目录、同名的 .lrc，下次自动优先读取
+function dlna_save_lyrics()
+    local http = require "luci.http"
+    http.prepare_content("application/json")
+    local url = http.formvalue("url") or ""
+    local lyrics = http.formvalue("lyrics") or ""
+    if url == "" or lyrics == "" then
+        http.write_json({ status = "error", message = "参数缺失" })
+        return
+    end
+    if #lyrics > 512 * 1024 then
+        http.write_json({ status = "error", message = "歌词内容过大" })
+        return
+    end
+    url = decode_file(url)
+    if url:sub(1, 1) ~= "/" then
+        http.write_json({ status = "error", message = "只支持本地媒体路径" })
+        return
+    end
+    local path, err = resolve_media(url)
+    if not path then
+        http.write_json({ status = "error", message = err or "文件不存在" })
+        return
+    end
+    local base = path:gsub("%.[^%.]+$", "")
+    local lrc = base .. ".lrc"
+    local f = io.open(lrc, "r")
+    if f then
+        f:close()
+        http.write_json({ status = "success", existing = true, path = lrc })
+        return
+    end
+    local out = io.open(lrc, "w")
+    if not out then
+        http.write_json({ status = "error", message = "无法写入歌词文件（权限？）" })
+        return
+    end
+    out:write(lyrics)
+    out:close()
+    http.write_json({ status = "success", path = lrc })
+end
+
+-- 本地投屏页：由 LuCI 控制器直接输出，避免依赖 880 的静态 location 是否已更新。
+-- 页面本身同源，里面的 /dlna/* 请求不会再触发 Chrome 的私网跨域限制。
+function dlna_caster()
+    local http = require "luci.http"
+    http.prepare_content("text/html; charset=utf-8")
+    local f = io.open("/www/caster.html", "r")
+    if f then
+        http.write(f:read("*a"))
+        f:close()
+    else
+        http.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>caster.html 未部署</title></head>'
+            .. '<body style="background:#111;color:#eee;font-family:sans-serif;padding:30px;">'
+            .. '<h2>caster.html 未部署</h2>'
+            .. '<p>请把 caster.html 复制到 B 路由器的 /www/caster.html，然后刷新本页。</p>'
+            .. '</body></html>')
+    end
+end
+
 function dlna_control()
     local http = require "luci.http"
     local sys = require "luci.sys"
-    local action = http.formvalue("action") or ""
+    if not dlna_api_guard() then return end    local action = http.formvalue("action") or ""
     local ctrl_url = http.formvalue("control_url") or ""
     local value = http.formvalue("value") or ""
     if action == "" or ctrl_url == "" then http.write_json({ status = "error", message = "参数缺失" }); return end
@@ -612,6 +1346,10 @@ function dlna_control()
         soap = [[<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:Play xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID><Speed>1</Speed></u:Play></s:Body></s:Envelope>]]
     elseif action == "stop" then
         soap = [[<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:Stop xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID></u:Stop></s:Body></s:Envelope>]]
+    elseif action == "next" then
+        soap = [[<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:Next xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID></u:Next></s:Body></s:Envelope>]]
+    elseif action == "previous" then
+        soap = [[<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:Previous xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID></u:Previous></s:Body></s:Envelope>]]
     elseif action == "seek" then
         soap = string.format([[<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:Seek xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID><Unit>REL_TIME</Unit><Target>%s</Target></u:Seek></s:Body></s:Envelope>]], value)
     elseif action == "volume" then
@@ -636,6 +1374,7 @@ end
 function dlna_get_position()
     local http = require "luci.http"
     local sys = require "luci.sys"
+    if not dlna_api_guard() then return end
     local ctrl_url = http.formvalue("control_url") or ""
     if ctrl_url == "" then http.write_json({ status = "error", message = "缺少 control_url" }); return end
 
