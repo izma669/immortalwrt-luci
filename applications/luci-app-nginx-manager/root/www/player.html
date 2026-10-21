@@ -63,10 +63,37 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 #audio-bg, #audio-bg2 {position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;object-fit:contain;z-index:1;pointer-events:none;transform: translateX(100%);will-change: transform, opacity, clip-path;backface-visibility: hidden;-webkit-backface-visibility: hidden;background: #000;}
 #audio-bg-info{position:absolute;bottom:70px;left:20px;color:#ddd;font-size:12px;background:rgba(0,0,0,.55);padding:5px 10px;border-radius:5px;z-index:6;display:none;pointer-events:none}
 #audio-bg-info.on{display:block}
+#lyrics-panel{display:none; position:absolute; z-index:4; left:50%; bottom:100px; transform:translateX(-50%); width:min(860px,94%); max-height:62%; background:rgba(0,0,0,.58); border:1px solid rgba(74,158,255,.22); border-radius:12px; padding:10px 18px 12px; color:#eee; overflow:hidden; backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);}
+#lyrics-panel .ly-head{display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#8ecae6; margin-bottom:6px; gap:10px;}
+#lyrics-panel .ly-head span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+#lyrics-panel .ly-tools{display:flex; align-items:center; gap:8px; flex-shrink:0;}
+#lyrics-panel .ly-head button{background:none; border:none; color:#8ecae6; font-size:13px; cursor:pointer; padding:2px 6px; border-radius:4px;}
+#lyrics-panel .ly-head button:hover{color:#fff; background:rgba(255,255,255,.08);}
+#lyrics-panel #ly-close{font-size:16px; color:#888;}
+#lyrics-panel .ly-body{position:relative; height:calc(5 * 1.7em); font-size:20px; overflow-y:auto; overflow-x:hidden; scroll-behavior:smooth; text-align:center; line-height:1.7; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#3a4a5e transparent;}
+#lyrics-panel.ly-3 .ly-body{height:calc(3 * 1.7em);}
+#lyrics-panel .ly-spacer{height:calc(2 * 1.7em);}
+#lyrics-panel.ly-3 .ly-spacer{height:calc(1 * 1.7em);}
+#lyrics-panel .ly-line{color:#9aa4b2; transition:color .2s, font-size .2s; padding:2px 0;}
+#lyrics-panel .ly-line.active{color:#4a9eff; font-weight:600; font-size:24px; text-shadow:0 0 14px rgba(74,158,255,.55);}
+#lyrics-panel .ly-plain{white-space:pre-wrap; text-align:left; font-size:16px; line-height:1.8; color:#ddd;}
+#lyrics-panel .ly-status{color:#aaa; font-size:14px; padding:12px 0; text-align:center;}
 #preview{display:none;width:100%;height:100%;object-fit:contain;background:#000;position:relative;z-index:3}
 #pdf-preview{display:none;width:100%;height:100%;border:none;background:#fff;position:relative;z-index:3}
 #text-preview{display:none;width:100%;height:100%;margin:0;padding:20px;background:#1e1e1e;color:#d4d4d4;overflow:auto;font-size:13px;line-height:1.55;font-family:Consolas,Monaco,monospace;white-space:pre-wrap;word-break:break-all;-webkit-user-select:text;user-select:text;position:relative;z-index:3}
 #empty{position:absolute;color:#555;font-size:15px;padding:20px;pointer-events:none;z-index:8}
+#audio-tip{display:none;position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:12;max-width:92%;background:rgba(0,0,0,.78);border:1px solid #e67e22;color:#ffd166;padding:8px 16px;border-radius:20px;font-size:12.5px;line-height:1.5;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.4);pointer-events:none;}
+#media-error{display:none;position:absolute;top:70px;left:50%;transform:translateX(-50%);width:min(560px,92%);z-index:30;pointer-events:auto}
+#media-error .me-box{background:rgba(30,18,18,.97);border:1px solid #e74c3c;border-radius:10px;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+#media-error .me-title{font-size:14.5px;font-weight:600;color:#ff8a80;margin-bottom:8px}
+#media-error .me-text{font-size:12.5px;line-height:1.7;color:#ddd;word-break:break-all}
+#media-error .me-text .fn{color:#ffd166;font-weight:500}
+#media-error .me-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+#media-error .me-btns button{border:none;border-radius:5px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit;color:#fff;background:#333}
+#media-error .me-btns button:hover{filter:brightness(1.15)}
+#media-error #media-error-info{background:#2f9e44}
+#media-error #media-error-next{background:#1e3a5f;border:1px solid #4a9eff;color:#9ecbff}
+#media-error #media-error-close{background:#444;color:#bbb}
 #nowplaying{position:absolute;top:0;left:0;right:0;padding:10px 16px 14px;background:linear-gradient(180deg,rgba(0,0,0,.92),rgba(0,0,0,.65) 60%,transparent);font-size:14px;color:#fff;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:7;font-weight:500;display:flex;align-items:center;gap:8px}
 #nowplaying .np-icon{display:inline-block;color:#4a9eff;animation:npPulse 1.3s ease-in-out infinite;flex-shrink:0}
 #nowplaying .np-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
@@ -130,6 +157,24 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 #file-info-modal .fi-sep{color:#777; margin:0 10px;}
 #file-info-modal .fi-trans{background:#111; color:#ddd; border:1px solid #444; border-radius:5px; padding:3px 6px; font-size:12px; outline:none;}
 
+#audio-track-modal{display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.75); z-index:99999; align-items:center; justify-content:center;}
+#audio-track-modal .at-box{background:#1a1a1a; border-radius:12px; width:90vw; max-width:560px; max-height:80vh; display:flex; flex-direction:column; border:1px solid #333; box-shadow:0 20px 60px rgba(0,0,0,.5);}
+#audio-track-modal .at-hdr{padding:14px 20px; background:#222; color:#fff; font-size:15px; border-bottom:1px solid #333; border-radius:12px 12px 0 0; display:flex; justify-content:space-between; align-items:center; gap:10px;}
+#audio-track-modal .at-close{background:transparent; border:none; color:#aaa; font-size:20px; cursor:pointer; padding:0 5px; flex-shrink:0;}
+#audio-track-modal .at-body{flex:1; overflow-y:auto; padding:12px 16px; min-height:80px;}
+#audio-track-modal .at-item{display:flex; align-items:center; gap:12px; padding:12px 14px; margin-bottom:8px; background:#242424; border:1px solid #333; border-radius:8px; cursor:pointer; color:#ddd;}
+#audio-track-modal .at-item:hover{background:#1e3a5f; border-color:#4a9eff;}
+#audio-track-modal .at-item.active{border-color:#4a9eff; background:#1e3a5f;}
+#audio-track-modal .at-ico{font-size:20px; flex-shrink:0;}
+#audio-track-modal .at-main{flex:1; min-width:0;}
+#audio-track-modal .at-main b{display:block; font-size:13.5px; color:#fff; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+#audio-track-modal .at-main small{display:block; font-size:11.5px; color:#8a8a8a; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+#audio-track-modal .at-act{font-size:12px; color:#4a9eff; flex-shrink:0;}
+#audio-track-modal .at-msg{padding:24px 10px; color:#aaa; font-size:13px; text-align:center; line-height:1.6;}
+#audio-track-modal .at-ftr{padding:12px 18px; background:#202020; border-top:1px solid #333; border-radius:0 0 12px 12px; display:flex; gap:12px; align-items:center; justify-content:space-between;}
+#audio-track-modal .at-note{font-size:11px; color:#777; line-height:1.5; flex:1;}
+#audio-track-modal .at-ftr button{background:#333; border:none; color:#ccc; padding:6px 16px; border-radius:6px; cursor:pointer; flex-shrink:0; font-size:12.5px;}
+
 #extract-progress-container {
     display: none;
     position: absolute; top: 45px; left: 50%; transform: translateX(-50%);
@@ -142,6 +187,12 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 #extract-progress-bar-bg { height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
 #extract-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #1e3a5f, #4a9eff); transition: width 0.3s; }
 #extract-progress-text { font-size: 12px; color: #aaa; display: flex; justify-content: space-between; }
+#extract-progress-container .file { font-size:11px; color:#8ecae6; margin:-2px 0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#extract-progress-container .err { display:none; font-size:11px; color:#f28b82; margin-top:6px; max-height:72px; overflow:auto; white-space:pre-wrap; word-break:break-all; }
+#extract-progress-container .btns { display:flex; gap:6px; align-items:center; }
+#extract-progress-container .btns button { border:none; color:#fff; padding:2px 10px; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit; }
+#empty.err { color:#e74c3c; pointer-events:auto; text-align:center; }
+#empty.err button { margin-top:10px; background:#4a9eff; border:none; color:#fff; padding:5px 16px; border-radius:5px; cursor:pointer; font-size:12px; }
 
 @media(max-width:768px){
   #app{flex-direction:column}
@@ -181,17 +232,23 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
       <!-- 提取进度显示 -->
       <div id="extract-progress-container">
           <div class="title">
-              <span>正在转封装 / 转码</span>
+              <span id="extract-title">正在转封装 / 转码</span>
               <span class="speed" id="extract-speed">0x</span>
           </div>
+          <div class="file" id="extract-file"></div>
           <div id="extract-progress-bar-bg"><div id="extract-progress-bar"></div></div>
           <div id="extract-progress-text">
               <span id="extract-time">已处理: 00:00:00</span>
               <span id="extract-progress-percent">0%</span>
           </div>
-          <div style="font-size:11px; color:#888; margin-top:8px; border-top:1px solid #333; padding-top:6px; display:flex; justify-content:space-between; align-items:center;">
+          <div class="err" id="extract-error"></div>
+          <div style="font-size:11px; color:#888; margin-top:8px; border-top:1px solid #333; padding-top:6px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
               <span>系统负载: <span id="extract-load" style="color:#fff;">0.00</span></span>
-              <button id="cancel-transcode-btn" style="background:#c0392b; border:none; color:#fff; padding:2px 10px; border-radius:4px; cursor:pointer; font-size:11px;">取消转码</button>
+              <span class="btns">
+                  <button id="play-transcoded-btn" style="display:none; background:#2f9e44;">▶ 播放转码结果</button>
+                  <button id="close-transcode-btn" style="display:none; background:#555;">关闭</button>
+                  <button id="cancel-transcode-btn" style="background:#c0392b;">取消转码</button>
+              </span>
           </div>
       </div>
 
@@ -206,6 +263,16 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
         <img id="audio-bg2" alt="">
       </div>
       <div id="audio-bg-info"></div>
+      <div id="lyrics-panel">
+        <div class="ly-head">
+          <span id="ly-title">歌词</span>
+          <div class="ly-tools">
+            <button type="button" id="ly-lines-toggle" title="切换 3/5 行显示">5 行</button>
+            <button type="button" id="ly-close" title="关闭歌词">✕</button>
+          </div>
+        </div>
+        <div class="ly-body" id="ly-body"></div>
+      </div>
       <img id="preview" alt="">
       <iframe id="pdf-preview" src="about:blank"></iframe>
       <pre id="text-preview"></pre>
@@ -216,6 +283,7 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
         <span id="ac-dur" class="ac-time">0:00</span>
         <button id="ac-mute" title="静音" style="font-size:16px;">🔊</button>
         <input type="range" id="ac-vol" min="0" max="100" value="100" step="1" style="width:70px;flex:0 0 70px;" title="音量">
+        <button id="ac-lyrics" title="显示/隐藏歌词" style="font-size:14px;">词</button>
         <button id="ac-fs" title="全屏">⛶</button>
       </div>
       <select id="enc-sel" title="文本编码">
@@ -228,6 +296,18 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
       </select>
       <div id="empty">选择左侧列表播放</div>
       <div id="nowplaying"></div>
+      <div id="audio-tip"></div>
+      <div id="media-error">
+        <div class="me-box">
+          <div class="me-title" id="media-error-title">❌ 无法播放当前文件</div>
+          <div class="me-text" id="media-error-text"></div>
+          <div class="me-btns">
+            <button type="button" id="media-error-info">ℹ️ 检测并转码</button>
+            <button type="button" id="media-error-next">▶ 播放下一个</button>
+            <button type="button" id="media-error-close">关闭</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div id="info-panel">
       <div id="mode-bar">
@@ -237,6 +317,8 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
         <button data-mode="repeat-one">单曲循环</button>
         <button data-mode="random">随机</button>
         <button type="button" id="dlna-cast-btn">📺 投屏</button>
+        <button type="button" id="dlna-settings-btn" title="投屏控制端设置">⚙ 投屏设置</button>
+        <button type="button" id="audio-track-btn">🎧 音轨</button>
         <button type="button" id="file-info-btn">ℹ️ 检测文件信息以转码</button>
       </div>
       <span><span class="k">浏览器内核检测：</span><span class="v hl" id="i-browser" style="color:#4a9eff;font-weight:bold;">-</span></span>
@@ -246,6 +328,29 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 <div id="dlna-modal">
     <div class="box">
         <div class="hdr" id="dlna-modal-title">📺 选择投屏设备</div>
+        <div id="dlna-agent-settings" style="display:none; padding:12px 20px; border-bottom:1px solid #333; background:#151515; font-size:12.5px; color:#ccc;">
+            <div style="color:#4a9eff;font-weight:600;margin-bottom:8px;">⚙ 投屏控制端</div>
+            <label style="display:flex;gap:8px;align-items:center;margin-bottom:6px;cursor:pointer;">
+                <input type="radio" name="dlna-agent-mode" value="server" checked> 跟随媒体服务器（默认）
+            </label>
+            <label style="display:flex;gap:8px;align-items:center;margin-bottom:10px;cursor:pointer;">
+                <input type="radio" name="dlna-agent-mode" value="local"> 本地投屏代理（跨宽带时用这个）
+            </label>
+            <div style="margin-bottom:8px;">
+                <div style="color:#888;margin-bottom:4px;">代理地址（本地路由器的 LuCI 地址）</div>
+                <input id="dlna-agent-url" type="text" placeholder="例如 http://192.168.0.254:880" style="width:100%; padding:7px 9px; border-radius:5px; border:1px solid #444; background:#111; color:#fff; font-size:12.5px;">
+            </div>
+            <div style="margin-bottom:10px;">
+                <div style="color:#888;margin-bottom:4px;">控制密钥（B 开启“无密钥模式”时可留空）</div>
+                <input id="dlna-agent-key" type="text" placeholder="有密钥模式粘贴 B 生成的密钥；无密钥模式留空" style="width:100%; padding:7px 9px; border-radius:5px; border:1px solid #444; background:#111; color:#fff; font-size:12.5px;">
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <button type="button" onclick="saveDlnaAgent()" style="background:#2f9e44;border:none;color:#fff;padding:6px 14px;border-radius:5px;cursor:pointer;font-size:12px;">💾 保存</button>
+                <button type="button" onclick="openDlnaAgentTest()" style="background:#333;border:1px solid #555;color:#ccc;padding:6px 14px;border-radius:5px;cursor:pointer;font-size:12px;">🔗 打开测试地址</button>
+                <span id="dlna-agent-status" style="color:#f1c40f;font-size:11.5px;"></span>
+            </div>
+            <div style="margin-top:8px;color:#666;font-size:11px;line-height:1.5;">地址填 B 的局域网 IP + 媒体端口（通常 880，例如 http://192.168.0.254:880），并确认 B 的媒体服务已启动。B 开启“无密钥模式”时密钥可以留空；否则密钥必须与 B 上保存的一致。本地代理只负责发现/控制你家电视；视频仍然从当前媒体服务器的公网地址播放。Chrome 如果提示“访问本地网络”，请选择允许；被拦截时请改用同一局域网内的播放页或 Firefox。修改控制端后请重新投屏。</div>
+        </div>
         <div class="lst" id="dlna-device-list" style="text-align:center; color:#888; padding:20px;">正在搜索...</div>
         <div id="manual-ip-area" style="display:none; padding: 15px 20px; border-top: 1px solid #333; background: #151515;">
             <div style="color:#f28b82; font-size:12px; margin-bottom:8px;">未自动发现设备，请手动输入电视IP：</div>
@@ -256,15 +361,15 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
         </div>
         <div id="dlna-control-panel" style="display:none; padding: 15px 20px; border-top: 1px solid #333; background: #151515;">
             <div style="display:flex; gap:8px; justify-content:center; margin-bottom:8px; align-items:center;">
-                <button onclick="dlnaSkip(-60)" style="flex:1; background:#333; border:none; color:#fff; padding:8px 8px; border-radius:4px; cursor:pointer; font-size:13px;">⏪ -60s</button>
+                <button onclick="dlnaSkip(-60)" style="flex:1; background:#333; border:none; color:#fff; padding:8px 8px; border-radius:4px; cursor:pointer; font-size:13px;">⏪ 快退60s</button>
                 <button onclick="dlnaAction('play')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px;">▶ 播放</button>
                 <button onclick="dlnaAction('pause')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px;">⏸ 暂停</button>
-                <button onclick="dlnaSkip(60)" style="flex:1; background:#333; border:none; color:#fff; padding:8px 8px; border-radius:4px; cursor:pointer; font-size:13px;">+60s ⏩</button>
+                <button onclick="dlnaSkip(60)" style="flex:1; background:#333; border:none; color:#fff; padding:8px 8px; border-radius:4px; cursor:pointer; font-size:13px;">⏩ 快进60s</button>
             </div>
             <div style="display:flex; gap:8px; justify-content:center; margin-bottom:12px; align-items:center;">
-                <button onclick="dlnaPrevNext('prev')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 10px; border-radius:4px; cursor:pointer; font-size:13px;">⏮ 上一集</button>
+                <button onclick="dlnaPrevNext('prev')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 10px; border-radius:4px; cursor:pointer; font-size:13px;">⏮ 上一曲</button>
                 <button onclick="dlnaAction('stop')" style="flex:1; background:#c0392b; border:none; color:#fff; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px;">⏹ 停止</button>
-                <button onclick="dlnaPrevNext('next')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 10px; border-radius:4px; cursor:pointer; font-size:13px;">⏭ 下一集</button>
+                <button onclick="dlnaPrevNext('next')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 10px; border-radius:4px; cursor:pointer; font-size:13px;">⏭ 下一曲</button>
             </div>
             <div style="margin-bottom:10px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
@@ -281,7 +386,10 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
                 <button id="dlna-mute-btn" onclick="toggleDlnaMute()" style="background:#333; border:none; color:#fff; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:12px; flex-shrink:0;">🔊 静音</button>
             </div>
         </div>
-        <div class="ftr"><button onclick="closeDlnaModal()">取消</button></div>
+        <div class="ftr">
+            <button onclick="toggleDlnaAgentSettings()" style="margin-right:auto;background:#333;">⚙ 投屏控制端</button>
+            <button onclick="closeDlnaModal()">取消</button>
+        </div>
     </div>
 </div>
 
@@ -305,10 +413,63 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
   </div>
 </div>
 
+<div id="audio-track-modal">
+  <div class="at-box">
+    <div class="at-hdr">
+      <span id="audio-track-title">🎧 选择音轨</span>
+      <button class="at-close" type="button" onclick="closeAudioTracks()">✕</button>
+    </div>
+    <div class="at-body" id="audio-track-list"></div>
+    <div class="at-ftr">
+      <span class="at-note" id="audio-track-note"></span>
+      <button type="button" onclick="closeAudioTracks()">关闭</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
 'use strict';
 var dlnaControlUrl = "";
+var DLNA_AGENT_BASE_KEY = 'dlna_agent_base';
+var DLNA_AGENT_KEY_KEY = 'dlna_agent_key';
+var dlnaPendingVideoUrl = '';
+
+function dlnaAgentBase() {
+    try { return localStorage.getItem(DLNA_AGENT_BASE_KEY) || ''; } catch (e) { return ''; }
+}
+function dlnaAgentKey() {
+    try { return localStorage.getItem(DLNA_AGENT_KEY_KEY) || ''; } catch (e) { return ''; }
+}
+function normalizeAgentBase(raw) {
+    var s = String(raw || '').trim();
+    if (!s) return '';
+    if (!/^https?:\/\//i.test(s)) s = 'http://' + s;
+    try { return new URL(s).origin; } catch (e) { return ''; }
+}
+// 服务器模式：相对路径（当前媒体服务器）
+// 本地代理模式：绝对地址 + 密钥（本地路由器）
+function dlnaApiUrl(path, query) {
+    var base = dlnaAgentBase();
+    var key = dlnaAgentKey();
+    var url = (base ? base : '') + '/cgi-bin/luci/dlna/' + String(path).replace(/^\//, '');
+    var qs = [];
+    if (base && key) qs.push('key=' + encodeURIComponent(key));
+    if (query) qs.push(query);
+    return url + (qs.length ? '?' + qs.join('&') : '');
+}
+function dlnaApiBody(extra) {
+    var base = dlnaAgentBase();
+    var key = dlnaAgentKey();
+    var body = extra || '';
+    if (base && key) body += (body ? '&' : '') + 'key=' + encodeURIComponent(key);
+    return body;
+}
+function dlnaAgentHint() {
+    return dlnaAgentBase()
+        ? '本地代理：' + dlnaAgentBase()
+        : '';
+}
 window.isDlnaDragging = false;
 window.dlnaIsPaused = false;
 window.isAutoSwitching = false;
@@ -321,7 +482,7 @@ var VIDEO_EXTS=['.mp4','.webm','.mkv','.mov','.avi','.m4v','.ogv','.flv','.3gp',
 var AUDIO_EXTS=['.mp3','.m4a','.flac','.aac','.ogg','.wav','.ape','.wv','.aiff','.aif','.alac'];
 var IMAGE_EXTS=['.jpg','.jpeg','.png','.gif','.webp','.bmp','.svg','.ico','.tif','.tiff','.heic','.avif'];
 var PDF_EXTS=['.pdf'];
-var TEXT_EXTS=['.txt','.md','.log','.nfo','.url','.json','.xml','.yml','.yaml','.ini','.conf','.csv','.sh','.py','.js','.html','.css','.c','.cpp','.h','.java','.go','.php','.lua','.sql','.patch','.diff','.srt','.vtt','.ass','.ssa','.sub'];
+var TEXT_EXTS=['.txt','.md','.log','.nfo','.url','.json','.xml','.yml','.yaml','.ini','.conf','.csv','.sh','.py','.js','.html','.css','.c','.cpp','.h','.java','.go','.php','.lua','.sql','.patch','.diff','.srt','.vtt','.ass','.ssa','.sub','.lrc'];
 var SUB_EXTS=['.srt','.vtt','.ass','.ssa','.sub'];
 var CUE_EXTS=['.cue'];
 var PLAYLIST_EXTS=['.m3u','.m3u8','.pls'];
@@ -850,6 +1011,8 @@ window.closeDlnaModal = function() {
     document.getElementById('dlna-modal-title').innerText = '📺 选择投屏设备';
     document.getElementById('dlna-control-panel').style.display = 'none';
     document.getElementById('manual-ip-area').style.display = 'none';
+    var agentBox = document.getElementById('dlna-agent-settings');
+    if (agentBox) agentBox.style.display = 'none';
     resetDlnaModalPosition();
     if (window.castOnlyMode) {
         window.castOnlyMode = false;
@@ -860,6 +1023,127 @@ window.closeDlnaModal = function() {
         if (videoEl.src) { videoEl.play().catch(function(){}); }
     }
 };
+
+// ---------------------------------------------------------------------------
+// 投屏控制端设置
+//   默认“跟随媒体服务器”：/cgi-bin/luci/dlna 走当前网站（媒体服务器所在的 LAN）
+//   “本地投屏代理”：把发现/投屏/控制请求发到观看者自己的路由器，视频 URL 仍是
+//   当前媒体服务器的公网地址，所以跨宽带也能投到自己的电视。
+// ---------------------------------------------------------------------------
+function updateDlnaAgentFields() {
+    var localEl = document.querySelector('input[name="dlna-agent-mode"][value="local"]');
+    var local = !!(localEl && localEl.checked);
+    var urlEl = document.getElementById('dlna-agent-url');
+    var keyEl = document.getElementById('dlna-agent-key');
+    if (urlEl) urlEl.disabled = !local;
+    if (keyEl) keyEl.disabled = !local;
+}
+
+function loadDlnaAgentSettings() {
+    var base = dlnaAgentBase();
+    var local = !!base;
+    var rLocal = document.querySelector('input[name="dlna-agent-mode"][value="local"]');
+    var rServer = document.querySelector('input[name="dlna-agent-mode"][value="server"]');
+    if (rLocal) rLocal.checked = local;
+    if (rServer) rServer.checked = !local;
+    var urlEl = document.getElementById('dlna-agent-url');
+    var keyEl = document.getElementById('dlna-agent-key');
+    var st = document.getElementById('dlna-agent-status');
+    if (urlEl) urlEl.value = base;
+    if (keyEl) keyEl.value = dlnaAgentKey();
+    if (st) { st.textContent = ''; st.style.color = '#f1c40f'; }
+    updateDlnaAgentFields();
+}
+
+window.toggleDlnaAgentSettings = function() {
+    var box = document.getElementById('dlna-agent-settings');
+    if (!box) return;
+    var show = box.style.display === 'none' || !box.style.display;
+    if (show) {
+        loadDlnaAgentSettings();
+        box.style.display = 'block';
+    } else {
+        box.style.display = 'none';
+    }
+};
+
+window.saveDlnaAgent = function() {
+    var st = document.getElementById('dlna-agent-status');
+    var modeEl = document.querySelector('input[name="dlna-agent-mode"]:checked');
+    var local = !!(modeEl && modeEl.value === 'local');
+    var urlEl = document.getElementById('dlna-agent-url');
+    var keyEl = document.getElementById('dlna-agent-key');
+    var base = local ? normalizeAgentBase(urlEl ? urlEl.value : '') : '';
+    var key = local ? ((keyEl ? keyEl.value : '') || '').trim() : '';
+
+    function setStatus(text, color) {
+        if (!st) return;
+        st.textContent = text;
+        st.style.color = color;
+    }
+
+    if (local && !base) { setStatus('代理地址格式不正确', '#e74c3c'); return; }
+    // 无密钥模式允许留空；有密钥模式由 B 的控制器返回“未配置/密钥不正确”
+
+    try {
+        if (local) {
+            localStorage.setItem(DLNA_AGENT_BASE_KEY, base);
+            localStorage.setItem(DLNA_AGENT_KEY_KEY, key);
+        } else {
+            localStorage.removeItem(DLNA_AGENT_BASE_KEY);
+            localStorage.removeItem(DLNA_AGENT_KEY_KEY);
+        }
+    } catch (e) {
+        setStatus('浏览器禁用了 localStorage，无法保存', '#e74c3c');
+        return;
+    }
+
+    if (!local) {
+        setStatus('已恢复为跟随媒体服务器', '#2ecc71');
+        setTimeout(function() {
+            var box = document.getElementById('dlna-agent-settings');
+            if (box) box.style.display = 'none';
+            if (dlnaPendingVideoUrl) openDlnaCastModal(dlnaPendingVideoUrl);
+        }, 400);
+        return;
+    }
+
+    setStatus('已保存。点“📺 投屏”会在本地路由器打开控制页（不再从当前网站跨域访问，避开浏览器本地网络限制）。', '#2ecc71');
+    setTimeout(function() {
+        var box = document.getElementById('dlna-agent-settings');
+        if (box) box.style.display = 'none';
+        var modal = document.getElementById('dlna-modal');
+        if (modal) modal.style.display = 'none';
+    }, 1400);
+};
+
+(function bindDlnaAgentModes() {
+    var radios = document.querySelectorAll('input[name="dlna-agent-mode"]');
+    for (var i = 0; i < radios.length; i++) radios[i].onchange = updateDlnaAgentFields;
+})();
+
+window.openDlnaAgentTest = function() {
+    var base = dlnaAgentBase();
+    if (!base) { alert('请先选择“本地投屏代理”、填地址并保存'); return; }
+    var url = base + '/cgi-bin/luci/dlna/caster';
+    if (dlnaAgentKey()) url += '?key=' + encodeURIComponent(dlnaAgentKey());
+    window.open(url, '_blank');
+};
+
+window.openDlnaAgentSettings = function() {
+    var modal = document.getElementById('dlna-modal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    resetDlnaModalPosition();
+    document.getElementById('dlna-device-list').style.display = 'none';
+    document.getElementById('manual-ip-area').style.display = 'none';
+    document.getElementById('dlna-control-panel').style.display = 'none';
+    document.getElementById('dlna-modal-title').innerText = '⚙ 投屏控制端设置';
+    document.getElementById('dlna-agent-settings').style.display = 'block';
+    loadDlnaAgentSettings();
+};
+var dlnaSettingsBtn = document.getElementById('dlna-settings-btn');
+if (dlnaSettingsBtn) dlnaSettingsBtn.onclick = window.openDlnaAgentSettings;
 var modeBtns=document.querySelectorAll('#mode-bar button[data-mode]');
 modeBtns.forEach(function(b){b.onclick=function(){playMode=b.getAttribute('data-mode');modeBtns.forEach(function(x){x.classList.toggle('active',x===b)})}});
 function formatToHHMMSS(seconds) {
@@ -941,7 +1225,7 @@ function startDlnaPolling() {
             }
             return;
         }
-        fetch('/cgi-bin/luci/dlna/get_position?control_url=' + encodeURIComponent(dlnaControlUrl))
+        fetch(dlnaApiUrl('get_position', 'control_url=' + encodeURIComponent(dlnaControlUrl)))
             .then(function(r) { return r.json(); })
             .then(function(res) {
                 if (res.status === 'success') {
@@ -1028,11 +1312,11 @@ window.dlnaPrevNext = function(direction) {
             var lbl = document.getElementById('dlna-seek-label');
             if (lbl) lbl.innerText = '00:00:00';
             updateDlnaFileName();
-            var newVideoUrl = window.location.origin + it.url;
-            fetch('/cgi-bin/luci/dlna/cast', {
+            var newVideoUrl = /^https?:\/\//i.test(it.url) ? it.url : (window.location.origin + it.url);
+            fetch(dlnaApiUrl('cast'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'control_url=' + encodeURIComponent(dlnaControlUrl) + '&video_url=' + encodeURIComponent(newVideoUrl)
+                body: dlnaApiBody('control_url=' + encodeURIComponent(dlnaControlUrl) + '&video_url=' + encodeURIComponent(newVideoUrl))
             }).catch(function(){});
         } else {
             playIndex(targetIndex);
@@ -1069,9 +1353,11 @@ videoEl.addEventListener('pause', function() {
 document.getElementById('dlna-cast-btn').onclick = function() {
     var it = listItems[currentIndex];
     if (!it || it.kind !== 'media') { alert('请先点击左侧列表选择一个视频进行播放，然后再投屏！'); return; }
-    var targetUrl = window.location.origin + it.url;
-    if (videoEl.src.indexOf('_AAC_') >= 0) {
-        targetUrl = videoEl.src;
+    var targetUrl = /^https?:\/\//i.test(it.url) ? it.url : (window.location.origin + it.url);
+    var curSrc = videoEl.getAttribute('src') || '';
+    if (curSrc && /(_TRANS_|_AAC_)/.test(curSrc)) {
+        // 正在播放转封装/音轨切换后的文件：把当前文件投屏，才能保留选中的音轨
+        try { targetUrl = new URL(curSrc, window.location.href).href; } catch(e) { targetUrl = curSrc; }
     } else if (currentFfprobeData && currentFfprobeData.streams && currentFfprobeData.streams.filter(function(s){return s.codec_type === 'audio'}).length > 1) {
         var msg = '检测到多音轨。\n是否打开【检测文件信息】面板提取音轨并转码后投屏？\n\n(注：选“确定”将打开面板；选“取消”将直接投屏原视频，需你在电视上用遥控器切音轨)';
         if (confirm(msg)) {
@@ -1079,42 +1365,64 @@ document.getElementById('dlna-cast-btn').onclick = function() {
             return;
         }
     }
+    var base = dlnaAgentBase();
+    if (base) {
+        // 本地代理模式不在当前公网页面里 fetch 本地路由器（会被 Chrome PNA 拦），
+        // 而是打开 B 本机的 /caster.html，让发现/投屏在本地页面里完成。
+        var caster = base + '/cgi-bin/luci/dlna/caster?video=' + encodeURIComponent(targetUrl);
+        if (dlnaAgentKey()) caster += '&key=' + encodeURIComponent(dlnaAgentKey());
+        if (it.displayName || it.name) caster += '&title=' + encodeURIComponent(it.displayName || it.name);
+        try { videoEl.pause(); } catch(e) {}
+        window.open(caster, '_blank');
+        return;
+    }
     openDlnaCastModal(targetUrl);
 };
 function openDlnaCastModal(videoUrlToCast) {
     var modal = document.getElementById('dlna-modal');
     var list = document.getElementById('dlna-device-list');
     var manualArea = document.getElementById('manual-ip-area');
+    dlnaPendingVideoUrl = videoUrlToCast || '';
     modal.style.display = 'block';
     resetDlnaModalPosition();
     manualArea.style.display = 'none';
     document.getElementById('dlna-control-panel').style.display = 'none';
-    document.getElementById('dlna-modal-title').innerText = '📺 选择投屏设备';
+    var agentBox = document.getElementById('dlna-agent-settings');
+    if (agentBox) agentBox.style.display = 'none';
+    document.getElementById('dlna-modal-title').innerText = '📺 选择投屏设备' + (dlnaAgentBase() ? '（本地代理）' : '');
     list.style.display = 'block';
     updateDlnaDuration(videoEl.duration);
-    list.innerHTML = '<div style="color:#f1c40f; padding:10px;">📡 正在进行【SSDP 广播扫描】自动发现设备...</div>';
-    var apiBase = '/cgi-bin/luci/dlna';
-    fetch(apiBase + '/discover')
-        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    list.innerHTML = '<div style="color:#f1c40f; padding:10px;">📡 正在通过' +
+        (dlnaAgentBase() ? '本地投屏代理' : '媒体服务器') + '发现 DLNA 设备...</div>';
+
+    fetch(dlnaApiUrl('discover'))
+        .then(function(r) {
+            return r.json().then(function(j) {
+                if (!r.ok) throw new Error((j && j.message) || ('HTTP ' + r.status));
+                if (!Array.isArray(j)) throw new Error((j && j.message) || '投屏控制端返回格式异常');
+                return j;
+            });
+        })
         .then(function(devices) {
             list.innerHTML = '';
             if (!devices || devices.length === 0) {
-                list.innerHTML = '<div style="color:#e67e22; padding:15px;">❌ SSDP 广播扫描未发现任何设备</div>';
+                list.innerHTML = '<div style="color:#e67e22; padding:15px;">❌ 没有发现任何 DLNA 设备<br>' +
+                    '<a href="javascript:void(0)" onclick="toggleDlnaAgentSettings()" style="color:#4a9eff;">⚙ 检查投屏控制端 / 本地代理</a></div>';
                 manualArea.style.display = 'block';
                 document.getElementById('manual-tv-ip').focus();
                 return;
             }
-            list.innerHTML = '<div style="color:#2ecc71; padding:5px; font-size:12px;">✅ SSDP 广播扫描发现以下设备：</div>';
+            list.innerHTML = '<div style="color:#2ecc71; padding:5px; font-size:12px;">✅ 发现以下设备：</div>';
             devices.forEach(function(dev) {
                 var div = document.createElement('div');
                 div.className = 'it';
-                div.innerHTML = '📺 ' + dev.name;
+                div.innerHTML = '📺 ' + esc(dev.name || '未知设备');
                 div.onclick = function() {
                     list.innerHTML = '<div style="color:#f1c40f; padding:10px;">📤 正在发送投屏指令...</div>';
-                    fetch(apiBase + '/cast', {
+                    fetch(dlnaApiUrl('cast'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: 'control_url=' + encodeURIComponent(dev.control_url) + '&video_url=' + encodeURIComponent(videoUrlToCast)
+                        body: dlnaApiBody('control_url=' + encodeURIComponent(dev.control_url) + '&video_url=' + encodeURIComponent(videoUrlToCast))
                     })
                     .then(function(r) { return r.json(); })
                     .then(function(res) {
@@ -1129,16 +1437,21 @@ function openDlnaCastModal(videoUrlToCast) {
                             updateDlnaFileName();
                             startDlnaPolling();
                         } else {
-                            list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 失败: ' + (res.message || '未知错误') + '</div>';
+                            list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 失败: ' + esc(res.message || '未知错误') + '</div>';
                         }
                     })
-                    .catch(function() { list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求失败</div>'; });
+                    .catch(function(e) {
+                        list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求失败：' + esc(e.message || '') +
+                            '<br><a href="javascript:void(0)" onclick="toggleDlnaAgentSettings()" style="color:#4a9eff;">⚙ 检查投屏控制端</a></div>';
+                    });
                 };
                 list.appendChild(div);
             });
         })
         .catch(function(err) {
-            list.innerHTML = '<div style="color:#e74c3c; padding:15px;">❌ SSDP 广播扫描请求失败，请尝试手动投屏</div>';
+            list.innerHTML = '<div style="color:#e74c3c; padding:15px;">❌ 投屏设备发现失败：' +
+                esc(err.message || '无法连接投屏控制端') +
+                '<br><a href="javascript:void(0)" onclick="toggleDlnaAgentSettings()" style="color:#4a9eff;">⚙ 检查投屏控制端 / 本地代理</a></div>';
             manualArea.style.display = 'block';
             document.getElementById('manual-tv-ip').focus();
         });
@@ -1152,7 +1465,7 @@ window.manualCast = function() {
     if (inputVal.indexOf(':') > -1) { var parts = inputVal.split(':'); ip = parts[0]; port = parts[1]; hasPort = true; }
     if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) { alert('IP 格式不正确'); return; }
     var list = document.getElementById('dlna-device-list');
-    var videoUrl = window.location.origin + it.url;
+    var videoUrl = /^https?:\/\//i.test(it.url) ? it.url : (window.location.origin + it.url);
     document.getElementById('dlna-control-panel').style.display = 'none';
     if (hasPort) {
         list.innerHTML = '<div style="color:#f1c40f; padding:10px;">🎯 正在进行【端口强制投送】模式...</div>';
@@ -1167,20 +1480,24 @@ window.manualCast = function() {
         tryNextPath();
     } else {
         list.innerHTML = '<div style="color:#f1c40f; padding:10px;">📡 单播 SSDP 扫描中...</div>';
-        fetch('/cgi-bin/luci/dlna/probe', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'ip=' + encodeURIComponent(ip) })
+        fetch(dlnaApiUrl('probe'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: dlnaApiBody('ip=' + encodeURIComponent(ip))
+        })
         .then(function(r) { return r.json(); })
         .then(function(res) {
             if (res.status === 'success') { doCast(res.control_url, videoUrl, list); }
-            else { list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 扫描失败，建议输入 "IP:端口" 强制投送。</div>'; }
+            else { list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 扫描失败：' + esc(res.message || '该 IP 没有响应') + '，建议输入 "IP:端口" 强制投送。</div>'; }
         })
-        .catch(function() { list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求后端失败。</div>'; });
+        .catch(function() { list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求投屏控制端失败，请检查“⚙ 投屏控制端”设置。</div>'; });
     }
 };
 function doCast(control_url, videoUrl, listEl, callback) {
-    fetch('/cgi-bin/luci/dlna/cast', {
+    fetch(dlnaApiUrl('cast'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'control_url=' + encodeURIComponent(control_url) + '&video_url=' + encodeURIComponent(videoUrl)
+        body: dlnaApiBody('control_url=' + encodeURIComponent(control_url) + '&video_url=' + encodeURIComponent(videoUrl))
     })
     .then(function(r) { return r.json(); })
     .then(function(res) {
@@ -1195,21 +1512,25 @@ function doCast(control_url, videoUrl, listEl, callback) {
             updateDlnaFileName();
             startDlnaPolling();
         } else {
-            listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 发送失败: ' + (res.message || '') + '</div>';
+            listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 发送失败: ' + esc(res.message || '') + '</div>';
         }
         if (callback) callback(res.status === 'success');
     })
-    .catch(function() {
-        listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求失败</div>';
+    .catch(function(e) {
+        listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求失败：' + esc(e.message || '') +
+            '<br><a href="javascript:void(0)" onclick="toggleDlnaAgentSettings()" style="color:#4a9eff;">⚙ 检查投屏控制端</a></div>';
         if (callback) callback(false);
     });
 }
+window.dlnaPrevNext = function(dir) {
+    dlnaControl(dir === 'next' ? 'next' : 'previous');
+};
 window.dlnaControl = function(action, value) {
     if (!dlnaControlUrl) { alert('请先完成投屏'); return; }
-    fetch('/cgi-bin/luci/dlna/control', {
+    fetch(dlnaApiUrl('control'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'action=' + encodeURIComponent(action) + '&control_url=' + encodeURIComponent(dlnaControlUrl) + '&value=' + encodeURIComponent(value || '')
+        body: dlnaApiBody('action=' + encodeURIComponent(action) + '&control_url=' + encodeURIComponent(dlnaControlUrl) + '&value=' + encodeURIComponent(value || ''))
     })
     .then(function(r) { return r.json(); })
     .then(function(res) { if (res.status !== 'success') console.warn('控制指令发送失败:', res.message); })
@@ -1278,9 +1599,326 @@ function showBgList(list, labelText, swing){
         }, BG_INTERVAL);
     }
 }
+var lyricsLoadToken = 0, lyricLines = [], lyricActive = -1, lyricsVisible = false;
+var lyricsCache = {}, currentAudioName = '';
+var lyricsHadLocal = false, lyricsSaveAttempted = {}, lyricsLinesMode = 5;
+try {
+    var _lyricsMode = parseInt(localStorage.getItem('lyrics_lines'), 10);
+    if (_lyricsMode === 3 || _lyricsMode === 5) lyricsLinesMode = _lyricsMode;
+} catch (e) {}
+
+function lyricsBaseInfo(name) {
+    var base = String(name || '').replace(/\.[^.]+$/, '');
+    var s = base.replace(/^\d+[\s._-]+/, '');
+    var artist = '', title = s;
+    var m = s.match(/^(.+?)\s+-\s+(.+)$/) || s.match(/^([^-]+)-(.+)$/);
+    if (m) { artist = m[1]; title = m[2]; }
+    return { base: base, artist: artist.trim(), title: title.trim() };
+}
+function hideLyricsPanel() {
+    var el = document.getElementById('lyrics-panel');
+    if (el) el.style.display = 'none';
+    lyricsVisible = false;
+}
+function showLyricsPanel() {
+    var el = document.getElementById('lyrics-panel');
+    if (el) el.style.display = 'block';
+    lyricsVisible = true;
+}
+function setLyricsStatus(text) {
+    var body = document.getElementById('ly-body');
+    if (!body) return;
+    body.innerHTML = '<div class="ly-status">' + esc(text) + '</div>';
+    var t = document.getElementById('ly-title');
+    if (t) t.textContent = '歌词';
+    showLyricsPanel();
+}
+function parseLrc(text) {
+    var out = [];
+    var lines = String(text || '').replace(/\r/g, '').split('\n');
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var mm = line.match(/^\[(ar|ti|al|by|offset):(.*)\]$/i);
+        if (mm) continue;
+        var re = /\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g, m, tags = [];
+        while ((m = re.exec(line))) {
+            tags.push([parseInt(m[1], 10), parseInt(m[2], 10), m[3] ? parseFloat('0.' + m[3]) : 0]);
+        }
+        var lyric = line.replace(/\[[^\]]*\]/g, '').trim();
+        if (!lyric) continue;
+        for (var j = 0; j < tags.length; j++) {
+            out.push({ t: tags[j][0] * 60 + tags[j][1] + tags[j][2], text: lyric });
+        }
+    }
+    out.sort(function(a, b) { return a.t - b.t; });
+    return out;
+}
+function renderLyricsPayload(data, name) {
+    var body = document.getElementById('ly-body');
+    var titleEl = document.getElementById('ly-title');
+    if (!body) return;
+    lyricLines = [];
+    lyricActive = -1;
+    if (!data || data.status !== 'success') {
+        setLyricsStatus((data && data.message) || '未找到歌词（可在同目录放同名 .lrc 文件）');
+        setTimeout(function() { if (!lyricLines.length) hideLyricsPanel(); }, 4500);
+        return;
+    }
+    if (data.instrumental) {
+        setLyricsStatus('纯音乐');
+        setTimeout(function() { if (!lyricLines.length) hideLyricsPanel(); }, 3500);
+        return;
+    }
+    var shownTitle = (data.artist ? data.artist + ' - ' : '') + (data.title || '');
+    if (titleEl) titleEl.textContent = '歌词' + (shownTitle ? ' · ' + shownTitle : '');
+    saveLyricsFile(data);
+    if (data.synced) {
+        var parsed = parseLrc(data.synced);
+        if (parsed.length) {
+            lyricLines = parsed;
+            var spacer = '<div class="ly-spacer"></div>';
+            var html = spacer;
+            for (var i = 0; i < parsed.length; i++) {
+                html += '<div class="ly-line" data-i="' + i + '">' + esc(parsed[i].text) + '</div>';
+            }
+            html += spacer;
+            body.innerHTML = html;
+            showLyricsPanel();
+            updateLyricsHighlight(true);
+            return;
+        }
+    }
+    if (data.plain) {
+        body.innerHTML = '<div class="ly-plain">' + esc(data.plain) + '</div>';
+        showLyricsPanel();
+        return;
+    }
+    setLyricsStatus('未找到歌词（可在同目录放同名 .lrc 文件）');
+    setTimeout(function() { if (!lyricLines.length) hideLyricsPanel(); }, 4500);
+}
+function updateLyricsHighlight(force) {
+    if (!lyricsVisible || !lyricLines.length) return;
+    var t = (videoEl.currentTime || 0) + 0.2;
+    var idx = -1;
+    for (var i = 0; i < lyricLines.length; i++) {
+        if (lyricLines[i].t <= t) idx = i;
+        else break;
+    }
+    if (idx === lyricActive && !force) return;
+    lyricActive = idx;
+    var body = document.getElementById('ly-body');
+    if (!body) return;
+    var items = body.querySelectorAll('.ly-line');
+    for (var j = 0; j < items.length; j++) items[j].classList.toggle('active', j === idx);
+    if (idx >= 0 && items[idx]) {
+        body.scrollTop = items[idx].offsetTop - body.clientHeight / 2 + items[idx].offsetHeight / 2;
+    } else if (idx < 0) {
+        body.scrollTop = 0;
+    }
+}
+function saveLyricsFile(data) {
+    if (lyricsHadLocal) return;
+    if (!data || data.status !== 'success') return;
+    var text = data.synced || data.plain || '';
+    if (!text) return;
+    var it = listItems[currentIndex];
+    if (!it || !it.url) return;
+    if (lyricsSaveAttempted[it.url]) return;
+    lyricsSaveAttempted[it.url] = true;
+    fetch('/cgi-bin/luci/dlna/save_lyrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'url=' + encodeURIComponent(it.url) + '&lyrics=' + encodeURIComponent(text)
+    }).then(function(r) { return r.json(); }).then(function(res) {
+        if (!res || res.status !== 'success') delete lyricsSaveAttempted[it.url];
+    }).catch(function() { delete lyricsSaveAttempted[it.url]; });
+}
+function applyLyricsLines() {
+    var panel = document.getElementById('lyrics-panel');
+    if (panel) panel.classList.toggle('ly-3', lyricsLinesMode === 3);
+    var btn = document.getElementById('ly-lines-toggle');
+    if (btn) btn.textContent = lyricsLinesMode + ' 行';
+    updateLyricsHighlight(true);
+}
+function toggleLyricsLines() {
+    lyricsLinesMode = lyricsLinesMode === 3 ? 5 : 3;
+    try { localStorage.setItem('lyrics_lines', String(lyricsLinesMode)); } catch (e) {}
+    applyLyricsLines();
+}
+function pickLrclibLyrics(arr, info) {
+    if (!Array.isArray(arr)) return { status: 'error', message: '歌词返回格式异常' };
+    var best = null, bestScore = -999;
+    for (var i = 0; i < arr.length; i++) {
+        var item = arr[i];
+        if (!item) continue;
+        var synced = item.syncedLyrics || '';
+        var plain = item.plainLyrics || '';
+        if (!synced && !plain) continue;
+        var score = (synced ? 10 : 0) - (item.instrumental ? 20 : 0);
+        if (!best || score > bestScore) { best = item; bestScore = score; }
+    }
+    if (!best) return { status: 'error', message: '未找到歌词' };
+    return {
+        status: 'success',
+        instrumental: !!best.instrumental,
+        synced: best.syncedLyrics || '',
+        plain: best.plainLyrics || '',
+        title: best.trackName || info.title,
+        artist: best.artistName || info.artist,
+        album: best.albumName || '',
+        duration: best.duration || 0
+    };
+}
+function lyricsFinalError(token) {
+    if (token !== lyricsLoadToken) return;
+    setLyricsStatus('歌词获取失败：浏览器和路由器都未获取到，可在同目录放同名 .lrc');
+    setTimeout(function() { if (!lyricLines.length) hideLyricsPanel(); }, 4500);
+}
+function fetchLyricsFromServer(info, token) {
+    var dur = 0;
+    fetch('/cgi-bin/luci/dlna/lyrics?title=' + encodeURIComponent(info.title) +
+          '&artist=' + encodeURIComponent(info.artist) +
+          '&duration=' + encodeURIComponent(String(dur)))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (token !== lyricsLoadToken) return;
+            if (data && data.status === 'success') {
+                lyricsCache[info.base] = data;
+                renderLyricsPayload(data, info.base);
+                return;
+            }
+            if (data && data.message) {
+                setLyricsStatus(data.message);
+                setTimeout(function() { if (!lyricLines.length) hideLyricsPanel(); }, 4500);
+            } else {
+                lyricsFinalError(token);
+            }
+        })
+        .catch(function() { lyricsFinalError(token); });
+}
+function loadLyricsOnline(info, token) {
+    if (lyricsCache[info.base]) {
+        renderLyricsPayload(lyricsCache[info.base], info.base);
+        return;
+    }
+    setLyricsStatus('正在获取歌词...');
+
+    var candidates = [];
+    function addCandidate(track, artist) {
+        track = String(track || '').trim();
+        artist = String(artist || '').trim();
+        if (!track) return;
+        for (var i = 0; i < candidates.length; i++) {
+            if (candidates[i].track === track && candidates[i].artist === artist) return;
+        }
+        candidates.push({track: track, artist: artist});
+    }
+    if (info.artist && info.title) {
+        addCandidate(info.title, info.artist);   // 歌手 - 歌名
+        addCandidate(info.artist, info.title);   // 歌名 - 歌手（中文目录很常见）
+    } else {
+        addCandidate(info.title || info.artist, '');
+    }
+    addCandidate(info.base, '');
+
+    var idx = 0;
+    function next() {
+        if (token !== lyricsLoadToken) return;
+        if (idx >= candidates.length) {
+            // 浏览器直连都失败/没结果，退回路由器代理（控制器里也会再换顺序查一次）
+            fetchLyricsFromServer(info, token);
+            return;
+        }
+        var c = candidates[idx++];
+        var url = 'https://lrclib.net/api/search?track_name=' + encodeURIComponent(c.track);
+        if (c.artist) url += '&artist_name=' + encodeURIComponent(c.artist);
+        fetch(url, { cache: 'no-store' })
+            .then(function(r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function(arr) {
+                if (token !== lyricsLoadToken) return;
+                var data = pickLrclibLyrics(arr, { title: c.track, artist: c.artist, base: info.base });
+                if (data.status === 'success') {
+                    lyricsCache[info.base] = data;
+                    renderLyricsPayload(data, info.base);
+                    return;
+                }
+                next();
+            })
+            .catch(function() {
+                if (token !== lyricsLoadToken) return;
+                fetchLyricsFromServer(info, token);
+            });
+    }
+    next();
+}
+function loadLyrics(name) {
+    currentAudioName = name;
+    var token = ++lyricsLoadToken;
+    var info = lyricsBaseInfo(name);
+    lyricLines = [];
+    lyricActive = -1;
+    hideLyricsPanel();
+    if (!info.title) { return; }
+
+    // 优先使用同目录同名 .lrc
+    var lrcItem = null;
+    for (var i = 0; i < listItems.length; i++) {
+        var it = listItems[i];
+        if (it.kind === 'text' && /\.lrc$/i.test(it.name || '') &&
+            String(it.name).replace(/\.[^.]+$/, '').toLowerCase() === info.base.toLowerCase()) {
+            lrcItem = it;
+            break;
+        }
+    }
+    lyricsHadLocal = !!lrcItem;
+    if (lrcItem) {
+        fetch(lrcItem.url).then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.arrayBuffer();
+        }).then(function(buf) {
+            if (token !== lyricsLoadToken) return;
+            var dec = decodeBytes(new Uint8Array(buf), 'auto');
+            renderLyricsPayload({
+                status: 'success', synced: dec.text, plain: dec.text,
+                title: info.title, artist: info.artist
+            }, info.base);
+        }).catch(function() {
+            if (token !== lyricsLoadToken) return;
+            loadLyricsOnline(info, token);
+        });
+        return;
+    }
+    loadLyricsOnline(info, token);
+}
+document.getElementById('ac-lyrics').onclick = function(e) {
+    e.stopPropagation();
+    if (lyricsVisible) {
+        hideLyricsPanel();
+    } else if (lyricLines.length || document.querySelector('#ly-body .ly-plain')) {
+        showLyricsPanel();
+        updateLyricsHighlight(true);
+    } else if (currentAudioName) {
+        loadLyrics(currentAudioName);
+    }
+};
+document.getElementById('ly-close').onclick = function(e) {
+    e.stopPropagation();
+    hideLyricsPanel();
+};
+document.getElementById('ly-lines-toggle').onclick = function(e) {
+    e.stopPropagation();
+    toggleLyricsLines();
+};
+applyLyricsLines();
+videoEl.addEventListener('timeupdate', function(){ updateLyricsHighlight(false); });
+
 function startAudioBackground(audioName) {
     if(bgTimer){clearInterval(bgTimer);bgTimer=null;}
     videoWrap.classList.add('audio-mode');
+    loadLyrics(audioName);
     var myToken = ++bgLoadToken;
     var imgs = findBgImages(audioName);
     if (imgs.length === 0) {
@@ -1355,6 +1993,11 @@ function startAudioBackground(audioName) {
 function stopAudioBackground(){
   if(bgTimer){clearInterval(bgTimer);bgTimer=null;}
   bgLoadToken++;
+  lyricsLoadToken++;
+  lyricLines=[];
+  lyricActive=-1;
+  currentAudioName='';
+  hideLyricsPanel();
   resetBgEl(audioBgEl);
   resetBgEl(audioBg2El);
   bgElActive = 0;
@@ -1392,6 +2035,8 @@ videoEl.addEventListener('timeupdate',function(){
 });
 previewEl.onload=function(){setI('i-res',previewEl.naturalWidth+'×'+previewEl.naturalHeight)};
 function hideAllViews(){
+  hideAudioTip();
+  hideMediaError();
   videoEl.style.display='none';
   previewEl.style.display='none';previewEl.removeAttribute('src');
   pdfPreviewEl.style.display='none';pdfPreviewEl.src='about:blank';
@@ -1406,11 +2051,55 @@ function destroyPlayer(){
   videoEl.removeAttribute('src');
   try{videoEl.load()}catch(e){}
 }
-fetch('/api/dir'+dirPath).then(function(r){
-  if(!r.ok) throw new Error('HTTP ' + r.status);
-  return r.json();
-}).then(function(items){
+function safeDecodeURI(s){try{return decodeURIComponent(s)}catch(e){return s}}
+// nginx autoindex 在个别目录（超大目录/异常文件名/磁盘读目录出错）会直接断开连接，
+// 网页端只看到 "Failed to fetch"。这里改为：先试 autoindex，失败自动走 Lua 备用接口。
+function fetchDirAutoindex(){
+  return new Promise(function(resolve,reject){
+    var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+    var timer=setTimeout(function(){
+      if(ctrl){try{ctrl.abort()}catch(e){}}
+      reject(new Error('目录列表请求超时'));
+    },12000);
+    var opts={cache:'no-store'};
+    if(ctrl) opts.signal=ctrl.signal;
+    fetch('/api/dir'+dirPath,opts)
+      .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
+      .then(function(items){clearTimeout(timer);resolve(items)})
+      .catch(function(e){clearTimeout(timer);reject(e)});
+  });
+}
+function fetchDirViaLua(){
+  var p=safeDecodeURI(dirPath);
+  var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+  var timer=setTimeout(function(){if(ctrl){try{ctrl.abort()}catch(e){}}},20000);
+  var opts={cache:'no-store'};
+  if(ctrl) opts.signal=ctrl.signal;
+  return fetch('/cgi-bin/luci/dlna/list_dir?path='+encodeURIComponent(p),opts)
+    .then(function(r){
+      return r.text().then(function(text){
+        var res=null;
+        try{res=JSON.parse(text)}catch(e){throw new Error('备用目录接口返回异常')}
+        if(res&&res.error) throw new Error(res.error);
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        var arr=Array.isArray(res)?res:(res&&res.entries)||[];
+        return arr.map(function(e){
+          return {name:e.name,type:(e.type==='directory'?'directory':'file'),size:e.size};
+        });
+      });
+    })
+    .then(function(arr){clearTimeout(timer);return arr},function(e){clearTimeout(timer);throw e});
+}
+function loadDirEntries(){
+  return fetchDirAutoindex().catch(function(err){
+    console.warn('autoindex 目录接口失败，改用 Lua 备用接口：',err.message);
+    return fetchDirViaLua();
+  });
+}
+loadDirEntries().then(function(items){
   if(!Array.isArray(items))items=[];
+  // 转封装中间文件（隐藏的 .part）不显示
+  items=items.filter(function(it){return !/\.part$/i.test(it.name||'')});
   var dirs=items.filter(function(it){return it.type==='directory'}).sort(cmp);
   var media=items.filter(function(it){return it.type==='file'&&isMedia(it.name)}).sort(cmp);
   var playlists=items.filter(function(it){return it.type==='file'&&isPlaylist(it.name)}).sort(cmp);
@@ -1456,33 +2145,45 @@ fetch('/api/dir'+dirPath).then(function(r){
     others.forEach(function(o){listItems.push({kind:'other',name:o.name,size:o.size,url:dirPath+encodeURIComponent(o.name)})});
     countEl.textContent=media.length+playlists.length;
     renderList();
-    if(media.length>0){
-      currentIndex=dirs.length;
-      var first=listItems[currentIndex];
-      if(isAudioOnly(first.name)){
-        hideAllViews();
-        videoEl.style.display='block';
-        videoEl.src=first.url;
-        setNowPlaying('▶',first.name,'');
-        setSize(first.size);fillGuessedInfo(first.name);
-        startAudioBackground(first.name);
-      } else {
-        videoEl.src=first.url;
-        setNowPlaying('▶',first.name,'');
-        setSize(first.size);
-        fillGuessedInfo(first.name);
+    // 如果后台有正在转封装的任务，先等任务恢复完成，再决定要不要自动选中文件；
+    // 转封装期间不再自动加载/无声播放当前文件。
+    Promise.resolve(transcodeRestorePromise).then(function(busy){
+      if(busy){
+        emptyEl.style.display='none';
+        return;
       }
-      renderList();
-    } else if(images.length>0){
-      showImageOnly(dirs.length);
-    } else if(listItems.length>0){
-      emptyEl.textContent='点击左侧列表打开';emptyEl.style.display='';
-    } else {
-      emptyEl.textContent='此目录为空';emptyEl.style.display='';
-    }
+      if(media.length>0){
+        currentIndex=dirs.length;
+        var first=listItems[currentIndex];
+        if(isAudioOnly(first.name)){
+          hideAllViews();
+          emptyEl.style.display='none';
+          videoEl.style.display='block';
+          videoEl.src=first.url;
+          setNowPlaying('▶',first.name,'');
+          setSize(first.size);fillGuessedInfo(first.name);
+          startAudioBackground(first.name);
+        } else {
+          videoEl.src=first.url;
+          setNowPlaying('▶',first.name,'');
+          setSize(first.size);
+          fillGuessedInfo(first.name);
+        }
+        renderList();
+      } else if(images.length>0){
+        showImageOnly(dirs.length);
+      } else if(listItems.length>0){
+        emptyEl.textContent='点击左侧列表打开';emptyEl.style.display='';
+      } else {
+        emptyEl.textContent='此目录为空';emptyEl.style.display='';
+      }
+    });
   });
 }).catch(function(e){
-  emptyEl.textContent='加载失败：'+e.message;emptyEl.style.display='';
+  emptyEl.className='err';
+  emptyEl.style.display='';
+  emptyEl.innerHTML='加载失败：'+esc(e.message||e)+
+    '<div><button type="button" onclick="location.reload()">重试</button></div>';
 });
 function renderList(){
   listEl.innerHTML='';
@@ -1636,6 +2337,11 @@ function togglePlaylist(idx){
 function playIndex(idx){
   var it=listItems[idx];
   if(!it||it.kind!=='media') return;
+  // 用户主动播放时先解除“转封装中”的全局抑制；如果播放的正是
+  // 正在转封装的文件，checkRunningTask 会重新暂停它并显示进度。
+  window.transcodeActive=false;
+  window.activeAudioTrackIndex=null;
+  window.activeAudioTrackUrl='';
   destroyPlayer();
   hideAllViews();
   videoEl.style.display='block';
@@ -1655,11 +2361,11 @@ function playIndex(idx){
 
   if (dlnaControlUrl) {
       window.isAutoSwitching = true;
-      var newVideoUrl = window.location.origin + it.url;
-      fetch('/cgi-bin/luci/dlna/cast', {
+      var newVideoUrl = /^https?:\/\//i.test(it.url) ? it.url : (window.location.origin + it.url);
+      fetch(dlnaApiUrl('cast'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: 'control_url=' + encodeURIComponent(dlnaControlUrl) + '&video_url=' + encodeURIComponent(newVideoUrl)
+          body: dlnaApiBody('control_url=' + encodeURIComponent(dlnaControlUrl) + '&video_url=' + encodeURIComponent(newVideoUrl))
       })
       .then(function(r) { return r.json(); })
       .then(function(res) {
@@ -1732,7 +2438,7 @@ function playIndex(idx){
       if (!window.castOnlyMode) mpegtsPlayer.play();
       mpegtsPlayer.on(mpegts.Events.ERROR, function(t,d) {
         console.warn('mpegts err:', t, d);
-        if (!it.isStream) setTimeout(playNextAuto, 500);
+        if (!it.isStream) handleMediaFailure(it, 3);
       });
     } catch(e) {
       videoEl.src = url;
@@ -1801,6 +2507,14 @@ function applyTextDecode(forced){
 encSelEl.addEventListener('change',function(){applyTextDecode(encSelEl.value)});
 videoEl.addEventListener('ended',function(){
   if(window.castOnlyMode) return;
+  if(window.transcodeActive) return;
+  var d=videoEl.duration, played=videoEl.currentTime||0;
+  // 0 秒 / 无法解析时长的文件直接“结束”时，不要再自动跳下一集
+  if(played<1 && (d===0 || d>10 || !isFinite(d))){
+    handleMediaFailure(listItems[currentIndex], 3);
+    return;
+  }
+  hideMediaError();
   if(playMode==='repeat-one'){if(currentIndex>=0&&listItems[currentIndex].kind==='media')playIndex(currentIndex);return}
   if(playMode==='sequential' || playMode==='repeat-all' || playMode==='random'){
       playNextAuto();
@@ -1808,6 +2522,7 @@ videoEl.addEventListener('ended',function(){
 });
 function playNextAuto(){
   if(window.castOnlyMode) return;
+  if(window.transcodeActive) return;
   if(playMode==='random'){
     var c=[];for(var i=0;i<listItems.length;i++)if(listItems[i].kind==='media'&&i!==currentIndex)c.push(i);
     if(c.length===0){if(currentIndex>=0&&listItems[currentIndex].kind==='media')playIndex(currentIndex);return}
@@ -1816,13 +2531,52 @@ function playNextAuto(){
   for(var j=currentIndex+1;j<listItems.length;j++)if(listItems[j].kind==='media'){playIndex(j);return}
   if(playMode==='repeat-all')for(var k=0;k<listItems.length;k++)if(listItems[k].kind==='media'){playIndex(k);return}
 }
+function hideMediaError(){
+  var el=document.getElementById('media-error');
+  if(el) el.style.display='none';
+}
+function handleMediaFailure(it, code){
+  if(!it || it.kind!=='media') return;
+  if(window.castOnlyMode || window.transcodeActive) return;
+  var titleEl=document.getElementById('media-error-title');
+  var textEl=document.getElementById('media-error-text');
+  var box=document.getElementById('media-error');
+  if(!box) return;
+  var name=it.displayName||it.name||'';
+  var reason;
+  if(code===2){
+    titleEl.textContent='❌ 文件读取失败';
+    reason='网络中断、文件被移动/删除，或服务器拒绝访问。';
+  } else if(code===3){
+    titleEl.textContent='❌ 解码失败';
+    reason='文件可能损坏，或视频/音频编码浏览器无法解码。';
+  } else {
+    titleEl.textContent='❌ 格式无法识别';
+    reason='浏览器不支持该视频编码（常见于 H.265/HEVC）或音频编码（DTS/AC3 等）。';
+  }
+  textEl.innerHTML='<span class="fn">'+esc(name)+'</span><br>'+esc(reason)+
+    '<br>可以点“检测并转码”生成 MP4（H.264 + AAC）后再播放；也可以手动选择下一集。';
+  box.style.display='block';
+}
+document.getElementById('media-error-info').onclick=function(){
+  hideMediaError();
+  if(window.showFileInfo) window.showFileInfo();
+};
+document.getElementById('media-error-next').onclick=function(){
+  hideMediaError();
+  playNextAuto();
+};
+document.getElementById('media-error-close').onclick=hideMediaError;
+
 videoEl.addEventListener('error', function() {
-    if (window.castOnlyMode) return;
-    if (videoEl.src && !mpegtsPlayer && !hlsPlayer) {
-        if (playMode === 'repeat-all' || playMode === 'random') {
-            setTimeout(playNextAuto, 1000);
-        }
-    }
+    if (window.castOnlyMode || window.transcodeActive) return;
+    var src = videoEl.getAttribute('src');
+    if (!src) return;
+    var it = currentIndex >= 0 ? listItems[currentIndex] : null;
+    if (!it || it.kind !== 'media') return;
+    var code = videoEl.error ? videoEl.error.code : 0;
+    // 关键：格式/解码错误不再自动跳下一集，否则一个 HEVC 季会瞬间跳完
+    handleMediaFailure(it, code);
 });
 document.addEventListener('keydown',function(e){
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
@@ -1833,6 +2587,7 @@ document.addEventListener('keydown',function(e){
 });
 
 var currentFfprobeData = null;
+var currentFfprobeUrl = '';
 var currentAudioTrackIdx = 0;
 
 window.showFileInfo = function(){
@@ -1860,6 +2615,7 @@ window.showFileInfo = function(){
             return;
           }
           currentFfprobeData = data;
+          currentFfprobeUrl = it.url;
           renderFileInfo(data);
           showFiFooter();
       } catch(e) {
@@ -1873,6 +2629,239 @@ window.showFileInfo = function(){
 window.closeFileInfo = function(){
   document.getElementById('file-info-modal').style.display = 'none';
 };
+
+// ---------------------------------------------------------------------------
+// 音轨切换
+//   本地文件：浏览器无法直接选 MP4/MKV 里的第 2 条音轨，所以由服务端
+//   视频直拷 + 只映射选中的音轨，生成 _TRANS_A<index> 文件后播放；同一音轨
+//   第二次切换会复用缓存文件。HLS 流如果带多音轨，则用 hls.js 即时切换。
+// ---------------------------------------------------------------------------
+var audioProbeCache = {};
+var audioModalState = {idx: -1, data: null};
+window.activeAudioTrackIndex = null;
+window.activeAudioTrackUrl = '';
+
+window.closeAudioTracks = function(){
+  document.getElementById('audio-track-modal').style.display = 'none';
+};
+
+function audioTrackLabel(s, i){
+  var codec = String(s.codec_name || 'unknown').toUpperCase();
+  var ch = s.channels ? (' · ' + s.channels + ' 声道') : '';
+  var lang = (s.tags && s.tags.language) ? (' · ' + s.tags.language) : '';
+  var title = (s.tags && s.tags.title) ? (' · ' + s.tags.title) : '';
+  var def = (s.disposition && s.disposition.default) ? ' · 默认' : '';
+  return '音轨 #' + s.index + ' · ' + codec + ch + lang + title + def;
+}
+
+function bindAudioRows(list){
+  var rows = list.querySelectorAll('.at-item');
+  for (var i = 0; i < rows.length; i++) {
+    (function(el){
+      el.onclick = function(){
+        if (el.getAttribute('data-original')) {
+          window.activeAudioTrackIndex = null;
+          window.activeAudioTrackUrl = '';
+          closeAudioTracks();
+          playIndex(audioModalState.idx);
+          return;
+        }
+        if (el.getAttribute('data-hidx') !== null) {
+          var hi = parseInt(el.getAttribute('data-hidx'), 10);
+          if (hlsPlayer) {
+            hlsPlayer.audioTrack = hi;
+            window.activeAudioTrackIndex = null;
+          }
+          closeAudioTracks();
+          return;
+        }
+        switchAudioTrack(parseInt(el.getAttribute('data-aidx'), 10));
+      };
+    })(rows[i]);
+  }
+}
+
+function renderHlsAudioTracks(){
+  var list = document.getElementById('audio-track-list');
+  var note = document.getElementById('audio-track-note');
+  var tracks = (hlsPlayer && hlsPlayer.audioTracks) || [];
+  if (!tracks.length) {
+    list.innerHTML = '<div class="at-msg">当前 HLS 流只有一条音轨，或音轨信息尚未加载完成。<br>请先播放该流几秒后再试。</div>';
+    note.textContent = '';
+    return;
+  }
+  var cur = hlsPlayer.audioTrack;
+  var html = '';
+  for (var i = 0; i < tracks.length; i++) {
+    var t = tracks[i] || {};
+    var name = t.name || t.lang || ('音轨 ' + (i + 1));
+    var sub = [];
+    if (t.lang) sub.push('语言：' + t.lang);
+    if (t.default) sub.push('默认');
+    if (i === cur) sub.push('当前播放');
+    html += '<div class="at-item' + (i === cur ? ' active' : '') + '" data-hidx="' + i + '">' +
+            '<span class="at-ico">🎵</span>' +
+            '<span class="at-main"><b>' + esc(name) + '</b>' +
+            '<small>' + esc(sub.join('　')) + '</small></span>' +
+            '<span class="at-act">' + (i === cur ? '当前' : '切换') + '</span></div>';
+  }
+  list.innerHTML = html;
+  note.textContent = 'HLS 流切换音轨是即时的，不会生成新文件。';
+  bindAudioRows(list);
+}
+
+function renderAudioTracks(it, data){
+  var list = document.getElementById('audio-track-list');
+  var note = document.getElementById('audio-track-note');
+  var audios = (data.streams || []).filter(function(s){ return s.codec_type === 'audio'; });
+  if (!audios.length) {
+    list.innerHTML = '<div class="at-msg">没有检测到可识别的音轨。</div>';
+    note.textContent = '';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < audios.length; i++) {
+    var s = audios[i];
+    var copyable = /^(aac|mp3)$/i.test(s.codec_name || '');
+    var sameSource = safeDecodeURI(window.activeAudioTrackUrl || '') === safeDecodeURI(it.url || '');
+    var isActive = (sameSource && Number(window.activeAudioTrackIndex) === Number(s.index));
+    var sub = copyable ? '直接复制音轨（不重新编码）' : '将转成 AAC 后播放';
+    sub += isActive ? '　·　当前使用中' : '　·　首次切换需生成文件，之后复用';
+    html += '<div class="at-item' + (isActive ? ' active' : '') + '" data-aidx="' + s.index + '">' +
+            '<span class="at-ico">🎵</span>' +
+            '<span class="at-main"><b>' + esc(audioTrackLabel(s, i)) + '</b>' +
+            '<small>' + esc(sub) + '</small></span>' +
+            '<span class="at-act">' + (isActive ? '当前' : '切换') + '</span></div>';
+  }
+  html += '<div class="at-item" data-original="1">' +
+          '<span class="at-ico">📄</span>' +
+          '<span class="at-main"><b>原始文件（默认音轨）</b>' +
+          '<small>不生成新文件，直接播放原文件</small></span>' +
+          '<span class="at-act">播放</span></div>';
+  list.innerHTML = html;
+  note.textContent = '切换音轨会在服务器上生成一个新文件：视频原样复制、不重新编码；AAC/MP3 直接复制，其他格式转成 AAC。首次切换需要一些时间，完成后从头自动播放；同一音轨再次切换会复用已生成的文件。生成的文件约占用与源文件相近的磁盘空间，且不带原字幕。';
+  audioModalState.data = data;
+  bindAudioRows(list);
+}
+
+function buildAudioSwitchPlan(data, audioIdx, container){
+  var streams = [];
+  var videoDone = false;
+  (data.streams || []).forEach(function(s){
+    var t = s.codec_type;
+    if (t === 'video' && !(s.disposition && (s.disposition.attached_pic === 1 || s.disposition.attached_pic === true))) {
+      if (!videoDone) {
+        streams.push({index: s.index, type: 'video', copy: true, transcode: 'none'});
+        videoDone = true;
+      }
+    } else if (t === 'audio') {
+      var chosen = (Number(s.index) === Number(audioIdx));
+      var codec = String(s.codec_name || '').toLowerCase();
+      var copyable = (codec === 'aac' || codec === 'mp3');
+      var trans = 'none';
+      if (chosen && !copyable) trans = ((Number(s.channels) || 2) > 2 ? 'aac51' : 'aac2');
+      streams.push({
+        index: s.index,
+        type: 'audio',
+        copy: chosen && copyable,
+        transcode: chosen ? trans : 'none'
+      });
+    }
+    // 字幕/附件在“切换音轨”时忽略，减少 mov_text/PGS 等失败点
+  });
+  return {container: container, streams: streams};
+}
+
+function switchAudioTrack(audioIdx){
+  var state = audioModalState;
+  var it = listItems[state.idx];
+  if (!it) { closeAudioTracks(); return; }
+  var data = state.data || audioProbeCache[it.url];
+  if (!data) { closeAudioTracks(); return; }
+  var track = null;
+  (data.streams || []).forEach(function(s){
+    if (s.codec_type === 'audio' && Number(s.index) === Number(audioIdx)) track = s;
+  });
+  if (!track) { alert('没有找到该音轨，请重新检测。'); return; }
+
+  var ext = getExt(it.name);
+  var container = (ext === '.ts' || ext === '.m2ts') ? 'ts' : 'mp4';
+  // 缓存键带源扩展名：同一目录下 Movie.mkv 和 Movie.mp4 不会共用同一个输出
+  var srcTag = ext.replace(/^\./, '').replace(/[^a-z0-9]/gi, '') || 'x';
+  var plan = buildAudioSwitchPlan(data, track.index, container);
+  // 没有视频流时至少要保留选中的音轨
+  var kept = plan.streams.filter(function(x){ return x.copy || (x.transcode && x.transcode !== 'none'); });
+  if (!kept.length) { alert('该音轨无法转换。'); return; }
+
+  window.activeAudioTrackIndex = track.index;
+  window.activeAudioTrackUrl = it.url;
+  closeAudioTracks();
+  startTranscode(it.url, plan, {cacheKey: 'A' + track.index + '_' + srcTag});
+}
+
+window.openAudioTracks = function(){
+  if (window.transcodeActive || currentTranscodeTimer) {
+    alert('已有转封装/音轨切换任务在执行，请等待完成或先取消。');
+    return;
+  }
+  var idx = currentIndex;
+  var it = listItems[idx];
+  if (!it || it.kind !== 'media') { alert('请先选择一个媒体文件'); return; }
+
+  var modal = document.getElementById('audio-track-modal');
+  var list = document.getElementById('audio-track-list');
+  var note = document.getElementById('audio-track-note');
+  modal.style.display = 'flex';
+  list.innerHTML = '<div class="at-msg">正在检测音轨...</div>';
+  note.textContent = '';
+  audioModalState = {idx: idx, data: null};
+
+  if (it.isHls || isHlsUrl(it.url)) {
+    if (hlsPlayer && hlsPlayer.audioTracks && hlsPlayer.audioTracks.length) {
+      renderHlsAudioTracks();
+    } else {
+      list.innerHTML = '<div class="at-msg">HLS 音轨信息尚未就绪：请先播放该流，等画面出现后再点“音轨”。</div>';
+    }
+    return;
+  }
+  if (it.isStream) {
+    list.innerHTML = '<div class="at-msg">直播/网络流不支持切换音轨。</div>';
+    return;
+  }
+
+  var cached = audioProbeCache[it.url];
+  if (cached) { renderAudioTracks(it, cached); return; }
+  if (currentFfprobeData && currentFfprobeUrl === it.url) {
+    audioProbeCache[it.url] = currentFfprobeData;
+    renderAudioTracks(it, currentFfprobeData);
+    return;
+  }
+
+  fetch('/cgi-bin/luci/dlna/ffprobe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'file=' + encodeURIComponent(it.url)
+  })
+  .then(function(r){ return r.text(); })
+  .then(function(text){
+    var data = null;
+    try { data = JSON.parse(text); } catch(e) { throw new Error('检测结果不是有效 JSON'); }
+    if (!data || data.error) throw new Error((data && data.error) || '检测失败');
+    if (idx !== currentIndex) return; // 用户已切到别的文件
+    audioProbeCache[it.url] = data;
+    currentFfprobeData = data;
+    currentFfprobeUrl = it.url;
+    renderAudioTracks(it, data);
+  })
+  .catch(function(e){
+    list.innerHTML = '<div class="at-msg" style="color:#f28b82;">音轨检测失败：' + esc(e.message) + '</div>';
+  });
+};
+
+(function bindAudioTrackButton(){
+  var btn = document.getElementById('audio-track-btn');
+  if (btn) btn.onclick = window.openAudioTracks;
+})();
 function fiFmtName(fmt, srcName){
   var n = fmt && (fmt.format_long_name || fmt.format_name);
   if(!n || /^unknown$/i.test(n)) n = guessContainer(srcName || '') || '';
@@ -2008,6 +2997,8 @@ if (fileInfoBtn) {
 document.getElementById('fi-container-sel').onchange = syncSubtitleCheckbox;
 
 videoEl.addEventListener('playing', function() {
+    hideMediaError();
+    if (window.transcodeActive) return;
     if (window.audioCheckTimeout) clearTimeout(window.audioCheckTimeout);
     var it = listItems[currentIndex];
     if (it && it.kind === 'media' && !it.isStream && !isAudioOnly(it.name) && !window.castOnlyMode) {
@@ -2029,15 +3020,19 @@ videoEl.addEventListener('playing', function() {
     }
 });
 
+function hideAudioTip() {
+    var el = document.getElementById('audio-tip');
+    if (el) el.style.display = 'none';
+}
 function showAudioUnsupportedTip() {
-    if (!window.hasShownAudioTip) {
-        window.hasShownAudioTip = true;
-        setTimeout(function(){
-            if(confirm('检测到当前视频音轨浏览器可能不支持（无声）。\n是否打开【检测文件信息】面板，转码为 H.264 + AAC 的 MP4（保留画面）播放？\n(注：转码后的文件将保存在源文件同目录)')) {
-                window.showFileInfo();
-            }
-        }, 500);
-    }
+    if (window.hasShownAudioTip) return;
+    window.hasShownAudioTip = true;
+    var el = document.getElementById('audio-tip');
+    if (!el) return;
+    el.textContent = '⚠️ 当前视频音轨可能不被浏览器支持（无声）。可在底部“🎧 音轨”切换，或用“检测文件信息以转码”。';
+    el.style.display = 'block';
+    if (window.audioTipTimer) clearTimeout(window.audioTipTimer);
+    window.audioTipTimer = setTimeout(hideAudioTip, 10000);
 }
 
 function playTranscodedAudio(fileUrl, aidx) {
@@ -2069,120 +3064,348 @@ function playTranscodedAudio(fileUrl, aidx) {
     }
     setNowPlaying('🎬', isTs ? '正在播放转码音轨（AAC）' : '正在播放转码版本（H.264 + AAC）', '转码', false);
     currentAudioTrackIdx = aidx;
+    window.transcodeActive = false;
+    hideTranscodePanel();
 }
 
 var currentTranscodeTimer = null;
 var currentTranscodeToken = "";
 var currentTranscodeNewUrl = "";
+var currentTranscodeSource = "";
+var currentTranscodeUpdated = 0;
+var transcodeRestorePromise = null;
+window.transcodeActive = false;
+
+function basenameOf(u){
+  if(!u) return '';
+  var s=String(u).split('?')[0].split('#')[0].replace(/\/+$/,'');
+  var i=s.lastIndexOf('/');
+  s=i>=0?s.slice(i+1):s;
+  try{return decodeURIComponent(s)}catch(e){return s}
+}
+// 记住“已确认到哪个时间点”，避免刷新后反复弹出更早的已完成任务
+function isTranscodeAcked(task){
+  try{
+    var at=parseFloat(localStorage.getItem('nm_transcode_ack_at')||'0')||0;
+    return at>0 && (task.updated||0)<=at;
+  }catch(e){return false}
+}
+function ackTranscode(){
+  try{
+    var at=Math.floor(Date.now()/1000);
+    var upd=parseFloat(currentTranscodeUpdated)||0;
+    if(upd>=at) at=Math.ceil(upd)+1;
+    localStorage.setItem('nm_transcode_ack_at',String(at));
+  }catch(e){}
+}
+function stopTranscodePolling(){
+  if(currentTranscodeTimer){clearInterval(currentTranscodeTimer);currentTranscodeTimer=null}
+}
+function hideTranscodePanel(){
+  stopTranscodePolling();
+  var box=document.getElementById('extract-progress-container');
+  if(box) box.style.display='none';
+}
+function showTranscodeError(msg){
+  var el=document.getElementById('extract-error');
+  if(!el) return;
+  el.style.display='block';
+  el.textContent='错误信息：'+String(msg||'').slice(-600);
+}
+function setTranscodePanel(fileUrl,opts){
+  opts=opts||{};
+  var box=document.getElementById('extract-progress-container');
+  if(!box) return;
+  box.style.display='block';
+  var title=document.getElementById('extract-title');
+  var fileEl=document.getElementById('extract-file');
+  var errEl=document.getElementById('extract-error');
+  var cancel=document.getElementById('cancel-transcode-btn');
+  var play=document.getElementById('play-transcoded-btn');
+  var close=document.getElementById('close-transcode-btn');
+  if(title) title.textContent=opts.done?'✅ 转封装完成':(opts.error?'❌ 转封装失败':'正在转封装 / 转码');
+  if(fileEl) fileEl.textContent=fileUrl?('源文件：'+basenameOf(fileUrl)):'';
+  if(errEl && !opts.error){errEl.style.display='none';errEl.textContent=''}
+  if(cancel) cancel.style.display=(opts.done||opts.error)?'none':'';
+  if(play) play.style.display=opts.done?'':'none';
+  if(close) close.style.display=(opts.done||opts.error)?'':'none';
+  if(opts.starting){
+    var bar=document.getElementById('extract-progress-bar');
+    var pct=document.getElementById('extract-progress-percent');
+    var spd=document.getElementById('extract-speed');
+    var load=document.getElementById('extract-load');
+    var tim=document.getElementById('extract-time');
+    if(bar) bar.style.width='0%';
+    if(pct) pct.innerText='启动中...';
+    if(spd) spd.innerText='0x';
+    if(load) load.innerText='0.00';
+    if(tim) tim.innerText='已处理: 00:00:00';
+  }
+}
+function renderTranscodeProgress(data,duration){
+  data=data||{};
+  var bar=document.getElementById('extract-progress-bar');
+  var pctEl=document.getElementById('extract-progress-percent');
+  var speedEl=document.getElementById('extract-speed');
+  var loadEl=document.getElementById('extract-load');
+  var timeEl=document.getElementById('extract-time');
+  if(!bar) return -1;
+
+  var percent=-1;
+  if(typeof data.percent==='number' && data.percent>=0) percent=data.percent;
+  else if(duration>0 && data.out_time_us) percent=Math.min(99,Math.floor((data.out_time_us/1000000/duration)*100));
+  if(data.status==='done' || data.status==='finalizing') percent=100;
+
+  if(data.status==='starting'){
+    bar.style.width='10%';
+    if(pctEl) pctEl.innerText='启动中...';
+  } else if(data.status==='finalizing'){
+    bar.style.width='100%';
+    if(pctEl) pctEl.innerText='正在完成文件...';
+  } else if(percent>=0){
+    bar.style.width=percent+'%';
+    if(pctEl) pctEl.innerText=percent+'%';
+  } else {
+    bar.style.width='50%';
+    if(pctEl) pctEl.innerText='处理中...';
+  }
+  if(speedEl && data.speed) speedEl.innerText=data.speed;
+  if(loadEl && data.load) loadEl.innerText=data.load;
+  if(data.status==='finalizing'){
+    if(timeEl) timeEl.innerText='正在补齐 MP4 索引（大文件可能几十秒）...';
+  } else if(timeEl && data.out_time_us){
+    var line='已处理: '+formatTime(data.out_time_us/1000000);
+    if(data.total_size) line+='　已写入: '+formatSize(data.total_size);
+    timeEl.innerText=line;
+  }
+  return percent;
+}
 
 document.getElementById('cancel-transcode-btn').onclick = function() {
-    if (currentTranscodeTimer) clearInterval(currentTranscodeTimer);
-    document.getElementById('extract-progress-container').style.display = 'none';
-    
+    if (!confirm('确定取消当前转封装任务吗？所生成的临时文件会被删除。')) return;
+    var token=currentTranscodeToken;
+    var newUrl=currentTranscodeNewUrl;
+    var src=currentTranscodeSource;
+    hideTranscodePanel();
+    window.transcodeActive=false;
+    window.activeAudioTrackIndex=null;
+    window.activeAudioTrackUrl='';
+    currentTranscodeToken='';
+    currentTranscodeNewUrl='';
+    if(src) setNowPlaying('⏸',basenameOf(src),'已取消');
+    if(!token) return;
     fetch('/cgi-bin/luci/dlna/cancel_extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'token=' + encodeURIComponent(currentTranscodeToken) + '&new_url=' + encodeURIComponent(currentTranscodeNewUrl)
+        body: 'token=' + encodeURIComponent(token) + '&new_url=' + encodeURIComponent(newUrl)
     }).catch(function(){});
+    currentTranscodeSource='';
+};
+
+document.getElementById('close-transcode-btn').onclick = function() {
+    ackTranscode(currentTranscodeToken);
+    hideTranscodePanel();
+    window.transcodeActive=false;
+};
+document.getElementById('play-transcoded-btn').onclick = function() {
+    var url=currentTranscodeNewUrl;
+    ackTranscode(currentTranscodeToken);
+    hideTranscodePanel();
+    window.transcodeActive=false;
+    if(url) playTranscodedAudio(url,0);
 };
 
 function checkRunningTask(itUrl) {
+    if(window.transcodeActive || currentTranscodeTimer) return;
     fetch('/cgi-bin/luci/dlna/check_task', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'file=' + encodeURIComponent(itUrl)
     })
-    .then(r => r.json())
-    .then(res => {
-        if (res.status === 'found') {
-            currentTranscodeToken = res.token;
-            currentTranscodeNewUrl = res.new_file_url;
-            if (res.is_done) {
-                playTranscodedAudio(res.new_file_url, 0);
-            } else {
-                showProgressAndPoll(res.token, res.new_file_url, itUrl);
-            }
-        }
+    .then(function(r){return r.json()})
+    .then(function(res) {
+        if (res.status !== 'found') return;
+        currentTranscodeToken = res.token;
+        currentTranscodeNewUrl = res.new_file_url;
+        currentTranscodeSource = itUrl;
+        currentTranscodeUpdated = res.updated || 0;
+        // 已经在转封装这个文件，本地就没必要再无声播放原文件
+        window.transcodeActive=true;
+        try{videoEl.pause()}catch(e){}
+        showProgressAndPoll(res.token, res.new_file_url, itUrl, {
+            duration:res.duration,status:'running',percent:res.percent,
+            out_time_us:res.out_time_us,total_size:res.total_size,
+            speed:res.speed,load:res.load
+        });
     })
-    .catch(e => console.log('检查后台任务失败', e));
+    .catch(function(e){console.log('检查后台任务失败', e)});
 }
 
-function showProgressAndPoll(token, newUrl, originalUrl) {
-    var progContainer = document.getElementById('extract-progress-container');
-    var progBar = document.getElementById('extract-progress-bar');
-    var progPercent = document.getElementById('extract-progress-percent');
-    var progSpeed = document.getElementById('extract-speed');
-    var progLoad = document.getElementById('extract-load');
-    var progTime = document.getElementById('extract-time');
-    
-    if(progContainer) {
-        progContainer.style.display = 'block';
-        progBar.style.width = '0%';
-        progPercent.innerText = '启动中...';
-        progSpeed.innerText = '0x';
-        progLoad.innerText = '0.00';
-        progTime.innerText = '已处理: 00:00:00';
-    }
+// 轮询进度。seed.restore=true 表示是刷新/关闭网页后找回的任务：
+// 完成后只显示“播放转码结果”，不自动播放。
+function showProgressAndPoll(token,newUrl,originalUrl,seed){
+    seed=seed||{};
+    var restored=!!seed.restore;
+    var duration=parseFloat(seed.duration)||0;
+    if(!duration && currentFfprobeData && currentFfprobeData.format) duration=parseFloat(currentFfprobeData.format.duration)||0;
 
-    var duration = currentFfprobeData && currentFfprobeData.format ? parseFloat(currentFfprobeData.format.duration) : 0;
-    
-    if (currentTranscodeTimer) clearInterval(currentTranscodeTimer);
-    currentTranscodeTimer = setInterval(function(){
-        fetch('/cgi-bin/luci/dlna/get_progress?token=' + token)
-        .then(function(r) { return r.json(); })
-        .then(function(prog) {
-            if (prog.status === 'error') {
-                clearInterval(currentTranscodeTimer);
-                progContainer.style.display = 'none';
-                alert("转码失败: " + (prog.log || prog.message));
+    setTranscodePanel(originalUrl,{starting:!seed.status||seed.status==='starting',restore:restored});
+    if(seed.status && seed.status!=='starting') renderTranscodeProgress(seed,duration);
+
+    stopTranscodePolling();
+    var failures=0;
+    currentTranscodeTimer=setInterval(function(){
+        fetch('/cgi-bin/luci/dlna/get_progress?token='+encodeURIComponent(token),{cache:'no-store'})
+        .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
+        .then(function(prog){
+            failures=0;
+            if(!prog || prog.error) throw new Error((prog&&prog.error)||'返回为空');
+            if(prog.duration) duration=parseFloat(prog.duration)||duration;
+            if(prog.file) originalUrl=prog.file;
+            if(prog.new_file_url) newUrl=prog.new_file_url;
+            if(prog.updated) currentTranscodeUpdated=prog.updated;
+
+            if(prog.status==='error'){
+                stopTranscodePolling();
+                window.transcodeActive=false;
+                window.activeAudioTrackIndex=null;
+                window.activeAudioTrackUrl='';
+                setTranscodePanel(originalUrl,{error:true,restore:restored});
+                showTranscodeError(prog.log||prog.message||'FFmpeg 进程意外退出');
+                setNowPlaying('❌',basenameOf(originalUrl),'转封装失败');
                 return;
             }
-            
-            if(progContainer) {
-                if (prog.status === 'starting') {
-                    progPercent.innerText = '启动中...';
-                    progBar.style.width = '10%';
-                } else {
-                    var pct = 0;
-                    if (duration && prog.out_time_us) {
-                        pct = Math.min(99, Math.floor((prog.out_time_us / 1000000 / duration) * 100));
-                    } else if (prog.out_time_us) {
-                        pct = -1;
-                    }
-                    if (prog.status === 'done') pct = 100;
-                    
-                    if (pct >= 0) {
-                        progBar.style.width = pct + '%';
-                        progPercent.innerText = pct + '%';
-                    } else {
-                        progBar.style.width = '50%';
-                        progPercent.innerText = '处理中...';
-                    }
-                }
-                
-                if(prog.speed) progSpeed.innerText = prog.speed;
-                if(prog.load) progLoad.innerText = prog.load;
-                if(prog.out_time_us) {
-                    var line = '已处理: ' + formatTime(prog.out_time_us / 1000000);
-                    if(prog.total_size) line += '　已写入: ' + formatSize(prog.total_size);
-                    progTime.innerText = line;
-                }
-            }
 
-            if(prog.status === 'done' || (prog.out_time_us && duration && (prog.out_time_us / 1000000 / duration) >= 0.99)) {
-                clearInterval(currentTranscodeTimer);
-                if(progContainer) progContainer.style.display = 'none';
-                playTranscodedAudio(newUrl, 0);
+            renderTranscodeProgress(prog,duration);
+
+            if(prog.status==='done'){
+                stopTranscodePolling();
+                window.transcodeActive=false;
+                currentTranscodeNewUrl=newUrl||'';
+                if(restored){
+                    setTranscodePanel(originalUrl,{done:true,restore:true});
+                    renderTranscodeProgress({status:'done',percent:100,out_time_us:prog.out_time_us,total_size:prog.total_size,speed:prog.speed,load:prog.load},duration);
+                }else{
+                    ackTranscode(token);
+                    hideTranscodePanel();
+                    playTranscodedAudio(newUrl,0);
+                }
             }
         }).catch(function(e){
-            console.error(e);
+            failures++;
+            console.warn('读取转码进度失败',e);
+            var pctEl=document.getElementById('extract-progress-percent');
+            if(failures>=5 && pctEl) pctEl.innerText='连接中断，重试中...';
         });
-    }, 1000);
+    },1000);
 }
 
-function startTranscode(fileUrl, plan) {
+// 刷新/关闭网页后恢复任务：运行中的优先，其次是不久前完成且未确认过的
+function restoreTranscodeTasks(){
+    var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+    var timer=setTimeout(function(){if(ctrl){try{ctrl.abort()}catch(e){}}},8000);
+    var opts={cache:'no-store'};
+    if(ctrl) opts.signal=ctrl.signal;
+    return fetch('/cgi-bin/luci/dlna/tasks',opts)
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
+    .then(function(res){
+        clearTimeout(timer);
+        var tasks=(res&&res.tasks)||[];
+        var t=null,i;
+        for(i=0;i<tasks.length;i++){
+            if(tasks[i].status==='running'||tasks[i].status==='starting'||tasks[i].status==='finalizing'){t=tasks[i];break;}
+        }
+        if(!t){
+            for(i=0;i<tasks.length;i++){
+                if(tasks[i].status==='done' && !isTranscodeAcked(tasks[i])){t=tasks[i];break;}
+            }
+        }
+        if(!t){
+            for(i=0;i<tasks.length;i++){
+                if(tasks[i].status==='error' && !isTranscodeAcked(tasks[i])
+                   && (Date.now()/1000-(tasks[i].updated||0))<600){t=tasks[i];break;}
+            }
+        }
+        if(!t) return false;
+
+        currentTranscodeToken=t.token;
+        currentTranscodeNewUrl=t.new_file_url||'';
+        currentTranscodeSource=t.file||'';
+        currentTranscodeUpdated=t.updated||0;
+        var am=/[_-]TRANS_A(\d+)/i.exec(currentTranscodeNewUrl);
+        window.activeAudioTrackIndex=am?parseInt(am[1],10):null;
+        window.activeAudioTrackUrl=am?(t.file||''):'';
+
+        if(t.status==='done'){
+            setTranscodePanel(t.file,{done:true,restore:true});
+            renderTranscodeProgress({status:'done',percent:100,out_time_us:t.out_time_us,total_size:t.total_size,speed:t.speed,load:t.load},t.duration);
+            window.transcodeActive=false;
+            return false;
+        }
+        if(t.status==='error'){
+            setTranscodePanel(t.file,{error:true,restore:true});
+            showTranscodeError(t.log||t.message||'FFmpeg 进程意外退出');
+            setNowPlaying('❌',basenameOf(t.file),'转封装失败');
+            window.transcodeActive=false;
+            window.activeAudioTrackIndex=null;
+            window.activeAudioTrackUrl='';
+            return false;
+        }
+
+        window.transcodeActive=true;
+        setTranscodePanel(t.file,{starting:t.status==='starting',restore:true});
+        showProgressAndPoll(t.token,t.new_file_url,t.file,{
+            restore:true,
+            duration:t.duration,
+            status:t.status,
+            percent:t.percent,
+            out_time_us:t.out_time_us,
+            total_size:t.total_size,
+            speed:t.speed,
+            load:t.load
+        });
+        return true;
+    })
+    .catch(function(e){clearTimeout(timer);console.warn('恢复转封装任务失败：',e);return false});
+}
+
+function startTranscode(fileUrl, plan, opts) {
+  opts=opts||{};
+  if(!opts.cacheKey){
+    window.activeAudioTrackIndex=null;
+    window.activeAudioTrackUrl='';
+  }
+  var it=listItems[currentIndex];
+  var duration=0;
+  if(currentFfprobeData && currentFfprobeData.format
+     && (!currentFfprobeUrl || currentFfprobeUrl===fileUrl)){
+    duration=parseFloat(currentFfprobeData.format.duration)||0;
+  }
+
+  // ★ 转封装一开始就停止本地播放：原文件本来就无声，继续播放没有意义，
+  //   还会白白占用磁盘和网络。转封装完成后由 playTranscodedAudio 接管。
+  window.transcodeActive=true;
+  stopTranscodePolling();
+  try{videoEl.pause()}catch(e){}
+  destroyPlayer();
+  hideAllViews();
+  stopAudioBackground();
+  videoEl.style.display='block';
+  if(emptyEl) emptyEl.style.display='none';
+  if(it){
+    setNowPlaying('⏳',it.displayName||it.name,'转封装中');
+    setSize(it.size);
+    fillGuessedInfo(it.name);
+  }
+  currentTranscodeToken='';
+  currentTranscodeNewUrl='';
+  currentTranscodeSource=fileUrl;
+  setTranscodePanel(fileUrl,{starting:true});
+
   var body = 'file=' + encodeURIComponent(fileUrl)
-           + '&plan=' + encodeURIComponent(JSON.stringify(plan || { container: 'mp4', streams: [] }));
+           + '&plan=' + encodeURIComponent(JSON.stringify(plan || { container: 'mp4', streams: [] }))
+           + '&duration=' + encodeURIComponent(String(duration));
+  if(opts.cacheKey) body += '&cache_key=' + encodeURIComponent(opts.cacheKey);
   fetch('/cgi-bin/luci/dlna/extract_audio', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -2190,23 +3413,44 @@ function startTranscode(fileUrl, plan) {
   })
   .then(function(r){ return r.text(); })
   .then(function(text){
+    var res;
     try {
-      var res = JSON.parse(text);
-      if(res.status !== 'success') throw new Error(res.error || '未知错误');
-      console.log('[transcode] ffmpeg args:', res.args);
-      
-      currentTranscodeToken = res.token;
-      currentTranscodeNewUrl = res.new_file_url;
-      showProgressAndPoll(res.token, res.new_file_url, fileUrl);
-      
+      res = JSON.parse(text);
     } catch(e) {
-      alert("转码请求错误: " + text);
+      throw new Error('后端返回异常: ' + text.slice(0,200));
     }
+    if(res.status !== 'success') throw new Error(res.error || '未知错误');
+    console.log('[transcode] ffmpeg args:', res.args);
+
+    if(res.cached){
+      // 同一音轨之前已经生成过，直接播放，不再等待进度
+      console.log('[transcode] cache hit:', res.new_file_url);
+      window.transcodeActive=false;
+      currentTranscodeToken='';
+      currentTranscodeNewUrl=res.new_file_url;
+      hideTranscodePanel();
+      playTranscodedAudio(res.new_file_url,0);
+      return;
+    }
+
+    currentTranscodeToken = res.token;
+    currentTranscodeNewUrl = res.new_file_url;
+    showProgressAndPoll(res.token, res.new_file_url, fileUrl, {duration:duration});
+
   })
   .catch(function(e){
-    alert('请求后端失败: ' + e.message);
+    window.transcodeActive=false;
+    window.activeAudioTrackIndex=null;
+    window.activeAudioTrackUrl='';
+    setTranscodePanel(fileUrl,{error:true});
+    showTranscodeError(e.message);
+    setNowPlaying('❌',basenameOf(fileUrl),'转封装失败');
+    alert('转码请求失败: ' + e.message);
   });
 }
+
+// 页面加载时先找回后台任务；目录列表会等这个结果，避免转封装期间自动加载文件
+transcodeRestorePromise = restoreTranscodeTasks();
 
 })();
 </script>
