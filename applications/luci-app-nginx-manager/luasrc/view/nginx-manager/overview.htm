@@ -219,7 +219,7 @@ if http.getenv("REQUEST_METHOD") == "POST" then
         if not f then return "880", "/mnt" end
         local content = f:read("*a")
         f:close()
-        local port = content:match("listen%s+(%d+)%s+default_server") or "880"
+        local port = content:match("listen%s+(%d+)%s+default_server") or content:match("listen%s+(%d+)") or "880"
         local root_dir = "/mnt"
         local in_root = false
         for line in content:gmatch("[^\n]+") do
@@ -242,25 +242,38 @@ if http.getenv("REQUEST_METHOD") == "POST" then
         return string.format([[
 server {
     listen %s default_server;
-    listen [::]:%s default_server;
+    listen [::]:%s default_server ipv6only=on;
     server_name _lan;
 
-    location = /player.html { root /www; }
-    location = /caster.html { root /www; }
+    location = /player.html { root /www; add_header Cache-Control "no-store"; }
+    location = /caster.html {
+        root /www;
+        add_header Cache-Control "no-store";
+        add_header X-Frame-Options DENY;
+        add_header Content-Security-Policy "frame-ancestors 'none'";
+    }
     location = /mpegts.min.js { root /www; }
     location = /hls.min.js { root /www; }
 
-    location /cgi-bin/luci/ {
-        # 远程播放页从公网访问本机 880 时，浏览器会先发 CORS/PNA 预检
+    # 只给自动发现探针开放 CORS/PNA；其他投屏接口仍要求同源
+    location = /cgi-bin/luci/dlna/ping {
         if ($request_method = OPTIONS) {
             add_header Access-Control-Allow-Origin $http_origin always;
-            add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
-            add_header Access-Control-Allow-Headers "Content-Type" always;
+            add_header Access-Control-Allow-Methods "GET, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "*" always;
             add_header Access-Control-Allow-Private-Network "true" always;
             add_header Access-Control-Max-Age 600 always;
             add_header Vary "Origin" always;
             return 204;
         }
+        proxy_pass http://127.0.0.1:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /cgi-bin/luci/ {
+        # 投屏页与 API 同源；不再需要跨域/PNA 预检
         proxy_pass http://127.0.0.1:80;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -324,18 +337,20 @@ server {
             sys.exec("/etc/init.d/nginx-manager start >/dev/null 2>&1 &")
             if nixio.fs.access(bak_path) then
                 sys.exec("mv -f '" .. bak_path .. "' '" .. conf_path .. "'")
-            else
-                local conf = generate_media_conf("880", "/mnt")
-                local f = io.open(conf_path, "w")
-                if f then f:write(conf); f:close() end
             end
+            -- 恢复旧配置后统一重新生成，确保包含 IPv6 / no-store / 探针配置
+            local port, root_dir = get_current_media_config()
+            local conf = generate_media_conf(port, root_dir)
+            local f = io.open(conf_path, "w")
+            if f then f:write(conf); f:close() end
         else
+            local disabled_port = get_current_media_config()
             sys.exec("/etc/init.d/nginx-manager stop >/dev/null 2>&1 &")
             if nixio.fs.access(conf_path) then
                 sys.exec("mv -f '" .. conf_path .. "' '" .. bak_path .. "'")
             end
             local f = io.open(conf_path, "w")
-            if f then f:write("server { listen 880; return 444; }\n"); f:close() end
+            if f then f:write("server { listen " .. disabled_port .. "; return 444; }\n"); f:close() end
         end
         uci:set("nginx-manager", "server", "enabled", enabled)
         uci:commit("nginx-manager")
@@ -348,36 +363,19 @@ server {
         if not nixio.fs.access(log_path) then log_path = "/tmp/nginx-" .. log_type .. ".log" end
         sys.exec("echo -n > '" .. log_path .. "' 2>/dev/null")
 
-    elseif action == "save_dlna_agent" then
-        local enabled = (http.formvalue("agent_enabled") == "1") and "1" or "0"
-        local nokey = (http.formvalue("agent_nokey") == "1") and "1" or "0"
-        local key = (http.formvalue("dlna_key") or ""):gsub("%s", ""):gsub("[^%w%-_%.]", "")
-        local tmp = "/etc/nginx-manager-dlna.conf.tmp"
-        local f = io.open(tmp, "w")
-        if f then
-            f:write("agent=", enabled, "\n")
-            f:write("nokey=", nokey, "\n")
-            f:write("key=", key, "\n")
-            f:close()
-            os.rename(tmp, "/etc/nginx-manager-dlna.conf")
-        end
-        -- 旧数据库兼容；失败不影响文件配置
-        pcall(function()
-            if not uci:get("nginx-manager", "dlna") then
-                uci:section("nginx-manager", "dlna", "dlna")
-            end
-            uci:set("nginx-manager", "dlna", "agent", enabled)
-            uci:set("nginx-manager", "dlna", "nokey", nokey)
-            uci:set("nginx-manager", "dlna", "key", key)
-            uci:commit("nginx-manager")
-        end)
-
     elseif action == "regen_media_conf" then
-        -- 把最新的 CORS/OPTIONS 预检写进 880 的 media.conf
+        -- 把最新的 media.conf 写入 880 的配置；媒体服务已停止时保持停用，不偷偷启动
         local port, root_dir = get_current_media_config()
-        local conf = generate_media_conf(port, root_dir)
+        local enabled = uci:get("nginx-manager", "server", "enabled") or "1"
         local f = io.open(conf_path, "w")
-        if f then f:write(conf); f:close() end
+        if f then
+            if enabled == "0" then
+                f:write("server { listen " .. port .. "; return 444; }\n")
+            else
+                f:write(generate_media_conf(port, root_dir))
+            end
+            f:close()
+        end
         sys.exec("/etc/init.d/nginx reload")
     end
 
@@ -462,12 +460,14 @@ local server_enabled = uci:get("nginx-manager", "server", "enabled") or "1"
 -- 读取 media.conf 的端口和根目录
 local media_port = "880"
 local media_root = "/mnt"
+local media_ipv6 = false
 fh = io.open("/etc/nginx/conf.d/media.conf", "r")
 if fh then
     local content = fh:read("*a")
     fh:close()
     local p = content:match("listen%s+(%d+)%s+default_server")
     if p then media_port = p end
+    if content:match("listen%s+%[::%]") then media_ipv6 = true end
     local in_root = false
     for line in content:gmatch("[^\n]+") do
         if line:match("location%s+/%s*{") then in_root = true end
@@ -483,29 +483,17 @@ local uci_enable = "1"
 if uci_text:match("option%s+uci_enable%s+'true'") then uci_enable = "1"
 elseif uci_text:match("option%s+uci_enable%s+'false'") then uci_enable = "0" end
 
--- 远程投屏代理：允许另一个网络的播放页通过本机发现/控制电视
-local dlna_agent, dlna_key, dlna_nokey = "0", "", "0"
-local dlna_conf = io.open("/etc/nginx-manager-dlna.conf", "r")
-if dlna_conf then
-    for line in dlna_conf:lines() do
-        local k, v = line:match("^([%w_]+)=(.*)$")
-        if k == "agent" then dlna_agent = v
-        elseif k == "key" then dlna_key = v
-        elseif k == "nokey" then dlna_nokey = v end
-    end
-    dlna_conf:close()
+-- 本地投屏：只使用本机发现的 DLNA 设备，不再显示/代理远端设备，也不需要密钥。
+local dlna_host = http.getenv("HTTP_HOST") or ""
+local dlna_host_only = dlna_host:match("^%[([^%]]+)%]")
+if dlna_host_only then
+    dlna_host_only = "[" .. dlna_host_only .. "]"
 else
-    -- 兼容旧版本 UCI
-    dlna_agent = uci:get("nginx-manager", "dlna", "agent") or "0"
-    dlna_key = uci:get("nginx-manager", "dlna", "key") or ""
-    dlna_nokey = uci:get("nginx-manager", "dlna", "nokey") or "0"
+    dlna_host_only = dlna_host:gsub(":%d+$", "")
 end
-local dlna_agent_host = http.getenv("HTTP_HOST") or ""
 -- media.conf 的媒体端口是普通 HTTP，即使当前 LuCI 页面是 HTTPS 也不能用 https://...:880
-local dlna_agent_scheme = "http"
-local dlna_agent_host_only = dlna_agent_host:gsub(":%d+$", "")
-local dlna_agent_addr = (dlna_agent_host_only ~= "")
-    and (dlna_agent_scheme .. "://" .. dlna_agent_host_only .. ":" .. media_port) or ""
+local dlna_caster_url = (dlna_host_only ~= "")
+    and ("http://" .. dlna_host_only .. ":" .. media_port .. "/cgi-bin/luci/dlna/caster") or ""
 local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/dev/null 2>&1") == 0
 %>
 <%+header%>
@@ -602,65 +590,35 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
         </div>
     </div>
 
-    <!-- 3. 远程投屏代理 -->
+    <!-- 3. 本地投屏 -->
     <div class="nm-card" style="border-left: 4px solid #9b59b6;">
-        <div class="nm-head">📡 远程投屏代理</div>
-        <form method="post" onsubmit="return checkDlnaAgentForm(this)">
-            <input type="hidden" name="action" value="save_dlna_agent">
-            <div class="nm-row">
-                <div class="nm-label">启用代理</div>
-                <div class="nm-field">
-                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                        <input type="checkbox" name="agent_enabled" value="1" <% if dlna_agent == "1" then %>checked<% end %>>
-                        <span style="font-size:12.5px;">允许远程播放页通过本机发现/控制电视</span>
-                    </label>
-                </div>
+        <div class="nm-head">📺 本地投屏（DLNA）</div>
+        <div class="nm-row">
+            <div class="nm-label">发现服务</div>
+            <div class="nm-field">
+                <b style="color:<%= dlna_daemon_running and "#2ecc71" or "#e74c3c" %>;"><%= dlna_daemon_running and "运行中" or "未运行" %></b>
+                <span style="color:#8898aa;font-size:12px;">（媒体服务器总开关启动时会自动运行）</span>
             </div>
-            <div class="nm-row">
-                <div class="nm-label">无密钥模式</div>
-                <div class="nm-field">
-                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                        <input type="checkbox" name="agent_nokey" value="1" <% if dlna_nokey == "1" then %>checked<% end %>>
-                        <span style="font-size:12.5px;">仅可信局域网：不校验密钥（简化操作）</span>
-                    </label>
-                    <span style="color:#e67e22;font-size:11.5px;line-height:1.5;">⚠️ 开启后，你浏览器访问的任何网站都可能借它发现/控制你家电视。只在自己信任的网络里使用。</span>
-                </div>
+        </div>
+        <div class="nm-row">
+            <div class="nm-label">投屏控制页</div>
+            <div class="nm-field">
+                <span class="nm-ro" id="dlna-caster-url"><%= (dlna_caster_url ~= "") and dlna_caster_url or "请用局域网 IP 打开本页" %></span>
+                <button type="button" class="nm-btn" onclick="openDlnaCaster()">📺 打开</button>
+                <button type="button" class="nm-btn gray" onclick="copyDlnaCaster()">📋 复制</button>
+                <span style="color:#95a5b8;font-size:11.5px;">地址是媒体端口（默认 880）；复制后可粘贴到播放页“⚙ 投屏设置”</span>
             </div>
-            <div class="nm-row">
-                <div class="nm-label">控制密钥</div>
-                <div class="nm-field">
-                    <input type="text" id="dlna-key-input" name="dlna_key" value="<%= dlna_key %>" data-saved-key="<%= dlna_key %>" placeholder="有密钥模式填这里；无密钥模式可留空" style="width:260px;">
-                    <button type="button" class="nm-btn" onclick="genDlnaKey()">🎲 生成</button>
-                    <button type="submit" class="nm-btn">💾 保存</button>
-                    <button type="button" class="nm-btn gray" onclick="copyDlnaKey()">📋 复制密钥</button>
-                </div>
-            </div>
-            <div class="nm-row">
-                <div class="nm-label">本机代理地址</div>
-                <div class="nm-field">
-                    <span class="nm-ro" id="dlna-agent-addr"><%= (dlna_agent_addr ~= "") and dlna_agent_addr or "请用局域网 IP 打开本页" %></span>
-                    <button type="button" class="nm-btn gray" onclick="copyDlnaAddr()">📋 复制</button>
-                    <span style="color:#95a5b8;font-size:11.5px;">请用局域网 IP 打开本页；地址是媒体端口（默认 880），不是 LuCI 的 80 端口</span>
-                </div>
-            </div>
-            <div class="nm-row">
-                <div class="nm-label">发现服务</div>
-                <div class="nm-field">
-                    <b style="color:<%= dlna_daemon_running and "#2ecc71" or "#e74c3c" %>;"><%= dlna_daemon_running and "运行中" or "未运行" %></b>
-                    <span style="color:#8898aa;font-size:12px;">（媒体服务器总开关启动时会自动运行）</span>
-                </div>
-            </div>
-            <div class="nm-row" style="background:#fbfcfe;color:#95a5b8;font-size:12px;">
-                <span>💡 在远程媒体的播放页 → 📺 投屏 → ⚙ 投屏控制端，填入上面的地址和密钥。地址使用 880 媒体端口，需确保“媒体服务器总开关”为运行中。修改密钥后必须先点“保存”，再复制到播放页；播放页的密钥必须与这里完全一致。视频仍从远程服务器播放，只有 SSDP 发现和 SOAP 控制在本机执行。密钥用于防止其他网站偷偷控制你家电视；如果也使用本机播放页投屏，请把它的投屏控制端设为本地地址 + 同一密钥。</span>
-            </div>
-        </form>
+        </div>
+        <div class="nm-row" style="background:#fbfcfe;color:#95a5b8;font-size:12px;">
+            <span>💡 投屏只列出与本机同一局域网的 DLNA 电视，不再显示远端服务器所在网络的设备，也不需要密钥。播放页 → 📺 投屏 会自动发现本地投屏服务并打开这个控制页（需“媒体服务器总开关”为运行中）；只有在自动发现失败时，才需要在“⚙ 投屏设置”里手动填上面的地址。</span>
+        </div>
         <form method="post" style="margin:0;">
             <input type="hidden" name="action" value="regen_media_conf">
             <div class="nm-row">
                 <div class="nm-label">880 配置</div>
                 <div class="nm-field">
                     <button type="submit" class="nm-btn">🔄 重新生成媒体配置</button>
-                    <span style="color:#95a5b8;font-size:12px;">把 CORS/OPTIONS 预检写入 880 的 media.conf 并 reload（更新后点一次）</span>
+                    <span style="color:#95a5b8;font-size:12px;">写入最新的 media.conf 并 reload（升级后点一次）</span>
                 </div>
             </div>
         </form>
@@ -678,6 +636,22 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
                     <input type="number" name="new_port" value="<%= media_port %>" min="1" max="65535" style="width:120px;">
                     <button type="submit" class="nm-btn">💾 保存端口</button>
                     <button type="button" class="nm-btn green" onclick="openSite()">🌐 打开网站</button>
+                </div>
+            </div>
+        </form>
+
+        <form method="post" style="margin:0;">
+            <input type="hidden" name="action" value="regen_media_conf">
+            <div class="nm-row">
+                <div class="nm-label">IPv6 监听</div>
+                <div class="nm-field">
+                    <b style="color:<%= media_ipv6 and "#2ecc71" or "#e67e22" %>;"><%= media_ipv6 and ("已启用（listen [::]:" .. media_port .. "）") or "未启用" %></b>
+                    <% if server_enabled == "1" then %>
+                    <button type="submit" class="nm-btn">🔄 启用 / 更新 IPv6</button>
+                    <% else %>
+                    <span style="color:#e67e22;font-size:12px;">媒体服务器已停止，请先到上方“媒体服务器总开关”启动</span>
+                    <% end %>
+                    <span style="color:#8898aa;font-size:12px;">媒体站点同时监听 IPv4 和 IPv6；如仍无法访问，请检查防火墙和运营商 IPv6 前缀。</span>
                 </div>
             </div>
         </form>
@@ -779,8 +753,14 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
         document.getElementById('root-input').value = nmCur;
         closeBrowser();
     };
+    function nmUrlHost(host) {
+        host = String(host || '');
+        // 浏览器可能返回 [::1]，也可能返回 ::1；统一补上方括号
+        if (host.indexOf(':') !== -1 && host.charAt(0) !== '[') return '[' + host + ']';
+        return host;
+    }
     window.openSite = function() {
-        window.open('http://' + window.location.hostname + ':' + nmPort + '/', '_blank');
+        window.open('http://' + nmUrlHost(window.location.hostname) + ':' + nmPort + '/', '_blank');
     };
 
     function nmLoad(path) {
@@ -928,23 +908,8 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
     };
 
     // ---------------------------------------------------------------
-    // 远程投屏代理
+    // 本地投屏
     // ---------------------------------------------------------------
-    window.genDlnaKey = function() {
-        var bytes = new Uint8Array(12);
-        if (window.crypto && window.crypto.getRandomValues) {
-            window.crypto.getRandomValues(bytes);
-        } else {
-            for (var i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
-        }
-        var hex = '';
-        for (var j = 0; j < bytes.length; j++) {
-            var h = bytes[j].toString(16);
-            hex += h.length < 2 ? '0' + h : h;
-        }
-        document.getElementById('dlna-key-input').value = hex;
-    };
-
     function nmCopyText(text, label) {
         function legacyCopy() {
             var ta = document.createElement('textarea');
@@ -977,35 +942,24 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
         }
     }
 
-    window.copyDlnaAddr = function() {
-        var el = document.getElementById('dlna-agent-addr');
-        var text = el ? el.textContent.trim() : '';
-        if (!text || text.indexOf('请用') === 0) { alert('请先用局域网 IP 打开本页，再复制地址'); return; }
-        nmCopyText(text, '地址');
+    function dlnaCasterUrl() {
+        var el = document.getElementById('dlna-caster-url');
+        if (!el) return '';
+        var text = el.textContent.trim();
+        if (!text || text.indexOf('请用') === 0) return '';
+        return text;
+    }
+
+    window.openDlnaCaster = function() {
+        var url = dlnaCasterUrl();
+        if (!url) { alert('请先用局域网 IP 打开本页，再打开控制页'); return; }
+        window.open(url, '_blank');
     };
 
-    window.copyDlnaKey = function() {
-        var el = document.getElementById('dlna-key-input');
-        var key = el ? el.value.trim() : '';
-        if (!key) { alert('当前没有密钥（无密钥模式不需要；有密钥模式请先点“生成”）'); return; }
-        var saved = el.getAttribute('data-saved-key') || '';
-        if (key !== saved) {
-            alert('这个密钥还没保存：请先点“💾 保存”，页面刷新后再复制（否则播放页密钥会和本机不一致）');
-            return;
-        }
-        nmCopyText(key, '密钥');
-    };
-
-    window.checkDlnaAgentForm = function(form) {
-        var chk = form.querySelector('input[name="agent_enabled"]');
-        var nokeyEl = form.querySelector('input[name="agent_nokey"]');
-        var keyEl = document.getElementById('dlna-key-input');
-        var key = keyEl ? keyEl.value.trim() : '';
-        if (chk && chk.checked && !(nokeyEl && nokeyEl.checked) && key === '') {
-            alert('启用有密钥代理时必须填写控制密钥（可点“生成”）；或者勾选“无密钥模式”');
-            return false;
-        }
-        return true;
+    window.copyDlnaCaster = function() {
+        var url = dlnaCasterUrl();
+        if (!url) { alert('请先用局域网 IP 打开本页，再复制地址'); return; }
+        nmCopyText(url, '投屏控制页地址');
     };
 
     window.nmLoadNginxStatus();

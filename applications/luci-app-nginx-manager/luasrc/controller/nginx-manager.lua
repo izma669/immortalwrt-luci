@@ -3,6 +3,7 @@ module("luci.controller.nginx-manager", package.seeall)
 function index()
     entry({"admin", "services", "nginx-manager"}, template("nginx-manager/overview"), _("Nginx 管理器"), 30).leaf = true
 
+    entry({"dlna", "ping"}, call("dlna_ping")).leaf = true
     entry({"dlna", "discover"}, call("dlna_discover")).leaf = true
     entry({"dlna", "cast"}, call("dlna_cast")).leaf = true
     entry({"dlna", "probe"}, call("dlna_probe")).leaf = true
@@ -636,6 +637,7 @@ local function collect_task(token, meta_path, now)
         duration = duration,
         status = status,
         is_done = (status == "done"),
+        batch = (meta.batch == "1"),
         started = started,
         updated = updated,
         load = system_load(),
@@ -677,17 +679,64 @@ function dlna_extract_audio()
     local duration = tonumber(http.formvalue("duration")) or 0
     if duration < 0 then duration = 0 end
 
+    -- 音频导出格式：m4a / mp3 / wav。为空时保持原来的 plan/转封装逻辑。
+    local format = (http.formvalue("format") or ""):lower()
+    local prefix = http.formvalue("prefix") or ""
+    -- 文件名前缀：去掉控制字符和路径分隔符，限制长度
+    prefix = prefix:gsub("[%c/\\]", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    prefix = prefix:gsub("^%.+", "")  -- 避免生成隐藏文件
+    if #prefix > 120 then prefix = prefix:sub(1, 120) end
+    local audio_index = tonumber(http.formvalue("audio_index"))
+    if audio_index and audio_index < 0 then audio_index = nil end
+    local is_batch = (http.formvalue("batch") == "1") and "1" or "0"
+
     local container = "mp4"
     local args, nstream, plan_seen = nil, 0, false
     local has_video = false
+    local audio_only = (format == "m4a" or format == "mp3" or format == "wav")
 
-    local plan_raw = http.formvalue("plan")
-    if plan_raw and plan_raw ~= "" then
-        local ok, plan = pcall(function() return jsonc.parse(plan_raw) end)
-        if ok and type(plan) == "table" and type(plan.streams) == "table" then
-            plan_seen = true
-            if plan.container == "ts" then container = "ts" end
-            args, nstream, has_video = build_plan_args(plan, container)
+    if audio_only then
+        local map = audio_index and ("-map 0:" .. tostring(audio_index) .. "?") or "-map 0:a:0?"
+        if format == "m4a" then
+            container = "m4a"
+            args = map .. " -vn -c:a aac -b:a 192k -ac 2"
+        elseif format == "mp3" then
+            container = "mp3"
+            local enc = "libmp3lame"
+            if not has_encoder(enc) then
+                if has_encoder("libshine") then
+                    enc = "libshine"
+                else
+                    http.write(jsonc.stringify({ error = "系统 ffmpeg 未编译 MP3 编码器（libmp3lame/libshine）" }))
+                    return
+                end
+            end
+            args = map .. " -vn -c:a " .. enc .. " -b:a 192k -ac 2"
+        else
+            container = "wav"
+            args = map .. " -vn -c:a pcm_s16le"
+        end
+        nstream = 1
+        plan_seen = true
+        -- 批量转码没有现成时长，补一次 ffprobe 方便显示百分比/估算 WAV 体积
+        if duration <= 0 then
+            local pout = probe_with_ffprobe(path)
+            if pout then
+                local pok, pdata = pcall(function() return jsonc.parse(pout) end)
+                if pok and type(pdata) == "table" and type(pdata.format) == "table" then
+                    duration = tonumber(pdata.format.duration) or 0
+                end
+            end
+        end
+    else
+        local plan_raw = http.formvalue("plan")
+        if plan_raw and plan_raw ~= "" then
+            local ok, plan = pcall(function() return jsonc.parse(plan_raw) end)
+            if ok and type(plan) == "table" and type(plan.streams) == "table" then
+                plan_seen = true
+                if plan.container == "ts" then container = "ts" end
+                args, nstream, has_video = build_plan_args(plan, container)
+            end
         end
     end
 
@@ -703,7 +752,13 @@ function dlna_extract_audio()
         has_video = true
     end
 
-    local ext = (container == "ts") and ".ts" or ".mp4"
+    local ext
+    if container == "ts" then ext = ".ts"
+    elseif container == "m4a" then ext = ".m4a"
+    elseif container == "mp3" then ext = ".mp3"
+    elseif container == "wav" then ext = ".wav"
+    else ext = ".mp4" end
+
     local dir = path:match("^(.*)/[^/]+$") or "/mnt"
     local orig_name = path:match("([^/]+)$") or "media"
     local base_name = orig_name:gsub("%.[^.]+$", ""):gsub("[%c/]", "_")
@@ -713,17 +768,14 @@ function dlna_extract_audio()
     -- 普通转封装仍然每次生成新文件（带 token）。
     local cache_key = (http.formvalue("cache_key") or ""):gsub("[^%w_]", "")
     if #cache_key > 24 then cache_key = cache_key:sub(1, 24) end
-    local new_name
-    if cache_key ~= "" then
-        new_name = base_name .. "_TRANS_" .. cache_key .. ext
-    else
-        new_name = base_name .. "_TRANS_" .. token .. ext
-    end
+    local suffix = (cache_key ~= "") and cache_key or token
+    local new_name = prefix .. base_name .. "_TRANS_" .. suffix .. ext
     local out_file = dir .. "/" .. new_name
     -- 极端情况：源文件本身就叫 xxx_TRANS_A2.mp4，避免把源文件当成缓存输出
     if cache_key ~= "" and out_file == path then
         cache_key = ""
-        new_name = base_name .. "_TRANS_" .. token .. ext
+        suffix = token
+        new_name = prefix .. base_name .. "_TRANS_" .. suffix .. ext
         out_file = dir .. "/" .. new_name
     end
     -- ffmpeg 先写隐藏的 .part，成功后再原子改名，避免播放器读到半成品，
@@ -755,6 +807,14 @@ function dlna_extract_audio()
     local sstat = nfs.stat(path)
     if sstat then src_size = tonumber(sstat.size) or 0 end
     local need = has_video and (src_size * 1.05 + 64 * 1024 * 1024) or (128 * 1024 * 1024)
+    if container == "wav" then
+        if duration > 0 then
+            -- 48kHz/16bit/2ch 约 192KB/s，再加 16MB 余量
+            need = duration * 192000 * 1.05 + 16 * 1024 * 1024
+        else
+            need = 512 * 1024 * 1024
+        end
+    end
     local vfs = nfs.statvfs and nfs.statvfs(dir) or nil
     if vfs then
         local frsize = tonumber(vfs.frsize or vfs.bsize)
@@ -815,6 +875,7 @@ function dlna_extract_audio()
         mf:write("out_path=", out_file, "\n")
         mf:write("part_path=", part_file, "\n")
         mf:write("cache_key=", cache_key, "\n")
+        mf:write("batch=", is_batch, "\n")
         mf:close()
     end
 
@@ -823,6 +884,12 @@ function dlna_extract_audio()
     local tail
     if container == "ts" then
         tail = "-f mpegts"
+    elseif container == "mp3" then
+        tail = "-f mp3"
+    elseif container == "wav" then
+        tail = "-f wav"
+    elseif container == "m4a" then
+        tail = "-avoid_negative_ts make_zero -movflags +faststart -f ipod"
     else
         tail = "-avoid_negative_ts make_zero -movflags +faststart -f mp4"
     end
@@ -969,75 +1036,107 @@ end
 -- DLNA
 -------------------------------------------------------------------------------
 
-local DLNA_AGENT_FILE = "/etc/nginx-manager-dlna.conf"
-
-local function read_dlna_agent_file()
-    local f = io.open(DLNA_AGENT_FILE, "r")
-    if not f then return nil end
-    local t = {}
-    for line in f:lines() do
-        local k, v = line:match("^([%w_]+)=(.*)$")
-        if k then t[k] = v end
-    end
-    f:close()
-    return t
+-- 本地投屏：只接受来自局域网的请求，不再需要手动密钥。
+-- 安全边界：
+--   1) 客户端来源必须是私有地址（公网/WAN 直接访问一律拒绝）；
+--   2) 带 Origin 的浏览器请求必须同源，且 Host 是局域网地址，
+--      防止外部网页跨站偷发投屏/控制指令，也挡住 DNS rebinding。
+local function ip_is_private(ip)
+    if not ip or ip == "" then return false end
+    local mapped = ip:match("^::ffff:(%d+%.%d+%.%d+%.%d+)$")
+    if mapped then ip = mapped end
+    if ip == "127.0.0.1" or ip == "::1" then return true end
+    if ip:match("^10%.") or ip:match("^192%.168%.") or ip:match("^169%.254%.") then return true end
+    local second = tonumber(ip:match("^172%.(%d+)%."))
+    if second and second >= 16 and second <= 31 then return true end
+    if ip:match("^[fF][cCdD]") or ip:match("^[fF][eE][89abAB]") then return true end
+    return false
 end
 
--- 远程投屏代理：开启后，允许“另一个网络里的播放页”通过本机发现/控制电视。
--- 视频文件仍然从远程媒体服务器播放，本机只做发现和 SOAP 控制。
--- 配置优先读 /etc/nginx-manager-dlna.conf（比 UCI 更可靠），UCI 仅作旧数据兼容。
-local function dlna_agent_config()
-    local file = read_dlna_agent_file()
-    if file and file.agent then
-        return (file.agent == "1"), (file.key or ""), (file.nokey == "1")
+-- nginx 会把真实客户端地址放在 X-Real-IP / X-Forwarded-For；
+-- 只有请求确实来自本机反向代理时才信任这些头，避免直接访问 80 端口时伪造。
+local function dlna_client_ip()
+    local http = require "luci.http"
+    local raddr = http.getenv("REMOTE_ADDR") or ""
+    if raddr == "127.0.0.1" or raddr == "::1" then
+        local real = http.getenv("HTTP_X_REAL_IP") or ""
+        if real == "" then
+            -- X-Forwarded-For 由代理追加；取最后一跳（代理看到的真实客户端），
+            -- 避免客户端自己伪造前面的条目。
+            local xff = http.getenv("HTTP_X_FORWARDED_FOR") or ""
+            local last
+            for ip in xff:gmatch("[^,%s]+") do last = ip end
+            real = last or ""
+        end
+        if real ~= "" then return real end
     end
-
-    local ok, uci = pcall(require, "luci.model.uci")
-    if not ok or not uci then return false, "", false end
-    local ok2, cur = pcall(uci.cursor)
-    if not ok2 or not cur then return false, "", false end
-    return (cur:get("nginx-manager", "dlna", "agent") == "1"),
-        (cur:get("nginx-manager", "dlna", "key") or ""),
-        (cur:get("nginx-manager", "dlna", "nokey") == "1")
+    return raddr
 end
 
--- 只对“代理模式”要求密钥，并返回 CORS 头。
--- 代理模式开启后，即使本机页面也要带密钥，避免被直接 HTTP 请求或 DNS rebinding 绕过。
+-- 去掉端口和 IPv6 方括号，便于比较 Origin 与 Host
+local function normalize_host(host)
+    host = (host or ""):lower()
+    local bracketed = host:match("^%[([^%]]+)%]")
+    if bracketed then return bracketed end
+    -- 多于一个冒号按 IPv6 处理，不把最后一段误当端口
+    local _, colons = host:gsub(":", "")
+    if colons <= 1 then host = host:gsub(":%d+$", "") end
+    return host
+end
+
+local function host_is_lan(host)
+    if not host or host == "" then return false end
+    host = normalize_host(host)
+    if host == "localhost" or host == "::1" then return true end
+    if host:match("^%d+%.%d+%.%d+%.%d+$") then return ip_is_private(host) end
+    -- 带冒号的是 IPv6，只接受回环/ULA/链路本地
+    if host:find(":", 1, true) then return ip_is_private(host) end
+    if host:match("^[^.]+$") then return true end
+    return host:match("%.local$") ~= nil or host:match("%.lan$") ~= nil
+        or host:match("%.home$") ~= nil or host:match("%.internal$") ~= nil
+        or host:match("%.home%.arpa$") ~= nil
+end
+
+local function url_is_lan(url)
+    url = tostring(url or "")
+    local host = url:match("^https?://(%[[^%]]+%])") or url:match("^https?://([^/:]+)")
+    if not host then return false end
+    return host_is_lan(host)
+end
+
+local function dlna_require_post()
+    local http = require "luci.http"
+    if http.getenv("REQUEST_METHOD") ~= "POST" then
+        http.status(405, "Method Not Allowed")
+        http.header("Allow", "POST")
+        http.prepare_content("application/json")
+        http.write('{"status":"error","message":"请使用 POST 请求"}')
+        return false
+    end
+    return true
+end
+
 local function dlna_api_guard()
     local http = require "luci.http"
-    local agent, key, nokey = dlna_agent_config()
-    if not agent then return true end
+    local function deny(msg)
+        http.status(403, "Forbidden")
+        http.prepare_content("application/json")
+        http.write('{"status":"error","message":"' .. msg .. '"}')
+        return false
+    end
+
+    if not ip_is_private(dlna_client_ip()) then
+        return deny("投屏接口仅限本地局域网访问")
+    end
 
     local origin = http.getenv("HTTP_ORIGIN") or ""
-    if origin:match("^https?://") then
-        http.header("Access-Control-Allow-Origin", origin)
-        http.header("Vary", "Origin")
-        http.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        http.header("Access-Control-Allow-Headers", "Content-Type")
-        -- Chrome 的 Private Network Access：公网页面访问 192.168.x.x 时需要这个头
-        http.header("Access-Control-Allow-Private-Network", "true")
-        http.header("Access-Control-Max-Age", "600")
-    end
-
-    if http.getenv("REQUEST_METHOD") == "OPTIONS" then
-        http.status(204, "No Content")
-        return false
-    end
-
-    -- 无密钥模式：用户明确接受风险（仅可信局域网）
-    if nokey then return true end
-
-    if key == "" then
-        http.status(403, "Forbidden")
-        http.prepare_content("application/json")
-        http.write('{"status":"error","message":"本机未配置远程投屏密钥，请到 LuCI 的“远程投屏代理”里设置"}')
-        return false
-    end
-    if (http.formvalue("key") or "") ~= key then
-        http.status(403, "Forbidden")
-        http.prepare_content("application/json")
-        http.write('{"status":"error","message":"远程投屏密钥不正确"}')
-        return false
+    if origin ~= "" then
+        local ohost = origin:match("^https?://([^/]+)$")
+        local hhost = http.getenv("HTTP_HOST") or ""
+        if not ohost or not host_is_lan(ohost) or not host_is_lan(hhost)
+            or normalize_host(ohost) ~= normalize_host(hhost) then
+            return deny("拒绝跨站投屏请求")
+        end
     end
     return true
 end
@@ -1080,19 +1179,99 @@ function dlna_discover()
         local ok, arr = pcall(function() return require("luci.jsonc").parse(content) end)
         if ok and type(arr) == "table" then
             for _, d in ipairs(arr) do
-                if type(d) == "table" and d.url and d.name then
+                -- 只返回局域网设备：缓存里可能残留旧版本从远端收到的 SSDP 结果
+                if type(d) == "table" and d.url and d.name and url_is_lan(d.url) then
                     table.insert(devices, { name = d.name, control_url = d.url })
                 end
             end
         else
             -- 兼容旧守护进程写出的非标准顺序 JSON
             for url, name in content:gmatch('"url":"(.-)","name":"(.-)"') do
-                table.insert(devices, { name = name, control_url = url })
+                if url_is_lan(url) then
+                    table.insert(devices, { name = name, control_url = url })
+                end
             end
         end
     end
     http.prepare_content("application/json")
-    http.write_json(devices)
+    -- 空 Lua 表在某些 jsonc 版本里会编码成 {}，这里明确返回数组
+    if #devices == 0 then
+        http.write("[]")
+    else
+        http.write_json(devices)
+    end
+end
+
+-- 自动发现用的轻量探针：返回固定标记、本地设备数量和本机 LAN IPv4，
+-- 不返回设备名/控制地址。只开放这一个接口的 CORS/PNA，供远程播放页
+-- 从浏览器里探测本地路由器；真正的投屏/控制仍然要求同源、私网来源和 POST。
+local function dlna_lan_ipv4()
+    -- UCI 的 LAN 地址最可靠；没有再退回接口枚举里的 br-lan
+    local ok3, uci = pcall(require, "luci.model.uci")
+    if ok3 and uci then
+        local ok4, cur = pcall(uci.cursor)
+        if ok4 and cur then
+            local ip = cur:get("network", "lan", "ipaddr")
+            if ip and ip:match("^%d+%.%d+%.%d+%.%d+$") then return ip end
+        end
+    end
+    local ok, nixio = pcall(require, "nixio")
+    if ok and nixio and nixio.getifaddrs then
+        local ok2, ifs = pcall(nixio.getifaddrs)
+        if ok2 and type(ifs) == "table" then
+            local fallback
+            for _, ifa in ipairs(ifs) do
+                local name = ifa.name or ""
+                local addr = ifa.addr or ""
+                if ifa.family == "inet" and name ~= "lo" and addr:match("^%d+%.%d+%.%d+%.%d+$") then
+                    if name == "br-lan" or name:find("lan", 1, true) then return addr end
+                    if not fallback and ip_is_private(addr) then fallback = addr end
+                end
+            end
+            if fallback then return fallback end
+        end
+    end
+    return ""
+end
+
+function dlna_ping()
+    local http = require "luci.http"
+    local origin = http.getenv("HTTP_ORIGIN") or ""
+    if origin:match("^https?://[^/]+$") then
+        http.header("Access-Control-Allow-Origin", origin)
+        http.header("Vary", "Origin")
+    else
+        http.header("Access-Control-Allow-Origin", "*")
+    end
+    http.header("Access-Control-Allow-Methods", "GET, OPTIONS")
+    http.header("Access-Control-Allow-Headers", "*")
+    http.header("Access-Control-Allow-Private-Network", "true")
+    http.header("Access-Control-Max-Age", "600")
+    http.header("Cache-Control", "no-store")
+
+    if http.getenv("REQUEST_METHOD") == "OPTIONS" then
+        http.status(204, "No Content")
+        return
+    end
+
+    local count = 0
+    local f = io.open("/tmp/dlna_devices.json", "r")
+    if f then
+        local content = f:read("*a") or ""
+        f:close()
+        local ok, arr = pcall(function() return require("luci.jsonc").parse(content) end)
+        if ok and type(arr) == "table" then
+            for _, d in ipairs(arr) do
+                if type(d) == "table" and d.url and url_is_lan(d.url) then
+                    count = count + 1
+                end
+            end
+        end
+    end
+
+    http.prepare_content("application/json")
+    http.write('{"ok":true,"app":"nginx-manager","devices":' .. count
+        .. ',"lan_ip":"' .. dlna_lan_ipv4() .. '"}')
 end
 
 -- 手动输入电视 IP：向该 IP 单播 M-SEARCH，拿 LOCATION 后解析 AVTransport
@@ -1102,10 +1281,15 @@ function dlna_probe()
     local sys = require "luci.sys"
     http.prepare_content("application/json")
     if not dlna_api_guard() then return end
+    if not dlna_require_post() then return end
 
     local ip = (http.formvalue("ip") or ""):gsub("%s", "")
     if not ip:match("^%d+%.%d+%.%d+%.%d+$") then
         http.write('{"status":"error","message":"IP 格式不正确"}')
+        return
+    end
+    if not ip_is_private(ip) then
+        http.write('{"status":"error","message":"只支持本地局域网 IP"}')
         return
     end
 
@@ -1141,11 +1325,19 @@ function dlna_probe()
         return
     end
     loc = loc:gsub("%s+$", "")
+    if not url_is_lan(loc) then
+        http.write('{"status":"error","message":"设备返回的 LOCATION 不在本地局域网"}')
+        return
+    end
 
     local xml = sys.exec("curl -s --connect-timeout 2 --max-time 4 " .. shell_quote(loc))
     local ctrl, name = parse_upnp_device(xml, loc)
     if not ctrl then
         http.write('{"status":"error","message":"设备描述里没有找到 AVTransport 控制地址"}')
+        return
+    end
+    if not url_is_lan(ctrl) then
+        http.write('{"status":"error","message":"该设备返回的控制地址不在本地局域网"}')
         return
     end
     http.write(jsonc.stringify({ status = "success", control_url = ctrl, name = name }))
@@ -1155,9 +1347,11 @@ function dlna_cast()
     local http = require "luci.http"
     local sys = require "luci.sys"
     if not dlna_api_guard() then return end
+    if not dlna_require_post() then return end
     local control_url = http.formvalue("control_url") or ""
     local video_url = http.formvalue("video_url") or ""
     if control_url == "" or video_url == "" then http.write_json({ status = "error", message = "参数缺失" }); return end
+    if not url_is_lan(control_url) then http.write_json({ status = "error", message = "只支持本地局域网设备" }); return end
 
     local soap1 = string.format([[<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:SetAVTransportURI xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID><CurrentURI>%s</CurrentURI><CurrentURIMetaData></CurrentURIMetaData></u:SetAVTransportURI></s:Body></s:Envelope>]], video_url)
     local soap2 = [[<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:Play xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID><Speed>1</Speed></u:Play></s:Body></s:Envelope>]]
@@ -1316,6 +1510,18 @@ end
 -- 页面本身同源，里面的 /dlna/* 请求不会再触发 Chrome 的私网跨域限制。
 function dlna_caster()
     local http = require "luci.http"
+    http.header("X-Frame-Options", "DENY")
+    http.header("Content-Security-Policy", "frame-ancestors 'none'")
+    http.header("Cache-Control", "no-store")
+    if not ip_is_private(dlna_client_ip()) then
+        http.status(403, "Forbidden")
+        http.prepare_content("text/html; charset=utf-8")
+        http.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>仅限局域网</title></head>'
+            .. '<body style="background:#111;color:#eee;font-family:sans-serif;padding:30px;">'
+            .. '<h2>投屏页仅限局域网访问</h2>'
+            .. '<p>请在连接本地路由器的手机/电脑上打开投屏页。</p></body></html>')
+        return
+    end
     http.prepare_content("text/html; charset=utf-8")
     local f = io.open("/www/caster.html", "r")
     if f then
@@ -1325,7 +1531,7 @@ function dlna_caster()
         http.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>caster.html 未部署</title></head>'
             .. '<body style="background:#111;color:#eee;font-family:sans-serif;padding:30px;">'
             .. '<h2>caster.html 未部署</h2>'
-            .. '<p>请把 caster.html 复制到 B 路由器的 /www/caster.html，然后刷新本页。</p>'
+            .. '<p>请把 caster.html 复制到本地路由器的 /www/caster.html，然后刷新本页。</p>'
             .. '</body></html>')
     end
 end
@@ -1333,10 +1539,13 @@ end
 function dlna_control()
     local http = require "luci.http"
     local sys = require "luci.sys"
-    if not dlna_api_guard() then return end    local action = http.formvalue("action") or ""
+    if not dlna_api_guard() then return end
+    if not dlna_require_post() then return end
+    local action = http.formvalue("action") or ""
     local ctrl_url = http.formvalue("control_url") or ""
     local value = http.formvalue("value") or ""
     if action == "" or ctrl_url == "" then http.write_json({ status = "error", message = "参数缺失" }); return end
+    if not url_is_lan(ctrl_url) then http.write_json({ status = "error", message = "只支持本地局域网设备" }); return end
 
     local target_url = ctrl_url
     local soap = ""
@@ -1377,6 +1586,7 @@ function dlna_get_position()
     if not dlna_api_guard() then return end
     local ctrl_url = http.formvalue("control_url") or ""
     if ctrl_url == "" then http.write_json({ status = "error", message = "缺少 control_url" }); return end
+    if not url_is_lan(ctrl_url) then http.write_json({ status = "error", message = "只支持本地局域网设备" }); return end
 
     local soap = [[<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:GetPositionInfo xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID></u:GetPositionInfo></s:Body></s:Envelope>]]
     local cmd = string.format("curl -s -w '%%{http_code}' --connect-timeout 1 --max-time 2 -X POST '%s' -H 'Content-Type: text/xml; charset=\"utf-8\"' -H 'SOAPAction: \"urn:schemas-upnp-org:service:AVTransport:1#GetPositionInfo\"' -d '%s'", ctrl_url, soap:gsub("'", "'\\''"))
