@@ -51,11 +51,6 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 #main{flex:1 1 0;background:#000;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
 #video-wrap{flex:1 1 0;background:#000;display:flex;align-items:center;justify-content:center;position:relative;min-height:0;overflow:hidden}
 #video{width:100%;height:100%;object-fit:contain;background:#000;position:relative;z-index:2}
-#cast-overlay{display:none; position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.9); z-index:5; flex-direction:column; align-items:center; justify-content:center; gap:15px; color:#fff;}
-#cast-overlay .ico{font-size:56px;}
-#cast-overlay .msg{font-size:16px; color:#ddd;}
-#cast-overlay .name{font-size:13px; color:#4a9eff; padding:0 30px; text-align:center; word-break:break-all;}
-#cast-overlay .hint{font-size:12px; color:#666; margin-top:10px;}
 #video-wrap.audio-mode #video{position:absolute !important; left:-99999px !important; top:-99999px !important; width:10px !important; height:10px !important; opacity:0 !important; pointer-events:none !important; visibility:hidden !important;}
 #bg-rotator {position: absolute;top: 0; left: 0; right: 0; bottom: 0;pointer-events: none;z-index: 1;transform-origin: center center;background: #000;}
 #bg-rotator.swing {animation: bgSwing 8s ease-in-out infinite;}
@@ -125,17 +120,28 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 #mode-bar button.active{background:#1e3a5f;border-color:#4a9eff;color:#4a9eff}
 #dlna-cast-btn { margin-left: 10px; background: #1e3a5f; border-color: #4a9eff; color: #4a9eff; }
 #dlna-modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:99999; }
-#dlna-modal .box { background:#1a1a1a; border:1px solid #333; border-radius:12px; width:420px; max-width:92vw; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); }
+#dlna-modal .box { background:#1a1a1a; border:1px solid #333; border-radius:12px; width:420px; max-width:92vw; max-height:90vh; display:flex; flex-direction:column; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); overflow:hidden; }
 #dlna-modal .hdr { padding:16px 20px; background:#222; font-size:15px; color:#fff; border-bottom:1px solid #333; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:move; user-select:none; -webkit-user-select:none; touch-action:none; border-radius:12px 12px 0 0; }
 #dlna-modal .hdr::after { content:" ⋮⋮"; color:#666; font-size:12px; float:right; }
-#dlna-modal .lst { max-height:250px; overflow-y:auto; padding:10px; }
-#dlna-modal .it { padding:12px; cursor:pointer; background:#2a2a2a; margin-bottom:5px; border-radius:6px; color:#ddd; font-size:14px; display:flex; align-items:center; gap:10px; }
-#dlna-modal .it:hover { background:#1e3a5f; color:#4a9eff; }
+#dlna-modal .hdr, #dlna-modal .ftr { flex-shrink:0; }
+#dlna-modal .body { padding:16px 20px 6px; overflow-y:auto; }
+#dlna-modal .body .lbl { color:#9ecbff; font-size:12.5px; font-weight:600; margin-bottom:6px; }
+#dlna-modal .body input[type=text] { width:100%; padding:9px 11px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; font-size:13px; outline:none; box-sizing:border-box; }
+#dlna-modal .body input[type=text]:focus { border-color:#4a9eff; }
+#dlna-modal .body .hint { color:#888; font-size:11.5px; line-height:1.65; margin-top:9px; }
+#dlna-modal .body .st { color:#f1c40f; font-size:12px; line-height:1.6; margin-top:8px; min-height:16px; word-break:break-all; }
+#dlna-modal .body .st.ok { color:#7ee2a8; }
+#dlna-modal .body .st.err { color:#ff8a80; }
+#dlna-auto-retry, #dlna-agent-test { margin-top:9px; background:#2b3542; color:#9ecbff; border:1px solid #3a4757; border-radius:5px; padding:5px 10px; font-size:12px; cursor:pointer; font-family:inherit; }
+#dlna-auto-retry:hover, #dlna-agent-test:hover { background:#35455a; }
+#dlna-manual-save { margin:9px 0 0 6px; background:#2f9e44; color:#fff; border:none; border-radius:5px; padding:5px 12px; font-size:12px; cursor:pointer; font-family:inherit; }
+#dlna-manual-save:hover { background:#27ae60; }
+#dlna-manual summary { color:#8b98a8; font-size:12px; cursor:pointer; outline:none; }
+#dlna-manual[open] summary { color:#9ecbff; }
 #dlna-modal .ftr { padding:12px 20px; background:#222; border-top:1px solid #333; text-align:right; border-radius:0 0 12px 12px; }
 #dlna-modal .ftr button { background:#333; border:none; color:#ccc; padding:6px 16px; border-radius:6px; cursor:pointer; }
-#dlna-seek-bar {-webkit-appearance: none;appearance: none;background: #333;border-radius: 3px;height: 6px;outline: none;width: 100%;}
-#dlna-seek-bar::-webkit-slider-thumb {-webkit-appearance: none;appearance: none;width: 14px;height: 14px;background: #4a9eff;border-radius: 50%;cursor: pointer;}
-#dlna-seek-bar::-moz-range-thumb {width: 14px;height: 14px;background: #4a9eff;border-radius: 50%;cursor: pointer;border: none;}
+#dlna-modal .ftr button.primary { background:#2f9e44; color:#fff; }
+#dlna-modal .ftr button.test { float:left; background:#2b3542; color:#9ecbff; }
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-track{background:#151515}
 ::-webkit-scrollbar-thumb{background:#333;border-radius:4px}
@@ -156,6 +162,33 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 #file-info-modal .fi-chk input{width:14px; height:14px; accent-color:#4a9eff; cursor:pointer;}
 #file-info-modal .fi-sep{color:#777; margin:0 10px;}
 #file-info-modal .fi-trans{background:#111; color:#ddd; border:1px solid #444; border-radius:5px; padding:3px 6px; font-size:12px; outline:none;}
+
+#batch-modal{display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.72); z-index:99999; align-items:center; justify-content:center;}
+#batch-modal .ba-box{background:#1a1a1a; border:1px solid #333; border-radius:12px; width:92vw; max-width:720px; max-height:86vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.5);}
+#batch-modal .ba-hdr{padding:14px 20px; background:#222; color:#fff; font-size:15px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; flex-shrink:0;}
+#batch-modal .ba-hdr button{background:transparent;border:none;color:#aaa;font-size:20px;cursor:pointer;padding:0 5px;}
+#batch-modal .ba-toolbar{display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px 18px; background:#151515; border-bottom:1px solid #2a2a2a; font-size:12.5px; color:#ccc; flex-shrink:0;}
+#batch-modal .ba-toolbar label{display:inline-flex; align-items:center; gap:6px; cursor:pointer;}
+#batch-modal .ba-toolbar input[type=checkbox]{width:15px;height:15px;accent-color:#4a9eff;cursor:pointer;}
+#batch-modal .ba-list{flex:1; overflow-y:auto; padding:8px 12px; min-height:120px;}
+#batch-modal .ba-item{display:flex; align-items:center; gap:10px; padding:9px 10px; border-bottom:1px solid #252525; font-size:13px; color:#ddd; cursor:pointer;}
+#batch-modal .ba-item:hover{background:#202833;}
+#batch-modal .ba-item .nm{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+#batch-modal .ba-item .sz{color:#666; font-size:11px; flex-shrink:0;}
+#batch-modal .ba-item input{width:15px;height:15px;accent-color:#4a9eff;cursor:pointer;}
+#batch-modal .ba-options{display:flex; gap:14px; flex-wrap:wrap; align-items:center; padding:12px 18px; background:#181818; border-top:1px solid #2a2a2a; font-size:12.5px; color:#ccc; flex-shrink:0;}
+#batch-modal .ba-options select, #batch-modal .ba-options input[type=text]{padding:6px 8px; border-radius:5px; border:1px solid #444; background:#111; color:#fff; font-size:12.5px; outline:none;}
+#batch-modal .ba-options input[type=text]{width:150px;}
+#batch-modal .ba-progress{display:none; padding:12px 18px; background:#10151b; border-top:1px solid #2a2a2a; font-size:12.5px; color:#ccc; flex-shrink:0;}
+#batch-modal .ba-progress .bar-bg{height:8px; background:#333; border-radius:4px; overflow:hidden; margin:8px 0;}
+#batch-modal .ba-progress .bar{height:100%; width:0; background:linear-gradient(90deg,#1e3a5f,#4a9eff); transition:width .3s;}
+#batch-modal .ba-progress .detail{color:#8b98a8; font-size:11.5px; white-space:pre-wrap; word-break:break-all; max-height:72px; overflow:auto;}
+#batch-modal .ba-ftr{padding:12px 18px; background:#202020; border-top:1px solid #333; display:flex; justify-content:flex-end; gap:8px; flex-shrink:0;}
+#batch-modal .ba-ftr button{border:none;border-radius:6px;padding:7px 16px;font-size:12.5px;cursor:pointer;font-family:inherit;background:#333;color:#ccc;}
+#batch-modal .ba-ftr button.primary{background:#2f9e44;color:#fff;}
+#batch-modal .ba-ftr button:disabled{opacity:.5;cursor:not-allowed;}
+#batch-modal .ba-toolbar button{background:#2b3542;color:#9ecbff;border:1px solid #3a4757;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;}
+#batch-modal .ba-toolbar button:hover{background:#35455a;}
 
 #audio-track-modal{display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.75); z-index:99999; align-items:center; justify-content:center;}
 #audio-track-modal .at-box{background:#1a1a1a; border-radius:12px; width:90vw; max-width:560px; max-height:80vh; display:flex; flex-direction:column; border:1px solid #333; box-shadow:0 20px 60px rgba(0,0,0,.5);}
@@ -252,12 +285,6 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
           </div>
       </div>
 
-      <div id="cast-overlay">
-        <div class="ico">📺</div>
-        <div class="msg">正在投屏播放，画面在电视上</div>
-        <div class="name" id="cast-overlay-name"></div>
-        <div class="hint">关闭投屏弹窗即可恢复本地播放</div>
-      </div>
       <div id="bg-rotator">
         <img id="audio-bg" alt="">
         <img id="audio-bg2" alt="">
@@ -317,9 +344,10 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
         <button data-mode="repeat-one">单曲循环</button>
         <button data-mode="random">随机</button>
         <button type="button" id="dlna-cast-btn">📺 投屏</button>
-        <button type="button" id="dlna-settings-btn" title="投屏控制端设置">⚙ 投屏设置</button>
+        <button type="button" id="dlna-settings-btn" title="设置本地路由器地址">⚙ 投屏设置</button>
         <button type="button" id="audio-track-btn">🎧 音轨</button>
         <button type="button" id="file-info-btn">ℹ️ 检测文件信息以转码</button>
+        <button type="button" id="batch-audio-btn">📦 批量提取音频</button>
       </div>
       <span><span class="k">浏览器内核检测：</span><span class="v hl" id="i-browser" style="color:#4a9eff;font-weight:bold;">-</span></span>
     </div>
@@ -327,70 +355,71 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 </div>
 <div id="dlna-modal">
     <div class="box">
-        <div class="hdr" id="dlna-modal-title">📺 选择投屏设备</div>
-        <div id="dlna-agent-settings" style="display:none; padding:12px 20px; border-bottom:1px solid #333; background:#151515; font-size:12.5px; color:#ccc;">
-            <div style="color:#4a9eff;font-weight:600;margin-bottom:8px;">⚙ 投屏控制端</div>
-            <label style="display:flex;gap:8px;align-items:center;margin-bottom:6px;cursor:pointer;">
-                <input type="radio" name="dlna-agent-mode" value="server" checked> 跟随媒体服务器（默认）
-            </label>
-            <label style="display:flex;gap:8px;align-items:center;margin-bottom:10px;cursor:pointer;">
-                <input type="radio" name="dlna-agent-mode" value="local"> 本地投屏代理（跨宽带时用这个）
-            </label>
-            <div style="margin-bottom:8px;">
-                <div style="color:#888;margin-bottom:4px;">代理地址（本地路由器的 LuCI 地址）</div>
-                <input id="dlna-agent-url" type="text" placeholder="例如 http://192.168.0.254:880" style="width:100%; padding:7px 9px; border-radius:5px; border:1px solid #444; background:#111; color:#fff; font-size:12.5px;">
+        <div class="hdr" id="dlna-modal-title">📡 本地投屏</div>
+        <div class="body">
+            <div class="lbl">自动发现本地路由器</div>
+            <div id="dlna-auto-status" class="st">正在自动发现本地投屏服务…</div>
+            <div class="hint">
+                会尝试常见路由器地址和当前网段，通常几秒内完成；如果浏览器询问“是否允许访问本地网络”，请选择“允许”。<br>
+                只连接本地路由器发现的电视，不会显示媒体服务器所在网络的远端设备；不需要密钥。
             </div>
-            <div style="margin-bottom:10px;">
-                <div style="color:#888;margin-bottom:4px;">控制密钥（B 开启“无密钥模式”时可留空）</div>
-                <input id="dlna-agent-key" type="text" placeholder="有密钥模式粘贴 B 生成的密钥；无密钥模式留空" style="width:100%; padding:7px 9px; border-radius:5px; border:1px solid #444; background:#111; color:#fff; font-size:12.5px;">
-            </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <button type="button" onclick="saveDlnaAgent()" style="background:#2f9e44;border:none;color:#fff;padding:6px 14px;border-radius:5px;cursor:pointer;font-size:12px;">💾 保存</button>
-                <button type="button" onclick="openDlnaAgentTest()" style="background:#333;border:1px solid #555;color:#ccc;padding:6px 14px;border-radius:5px;cursor:pointer;font-size:12px;">🔗 打开测试地址</button>
-                <span id="dlna-agent-status" style="color:#f1c40f;font-size:11.5px;"></span>
-            </div>
-            <div style="margin-top:8px;color:#666;font-size:11px;line-height:1.5;">地址填 B 的局域网 IP + 媒体端口（通常 880，例如 http://192.168.0.254:880），并确认 B 的媒体服务已启动。B 开启“无密钥模式”时密钥可以留空；否则密钥必须与 B 上保存的一致。本地代理只负责发现/控制你家电视；视频仍然从当前媒体服务器的公网地址播放。Chrome 如果提示“访问本地网络”，请选择允许；被拦截时请改用同一局域网内的播放页或 Firefox。修改控制端后请重新投屏。</div>
-        </div>
-        <div class="lst" id="dlna-device-list" style="text-align:center; color:#888; padding:20px;">正在搜索...</div>
-        <div id="manual-ip-area" style="display:none; padding: 15px 20px; border-top: 1px solid #333; background: #151515;">
-            <div style="color:#f28b82; font-size:12px; margin-bottom:8px;">未自动发现设备，请手动输入电视IP：</div>
-            <div style="display:flex; gap:8px;">
-                <input type="text" id="manual-tv-ip" placeholder="例如: 192.168.0.120" style="flex:1; padding:8px 10px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; font-size:13px;">
-                <button type="button" onclick="manualCast()" style="margin:0;background:#2f9e44;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;">开始投屏</button>
-            </div>
-        </div>
-        <div id="dlna-control-panel" style="display:none; padding: 15px 20px; border-top: 1px solid #333; background: #151515;">
-            <div style="display:flex; gap:8px; justify-content:center; margin-bottom:8px; align-items:center;">
-                <button onclick="dlnaSkip(-60)" style="flex:1; background:#333; border:none; color:#fff; padding:8px 8px; border-radius:4px; cursor:pointer; font-size:13px;">⏪ 快退60s</button>
-                <button onclick="dlnaAction('play')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px;">▶ 播放</button>
-                <button onclick="dlnaAction('pause')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px;">⏸ 暂停</button>
-                <button onclick="dlnaSkip(60)" style="flex:1; background:#333; border:none; color:#fff; padding:8px 8px; border-radius:4px; cursor:pointer; font-size:13px;">⏩ 快进60s</button>
-            </div>
-            <div style="display:flex; gap:8px; justify-content:center; margin-bottom:12px; align-items:center;">
-                <button onclick="dlnaPrevNext('prev')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 10px; border-radius:4px; cursor:pointer; font-size:13px;">⏮ 上一曲</button>
-                <button onclick="dlnaAction('stop')" style="flex:1; background:#c0392b; border:none; color:#fff; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:13px;">⏹ 停止</button>
-                <button onclick="dlnaPrevNext('next')" style="flex:1; background:#333; border:none; color:#fff; padding:8px 10px; border-radius:4px; cursor:pointer; font-size:13px;">⏭ 下一曲</button>
-            </div>
-            <div style="margin-bottom:10px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                    <span id="dlna-seek-label" style="color:#4a9eff; font-size:13px; font-variant-numeric:tabular-nums;">00:00:00</span>
-                    <span id="dlna-duration-label" style="color:#ccc; font-size:12px;">总时长: --:--:--</span>
+            <button type="button" id="dlna-auto-retry" onclick="startDlnaAutoDiscover(true)">🔄 重新自动发现</button>
+            <details id="dlna-manual" style="margin-top:12px;">
+                <summary>自动发现失败？手动指定本地路由器地址</summary>
+                <div style="padding-top:10px;">
+                    <input id="dlna-agent-url" type="text" inputmode="url" placeholder="例如 http://192.168.0.254:880" autocomplete="off">
+                    <div class="hint">地址填本地路由器的局域网 IP + 媒体端口（通常 880），不是 LuCI 的 80 端口。</div>
+                    <div id="dlna-agent-status" class="st"></div>
+                    <button type="button" id="dlna-agent-test" onclick="openDlnaAgentTest()">🔗 测试这个地址</button>
+                    <button type="button" id="dlna-manual-save" onclick="saveDlnaAgent()">💾 保存并投屏</button>
                 </div>
-                <input type="range" id="dlna-seek-bar" min="0" max="100" value="0" step="1"
-                       oninput="window.isDlnaDragging=true; updateSeekDisplay(this.value);"
-                       onchange="window.isDlnaDragging=false; executeSeek(this.value);" style="width:100%;">
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:8px;">
-                <span style="color:#aaa; font-size:12px; flex-shrink:0;">音量 <span id="dlna-vol-val">50</span></span>
-                <input type="range" id="dlna-vol" min="0" max="100" value="50" style="flex:1; min-width:0;" oninput="document.getElementById('dlna-vol-val').innerText=this.value" onchange="dlnaControl('volume', this.value)">
-                <button id="dlna-mute-btn" onclick="toggleDlnaMute()" style="background:#333; border:none; color:#fff; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:12px; flex-shrink:0;">🔊 静音</button>
-            </div>
+            </details>
         </div>
         <div class="ftr">
-            <button onclick="toggleDlnaAgentSettings()" style="margin-right:auto;background:#333;">⚙ 投屏控制端</button>
-            <button onclick="closeDlnaModal()">取消</button>
+            <button type="button" onclick="closeDlnaSettings()">取消</button>
         </div>
     </div>
+</div>
+
+<div id="batch-modal">
+  <div class="ba-box">
+    <div class="ba-hdr">
+      <span>📦 批量提取音频</span>
+      <button type="button" onclick="closeBatchModal()">✕</button>
+    </div>
+    <div class="ba-toolbar">
+      <label><input type="checkbox" id="batch-select-all" onchange="batchSelectAll(this.checked)"> 全选当前目录</label>
+      <button type="button" onclick="batchInvert()">反选</button>
+      <span id="batch-count">已选 0 个</span>
+      <span style="color:#666;font-size:11.5px;">输出到源文件同目录，不会显示远端设备</span>
+    </div>
+    <div class="ba-list" id="batch-list"></div>
+    <div class="ba-options">
+      <label>输出格式：
+        <select id="batch-format">
+          <option value="m4a">M4A（AAC）</option>
+          <option value="mp3">MP3</option>
+          <option value="wav">WAV</option>
+        </select>
+      </label>
+      <label>文件名前缀：
+        <input type="text" id="batch-prefix" maxlength="40" placeholder="例如：转码_">
+      </label>
+      <span style="color:#777;font-size:11px;">文件名形如“前缀原名_TRANS_….扩展名”；WAV 不压缩，体积很大</span>
+    </div>
+    <div id="batch-progress" class="ba-progress">
+      <div id="batch-progress-text">准备中...</div>
+      <div class="bar-bg"><div class="bar" id="batch-progress-bar"></div></div>
+      <div class="detail" id="batch-progress-detail"></div>
+      <div style="margin-top:8px;">
+        <button type="button" id="batch-refresh-btn" onclick="location.reload()" style="display:none;background:#2b3542;color:#9ecbff;border:1px solid #3a4757;border-radius:5px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit;">🔄 刷新目录查看结果</button>
+      </div>
+    </div>
+    <div class="ba-ftr">
+      <button type="button" onclick="closeBatchModal()">关闭</button>
+      <button type="button" id="batch-start-btn" class="primary" onclick="startBatchAudio()">🚀 开始批量</button>
+    </div>
+  </div>
 </div>
 
 <div id="file-info-modal">
@@ -407,8 +436,17 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
             <option value="mp4">MP4（推荐）</option>
             <option value="ts">TS（MPEG-TS）</option>
         </select>
+        <span style="color:#aaa; font-size:13px; white-space:nowrap;">音频导出：</span>
+        <select id="fi-audio-format-sel" style="padding:6px 8px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; font-size:13px; outline:none;">
+            <option value="none">按上面的流选择</option>
+            <option value="m4a">M4A（AAC）</option>
+            <option value="mp3">MP3</option>
+            <option value="wav">WAV</option>
+        </select>
+        <span style="color:#aaa; font-size:13px; white-space:nowrap;">文件名前缀：</span>
+        <input id="fi-prefix-input" type="text" maxlength="40" placeholder="例如：转码_" style="padding:6px 8px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; font-size:13px; outline:none; width:130px;">
         <button type="button" id="fi-start-transcode-btn" style="margin-left:auto; background:#2f9e44; border:none; color:#fff; padding:8px 18px; border-radius:6px; cursor:pointer; font-size:13px; white-space:nowrap; font-weight:bold;">开始转封装</button>
-        <div style="flex-basis:100%; color:#666; font-size:11px; line-height:1.5;">勾选“复制”保留原轨；需要额外音轨时再选转码格式，可同时保留原轨 + 转一份 AAC。TS 容器不支持文本字幕。</div>
+        <div style="flex-basis:100%; color:#666; font-size:11px; line-height:1.5;">勾选“复制”保留原轨；需要额外音轨时再选转码格式，可同时保留原轨 + 转一份 AAC。选择“音频导出”后会忽略视频/字幕和输出容器，按勾选的音轨（未勾选则首条音轨）导出 M4A/MP3/WAV；TS 容器不支持文本字幕。</div>
     </div>
   </div>
 </div>
@@ -430,16 +468,17 @@ html,body{height:100%;background:#0d0d0d;color:#e0e0e0;
 <script>
 (function(){
 'use strict';
-var dlnaControlUrl = "";
 var DLNA_AGENT_BASE_KEY = 'dlna_agent_base';
-var DLNA_AGENT_KEY_KEY = 'dlna_agent_key';
 var dlnaPendingVideoUrl = '';
+var dlnaPendingTitle = '';
+// 投屏统一在本地路由器的独立页面完成，本页不再进入“仅投屏”模式。
+// 保留该标志给原有播放逻辑判断，始终为 false。
+window.castOnlyMode = false;
+window.__dragX = 0;
+window.__dragY = 0;
 
 function dlnaAgentBase() {
     try { return localStorage.getItem(DLNA_AGENT_BASE_KEY) || ''; } catch (e) { return ''; }
-}
-function dlnaAgentKey() {
-    try { return localStorage.getItem(DLNA_AGENT_KEY_KEY) || ''; } catch (e) { return ''; }
 }
 function normalizeAgentBase(raw) {
     var s = String(raw || '').trim();
@@ -447,37 +486,372 @@ function normalizeAgentBase(raw) {
     if (!/^https?:\/\//i.test(s)) s = 'http://' + s;
     try { return new URL(s).origin; } catch (e) { return ''; }
 }
-// 服务器模式：相对路径（当前媒体服务器）
-// 本地代理模式：绝对地址 + 密钥（本地路由器）
-function dlnaApiUrl(path, query) {
-    var base = dlnaAgentBase();
-    var key = dlnaAgentKey();
-    var url = (base ? base : '') + '/cgi-bin/luci/dlna/' + String(path).replace(/^\//, '');
-    var qs = [];
-    if (base && key) qs.push('key=' + encodeURIComponent(key));
-    if (query) qs.push(query);
-    return url + (qs.length ? '?' + qs.join('&') : '');
+// 当前页面本身是否就在局域网里（用于首次投屏时预填地址）
+function isLanHost(host) {
+    host = String(host || '').toLowerCase();
+    if (!host) return false;
+    if (host === 'localhost' || host === '::1') return true;
+    if (host.indexOf(':') !== -1) {
+        // IPv6：只把回环、ULA、链路本地当作本地地址
+        return /^\[?(::1|f[cd]|fe[89ab])/i.test(host);
+    }
+    if (/^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host) || /^169\.254\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host)) return true;
+    if (host.indexOf('.') === -1) return true;
+    return /\.(local|lan|home|internal)$/.test(host) || /\.home\.arpa$/.test(host);
 }
-function dlnaApiBody(extra) {
-    var base = dlnaAgentBase();
-    var key = dlnaAgentKey();
-    var body = extra || '';
-    if (base && key) body += (body ? '&' : '') + 'key=' + encodeURIComponent(key);
-    return body;
+function resolveCastBase() {
+    return normalizeAgentBase(dlnaAgentBase());
 }
-function dlnaAgentHint() {
-    return dlnaAgentBase()
-        ? '本地代理：' + dlnaAgentBase()
-        : '';
+function currentLanBase() {
+    return isLanHost(location.hostname) ? location.origin : '';
 }
-window.isDlnaDragging = false;
-window.dlnaIsPaused = false;
-window.isAutoSwitching = false;
-window.dlnaMuted = false;
-window.castOnlyMode = false;
-window.__dragX = 0;
-window.__dragY = 0;
-var lastVolume = 50;
+function isAllowedCastBase(base) {
+    try { return isLanHost(new URL(base).hostname); } catch (e) { return false; }
+}
+
+// ---------------------------------------------------------------------------
+// 本地投屏服务自动发现
+//   远程播放页需要先找到“家里的本地路由器”。浏览器不能读网关地址，
+//   所以这里按常见网关/主机名 + 当前网段做一轮并行探测：
+//   - 目标只开放 /dlna/ping 的 CORS/PNA，不泄露设备名；
+//   - 找到后把地址存进 localStorage，下次直接打开；
+//   - 探测失败才显示手动输入，正常使用不需要填 IP。
+// ---------------------------------------------------------------------------
+var dlnaDiscoverSeq = 0;
+var dlnaCastWin = null;
+var dlnaCastWinOpened = false;
+
+function setDlnaAutoStatus(text, cls) {
+    var el = document.getElementById('dlna-auto-status');
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = 'st ' + (cls || '');
+}
+
+function localCasterUrl(base, videoUrl, title) {
+    base = normalizeAgentBase(base);
+    if (!base || !isAllowedCastBase(base)) return '';
+    var caster = base.replace(/\/+$/, '') + '/cgi-bin/luci/dlna/caster?video=' + encodeURIComponent(videoUrl || '');
+    if (title) caster += '&title=' + encodeURIComponent(title);
+    return caster;
+}
+
+function writeDlnaLoading(win) {
+    if (!win) return;
+    try {
+        win.document.open();
+        win.document.write('<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
+            + '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+            + '<title>正在发现本地投屏服务</title><style>'
+            + 'html,body{margin:0;height:100%;background:#0f1216;color:#e6e6e6;'
+            + 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif}'
+            + 'body{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;text-align:center;padding:20px}'
+            + 'h2{font-size:18px;margin:0}p{color:#8b98a8;font-size:13px;line-height:1.7;margin:0}'
+            + 'button{margin-top:8px;background:#2b3542;color:#cfd8e3;border:1px solid #3a4757;'
+            + 'border-radius:6px;padding:7px 16px;font-size:13px;cursor:pointer;font-family:inherit}'
+            + '</style></head><body><div style="font-size:40px">📡</div>'
+            + '<h2>正在发现本地投屏服务…</h2>'
+            + '<p>如果浏览器询问是否允许访问本地网络，请选择“允许”。<br>发现后会自动打开电视列表。</p>'
+            + '<button onclick="try{if(window.opener)window.opener.closeDlnaSettings()}catch(e){};window.close()">取消投屏</button>'
+            + '</body></html>');
+        win.document.close();
+    } catch (e) {}
+}
+
+function writeDlnaFound(win, text) {
+    if (!win) return;
+    try {
+        win.document.open();
+        win.document.write('<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
+            + '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+            + '<title>已发现本地投屏服务</title><style>'
+            + 'html,body{margin:0;height:100%;background:#0f1216;color:#e6e6e6;'
+            + 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif}'
+            + 'body{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;text-align:center;padding:20px}'
+            + 'h2{font-size:18px;margin:0;color:#7ee2a8}p{color:#8b98a8;font-size:13px;line-height:1.7;margin:0}'
+            + '</style></head><body><div style="font-size:40px">✅</div>'
+            + '<h2>' + text + '</h2>'
+            + '<p>正在打开电视列表…</p>'
+            + '</body></html>');
+        win.document.close();
+    } catch (e) {}
+}
+
+function probeLocalCaster(base, timeoutMs) {
+    return new Promise(function(resolve) {
+        var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        var done = false;
+        var timer = setTimeout(function() {
+            if (done) return;
+            done = true;
+            try { if (ctrl) ctrl.abort(); } catch (e) {}
+            resolve(null);
+        }, timeoutMs || 800);
+        var opts = { mode: 'cors', cache: 'no-store' };
+        if (ctrl) opts.signal = ctrl.signal;
+        fetch(base.replace(/\/+$/, '') + '/cgi-bin/luci/dlna/ping', opts)
+            .then(function(r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function(j) {
+                if (done) return;
+                done = true;
+                clearTimeout(timer);
+                if (j && j.ok && j.app === 'nginx-manager') {
+                    resolve({
+                        base: base,
+                        devices: Number(j.devices) || 0,
+                        lan_ip: String(j.lan_ip || '')
+                    });
+                } else {
+                    resolve(null);
+                }
+            })
+            .catch(function() {
+                if (done) return;
+                done = true;
+                clearTimeout(timer);
+                resolve(null);
+            });
+    });
+}
+
+function getLocalIPv4s(timeoutMs) {
+    return new Promise(function(resolve) {
+        var ips = [];
+        if (typeof RTCPeerConnection === 'undefined') { resolve(ips); return; }
+        var pc;
+        try { pc = new RTCPeerConnection({ iceServers: [] }); } catch (e) { resolve(ips); return; }
+        var done = false;
+        function finish() {
+            if (done) return;
+            done = true;
+            try { pc.close(); } catch (e) {}
+            resolve(ips);
+        }
+        try {
+            pc.createDataChannel('dlna');
+            pc.onicecandidate = function(e) {
+                if (!e.candidate) { finish(); return; }
+                var m = e.candidate.candidate.match(/(\d{1,3}\.){3}\d{1,3}/);
+                if (m && ips.indexOf(m[0]) === -1) ips.push(m[0]);
+            };
+            pc.createOffer().then(function(o) { return pc.setLocalDescription(o); }).catch(finish);
+        } catch (e) { finish(); return; }
+        setTimeout(finish, timeoutMs || 700);
+    });
+}
+
+function candidateBases(extraIPs) {
+    var list = [], seen = {};
+    function addUrl(url) {
+        if (!url || seen[url]) return;
+        seen[url] = 1;
+        list.push(url);
+    }
+    function add(host, port) {
+        if (!host || !port) return;
+        addUrl('http://' + host + ':' + port);
+    }
+
+    var saved = resolveCastBase();
+    if (saved && isAllowedCastBase(saved)) addUrl(saved);
+
+    // 如果播放页本身就在局域网里，先试它所在的主机和同网段网关
+    var h = location.hostname;
+    if (isLanHost(h)) {
+        addUrl(location.origin);
+        var m = h.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}$/);
+        if (m) {
+            ['1', '254', '2', '3', '10'].forEach(function(x) {
+                add(m[1] + '.' + x, '880');
+                add(m[1] + '.' + x, '80');
+            });
+        }
+    }
+
+    // WebRTC 有时能拿到本机局域网 IPv4，用它补全当前网段的常见网关
+    (extraIPs || []).forEach(function(ip) {
+        if (!/^(10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip)) return;
+        var m = ip.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}$/);
+        if (!m) return;
+        ['1', '254', '2', '3', '10'].forEach(function(x) {
+            add(m[1] + '.' + x, '880');
+            add(m[1] + '.' + x, '80');
+        });
+    });
+
+    var gateways = [
+        '192.168.0.1', '192.168.1.1', '192.168.0.254', '192.168.1.254',
+        '192.168.2.1', '192.168.3.1', '192.168.10.1', '192.168.31.1',
+        '192.168.50.1', '192.168.100.1', '192.168.123.1',
+        '10.0.0.1', '10.0.1.1', '10.0.10.1', '10.1.1.1',
+        '172.16.0.1', '172.16.1.1'
+    ];
+    gateways.forEach(function(ip) { add(ip, '880'); });
+
+    var names = [
+        'openwrt.lan', 'openwrt.local', 'immortalwrt.lan', 'immortalwrt.local',
+        'lede.lan', 'router.lan', 'router.local', 'gateway.lan', 'gateway.local',
+        'luci.lan', 'router', 'gateway'
+    ];
+    names.forEach(function(n) { add(n, '880'); });
+
+    gateways.forEach(function(ip) { add(ip, '80'); });
+    names.forEach(function(n) { add(n, '80'); });
+    return list;
+}
+
+function runProbes(bases, concurrency, timeoutMs, seq) {
+    return new Promise(function(resolve) {
+        var next = 0, active = 0, settled = false, found = null;
+        function finish(result) {
+            if (settled) return;
+            settled = true;
+            resolve(result);
+        }
+        function launch() {
+            if (settled) return;
+            if (seq !== dlnaDiscoverSeq) { finish(null); return; }
+            while (active < concurrency && next < bases.length) {
+                var base = bases[next++];
+                active++;
+                (function(b) {
+                    probeLocalCaster(b, timeoutMs).catch(function() { return null; }).then(function(res) {
+                        active--;
+                        if (res && !found) {
+                            found = res;
+                            finish(res);
+                        } else if (next >= bases.length && active === 0) {
+                            finish(null);
+                        } else {
+                            launch();
+                        }
+                    });
+                })(base);
+            }
+            if (next >= bases.length && active === 0) finish(null);
+        }
+        launch();
+    });
+}
+
+function startDlnaAutoDiscover(manualRetry) {
+    var seq = ++dlnaDiscoverSeq;
+    var manual = document.getElementById('dlna-manual');
+    if (manual && manualRetry) manual.open = false;
+    if (manualRetry && dlnaPendingVideoUrl) {
+        // 重新自动发现时重新同步开一个空白页，避免成功后被弹窗拦截
+        if (dlnaCastWin && !dlnaCastWin.closed) {
+            try { dlnaCastWin.close(); } catch (e) {}
+        }
+        dlnaCastWin = null;
+        dlnaCastWinOpened = false;
+        try { dlnaCastWin = window.open('about:blank', '_blank'); } catch (e) {}
+        if (dlnaCastWin) {
+            dlnaCastWinOpened = true;
+            writeDlnaLoading(dlnaCastWin);
+        }
+    }
+    document.getElementById('dlna-modal-title').innerText = '📡 本地投屏';
+    if (location.protocol === 'https:') {
+        setDlnaAutoStatus('📡 正在自动发现本地投屏服务…（当前页面是 HTTPS，浏览器可能拦截本地 HTTP 请求）', '');
+    } else {
+        setDlnaAutoStatus('📡 正在自动发现本地投屏服务…（如果浏览器询问，请允许访问本地网络）', '');
+    }
+
+    setTimeout(function() {
+        if (seq !== dlnaDiscoverSeq) return;
+        var st = document.getElementById('dlna-auto-status');
+        if (st && st.textContent.indexOf('已发现') === -1 && st.textContent.indexOf('未自动发现') === -1) {
+            setDlnaAutoStatus('仍在检查常见路由器地址…如果浏览器有“允许访问本地网络”提示，请点“允许”。', '');
+        }
+    }, 6000);
+
+    getLocalIPv4s(700).catch(function() { return []; }).then(function(ips) {
+        if (seq !== dlnaDiscoverSeq) return null;
+        return runProbes(candidateBases(ips), 6, 1500, seq);
+    }).then(function(found) {
+        if (seq !== dlnaDiscoverSeq) return;
+        if (!found) {
+            setDlnaAutoStatus('未自动发现本地投屏服务。请确认本地路由器的媒体服务已启动（默认 880），并与手机/电脑在同一局域网。如果浏览器刚才询问“是否允许访问本地网络”，请先选择允许，再点“🔄 重新自动发现”。', 'err');
+            document.getElementById('dlna-modal-title').innerText = '⚠ 未发现本地投屏服务';
+            if (manual) {
+                manual.open = true;
+                try { manual.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+            }
+            setDlnaStatus('自动发现失败，可以在这里手动指定地址。', '#f1c40f');
+            if (dlnaCastWin && !dlnaCastWin.closed) {
+                try { dlnaCastWin.close(); } catch (e) {}
+            }
+            dlnaCastWin = null;
+            dlnaCastWinOpened = false;
+            return;
+        }
+
+        // 优先用路由器返回的 LAN IPv4 拼地址，避免主机名解析到公网 IPv6 后
+        // 投屏页/API 被“仅限局域网”校验拦住。
+        var foundBase = found.base;
+        try {
+            var u = new URL(found.base);
+            if (u.protocol === 'http:' && !/^\d{1,3}(\.\d{1,3}){3}$/.test(u.hostname)
+                && /^\d{1,3}(\.\d{1,3}){3}$/.test(found.lan_ip || '')
+                && isLanHost(found.lan_ip)) {
+                var port = u.port || '80';
+                foundBase = 'http://' + found.lan_ip + (port === '80' ? '' : ':' + port);
+            }
+        } catch (e) {}
+        if (!isAllowedCastBase(foundBase)) foundBase = found.base;
+        try { localStorage.setItem(DLNA_AGENT_BASE_KEY, foundBase); } catch (e) {}
+        var count = found.devices;
+        var msg = count > 0
+            ? '已发现本地 SSDP 设备（' + count + ' 台）'
+            : '已发现本地投屏服务';
+        if (dlnaCastWin && !dlnaCastWin.closed) writeDlnaFound(dlnaCastWin, msg);
+        var videoUrl = dlnaPendingVideoUrl;
+        var title = dlnaPendingTitle;
+        setDlnaAutoStatus('✅ ' + msg + (videoUrl ? '，正在打开投屏页…' : '：' + foundBase), 'ok');
+        document.getElementById('dlna-modal-title').innerText = '✅ 已发现本地投屏服务';
+        var urlEl = document.getElementById('dlna-agent-url');
+        if (urlEl) urlEl.value = foundBase;
+        setDlnaStatus('已保存：' + foundBase, '#2ecc71');
+
+        if (!videoUrl) return;
+        var caster = localCasterUrl(foundBase, videoUrl, title);
+        if (!caster) {
+            setDlnaAutoStatus('发现的服务地址不可用，请手动指定。', 'err');
+            if (dlnaCastWin && !dlnaCastWin.closed) {
+                try { dlnaCastWin.close(); } catch (e) {}
+            }
+            dlnaCastWin = null;
+            dlnaCastWinOpened = false;
+            return;
+        }
+        dlnaPendingVideoUrl = '';
+        dlnaPendingTitle = '';
+        setTimeout(function() {
+            if (seq !== dlnaDiscoverSeq) return;
+            var win = dlnaCastWin;
+            var wasOpened = dlnaCastWinOpened;
+            var modal = document.getElementById('dlna-modal');
+            dlnaCastWin = null;
+            dlnaCastWinOpened = false;
+            if (win && !win.closed) {
+                if (modal) modal.style.display = 'none';
+                try { win.location.href = caster; win.focus(); return; } catch (e) {}
+            }
+            if (wasOpened) {
+                setDlnaAutoStatus('投屏页已关闭。请重新点“📺 投屏”。', 'err');
+                return;
+            }
+            if (modal) modal.style.display = 'none';
+            window.location.href = caster;
+        }, 1200);
+    });
+}
+window.startDlnaAutoDiscover = startDlnaAutoDiscover;
+
 var VIDEO_EXTS=['.mp4','.webm','.mkv','.mov','.avi','.m4v','.ogv','.flv','.3gp','.ts','.m2ts','.wmv'];
 var AUDIO_EXTS=['.mp3','.m4a','.flac','.aac','.ogg','.wav','.ape','.wv','.aiff','.aif','.alac'];
 var IMAGE_EXTS=['.jpg','.jpeg','.png','.gif','.webp','.bmp','.svg','.ico','.tif','.tiff','.heic','.avif'];
@@ -937,28 +1311,6 @@ function getCueBadge(idx){
   if(pos<0) return '';
   return '曲目 '+(pos+1)+'/'+siblings.length;
 }
-function updateDlnaFileName() {
-    var el = document.getElementById('dlna-modal-title');
-    if (!el) return;
-    if (currentIndex >= 0 && listItems[currentIndex]) {
-        var it = listItems[currentIndex];
-        var name = it.displayName || it.name;
-        el.innerText = '📺 正在播放: ' + name;
-        el.title = name;
-        var ov = document.getElementById('cast-overlay-name');
-        if (ov) ov.innerText = name;
-    } else {
-        el.innerText = '📺 选择投屏设备';
-    }
-}
-function showCastOverlay() {
-    var ov = document.getElementById('cast-overlay');
-    if (ov) { ov.style.display = 'flex'; updateDlnaFileName(); }
-}
-function hideCastOverlay() {
-    var ov = document.getElementById('cast-overlay');
-    if (ov) ov.style.display = 'none';
-}
 function resetDlnaModalPosition() {
     var box = document.querySelector('#dlna-modal .box');
     if (box) {
@@ -1005,351 +1357,115 @@ function resetDlnaModalPosition() {
     document.addEventListener('touchmove', onMove, {passive:false});
     document.addEventListener('touchend', onEnd);
 })();
-window.closeDlnaModal = function() {
-    document.getElementById('dlna-modal').style.display = 'none';
-    document.getElementById('dlna-device-list').style.display = 'block';
-    document.getElementById('dlna-modal-title').innerText = '📺 选择投屏设备';
-    document.getElementById('dlna-control-panel').style.display = 'none';
-    document.getElementById('manual-ip-area').style.display = 'none';
-    var agentBox = document.getElementById('dlna-agent-settings');
-    if (agentBox) agentBox.style.display = 'none';
+function setDlnaStatus(text, color) {
+    var st = document.getElementById('dlna-agent-status');
+    if (!st) return;
+    st.textContent = text || '';
+    st.style.color = color || '#f1c40f';
+}
+
+window.closeDlnaSettings = function() {
+    dlnaDiscoverSeq++;
+    if (dlnaCastWin && !dlnaCastWin.closed) {
+        try { dlnaCastWin.close(); } catch (e) {}
+    }
+    dlnaCastWin = null;
+    dlnaCastWinOpened = false;
+    var modal = document.getElementById('dlna-modal');
+    if (modal) modal.style.display = 'none';
     resetDlnaModalPosition();
-    if (window.castOnlyMode) {
-        window.castOnlyMode = false;
-        hideCastOverlay();
-        dlnaControl('stop');
-        dlnaControlUrl = '';
-        if (dlnaPollTimer) { clearInterval(dlnaPollTimer); dlnaPollTimer = null; }
-        if (videoEl.src) { videoEl.play().catch(function(){}); }
-    }
+    dlnaPendingVideoUrl = '';
+    dlnaPendingTitle = '';
 };
 
-// ---------------------------------------------------------------------------
-// 投屏控制端设置
-//   默认“跟随媒体服务器”：/cgi-bin/luci/dlna 走当前网站（媒体服务器所在的 LAN）
-//   “本地投屏代理”：把发现/投屏/控制请求发到观看者自己的路由器，视频 URL 仍是
-//   当前媒体服务器的公网地址，所以跨宽带也能投到自己的电视。
-// ---------------------------------------------------------------------------
-function updateDlnaAgentFields() {
-    var localEl = document.querySelector('input[name="dlna-agent-mode"][value="local"]');
-    var local = !!(localEl && localEl.checked);
-    var urlEl = document.getElementById('dlna-agent-url');
-    var keyEl = document.getElementById('dlna-agent-key');
-    if (urlEl) urlEl.disabled = !local;
-    if (keyEl) keyEl.disabled = !local;
-}
-
-function loadDlnaAgentSettings() {
-    var base = dlnaAgentBase();
-    var local = !!base;
-    var rLocal = document.querySelector('input[name="dlna-agent-mode"][value="local"]');
-    var rServer = document.querySelector('input[name="dlna-agent-mode"][value="server"]');
-    if (rLocal) rLocal.checked = local;
-    if (rServer) rServer.checked = !local;
-    var urlEl = document.getElementById('dlna-agent-url');
-    var keyEl = document.getElementById('dlna-agent-key');
-    var st = document.getElementById('dlna-agent-status');
-    if (urlEl) urlEl.value = base;
-    if (keyEl) keyEl.value = dlnaAgentKey();
-    if (st) { st.textContent = ''; st.style.color = '#f1c40f'; }
-    updateDlnaAgentFields();
-}
-
-window.toggleDlnaAgentSettings = function() {
-    var box = document.getElementById('dlna-agent-settings');
-    if (!box) return;
-    var show = box.style.display === 'none' || !box.style.display;
-    if (show) {
-        loadDlnaAgentSettings();
-        box.style.display = 'block';
-    } else {
-        box.style.display = 'none';
-    }
-};
-
-window.saveDlnaAgent = function() {
-    var st = document.getElementById('dlna-agent-status');
-    var modeEl = document.querySelector('input[name="dlna-agent-mode"]:checked');
-    var local = !!(modeEl && modeEl.value === 'local');
-    var urlEl = document.getElementById('dlna-agent-url');
-    var keyEl = document.getElementById('dlna-agent-key');
-    var base = local ? normalizeAgentBase(urlEl ? urlEl.value : '') : '';
-    var key = local ? ((keyEl ? keyEl.value : '') || '').trim() : '';
-
-    function setStatus(text, color) {
-        if (!st) return;
-        st.textContent = text;
-        st.style.color = color;
-    }
-
-    if (local && !base) { setStatus('代理地址格式不正确', '#e74c3c'); return; }
-    // 无密钥模式允许留空；有密钥模式由 B 的控制器返回“未配置/密钥不正确”
-
-    try {
-        if (local) {
-            localStorage.setItem(DLNA_AGENT_BASE_KEY, base);
-            localStorage.setItem(DLNA_AGENT_KEY_KEY, key);
-        } else {
-            localStorage.removeItem(DLNA_AGENT_BASE_KEY);
-            localStorage.removeItem(DLNA_AGENT_KEY_KEY);
-        }
-    } catch (e) {
-        setStatus('浏览器禁用了 localStorage，无法保存', '#e74c3c');
-        return;
-    }
-
-    if (!local) {
-        setStatus('已恢复为跟随媒体服务器', '#2ecc71');
-        setTimeout(function() {
-            var box = document.getElementById('dlna-agent-settings');
-            if (box) box.style.display = 'none';
-            if (dlnaPendingVideoUrl) openDlnaCastModal(dlnaPendingVideoUrl);
-        }, 400);
-        return;
-    }
-
-    setStatus('已保存。点“📺 投屏”会在本地路由器打开控制页（不再从当前网站跨域访问，避开浏览器本地网络限制）。', '#2ecc71');
-    setTimeout(function() {
-        var box = document.getElementById('dlna-agent-settings');
-        if (box) box.style.display = 'none';
-        var modal = document.getElementById('dlna-modal');
-        if (modal) modal.style.display = 'none';
-    }, 1400);
-};
-
-(function bindDlnaAgentModes() {
-    var radios = document.querySelectorAll('input[name="dlna-agent-mode"]');
-    for (var i = 0; i < radios.length; i++) radios[i].onchange = updateDlnaAgentFields;
-})();
-
-window.openDlnaAgentTest = function() {
-    var base = dlnaAgentBase();
-    if (!base) { alert('请先选择“本地投屏代理”、填地址并保存'); return; }
-    var url = base + '/cgi-bin/luci/dlna/caster';
-    if (dlnaAgentKey()) url += '?key=' + encodeURIComponent(dlnaAgentKey());
-    window.open(url, '_blank');
-};
-
-window.openDlnaAgentSettings = function() {
+function openDlnaSettings(prefill) {
     var modal = document.getElementById('dlna-modal');
     if (!modal) return;
+    var urlEl = document.getElementById('dlna-agent-url');
+    var saved = resolveCastBase();
+    if (urlEl) urlEl.value = prefill || (isAllowedCastBase(saved) ? saved : currentLanBase());
+    setDlnaStatus('');
+    setDlnaAutoStatus('📡 正在自动发现本地投屏服务…', '');
+    var manual = document.getElementById('dlna-manual');
+    if (manual) manual.open = false;
+    document.getElementById('dlna-modal-title').innerText = '📡 本地投屏';
     modal.style.display = 'block';
     resetDlnaModalPosition();
-    document.getElementById('dlna-device-list').style.display = 'none';
-    document.getElementById('manual-ip-area').style.display = 'none';
-    document.getElementById('dlna-control-panel').style.display = 'none';
-    document.getElementById('dlna-modal-title').innerText = '⚙ 投屏控制端设置';
-    document.getElementById('dlna-agent-settings').style.display = 'block';
-    loadDlnaAgentSettings();
+}
+
+window.openDlnaAgentSettings = function() {
+    dlnaPendingVideoUrl = '';
+    dlnaPendingTitle = '';
+    openDlnaSettings('');
+    startDlnaAutoDiscover(false);
+};
+
+function openLocalCaster(base, videoUrl, title) {
+    var caster = localCasterUrl(base, videoUrl, title);
+    if (!caster) return false;
+    try { videoEl.pause(); } catch (e) {}
+    var win = window.open(caster, '_blank');
+    if (!win) alert('浏览器拦截了投屏页弹窗，请允许本站弹出窗口后重试。');
+    return true;
+}
+
+window.saveDlnaAgent = function() {
+    var urlEl = document.getElementById('dlna-agent-url');
+    var base = normalizeAgentBase(urlEl ? urlEl.value : '');
+    if (!base) {
+        setDlnaStatus('地址格式不正确，请填写例如 http://192.168.0.254:880', '#e74c3c');
+        return;
+    }
+    if (!isAllowedCastBase(base)) {
+        setDlnaStatus('请填写本地路由器的局域网地址（如 http://192.168.0.254:880），不要填媒体服务器的公网地址', '#e74c3c');
+        return;
+    }
+    dlnaDiscoverSeq++;
+    if (dlnaCastWin && !dlnaCastWin.closed) {
+        try { dlnaCastWin.close(); } catch (e) {}
+    }
+    dlnaCastWin = null;
+    dlnaCastWinOpened = false;
+    try {
+        localStorage.setItem(DLNA_AGENT_BASE_KEY, base);
+        // 旧版本保存过投屏密钥，现在已不再使用，顺手清掉
+        localStorage.removeItem('dlna_agent_key');
+    } catch (e) {
+        setDlnaStatus('浏览器禁用了 localStorage，无法保存', '#e74c3c');
+        return;
+    }
+    var videoUrl = dlnaPendingVideoUrl;
+    var title = dlnaPendingTitle;
+    if (!videoUrl) {
+        setDlnaStatus('已保存：' + base + '，下次点“📺 投屏”即可。', '#2ecc71');
+        setTimeout(window.closeDlnaSettings, 900);
+        return;
+    }
+    dlnaPendingVideoUrl = '';
+    dlnaPendingTitle = '';
+    var modal = document.getElementById('dlna-modal');
+    if (modal) modal.style.display = 'none';
+    resetDlnaModalPosition();
+    openLocalCaster(base, videoUrl, title);
+};
+
+window.openDlnaAgentTest = function() {
+    var urlEl = document.getElementById('dlna-agent-url');
+    var base = normalizeAgentBase(urlEl ? urlEl.value : '') || resolveCastBase();
+    if (!base) { setDlnaStatus('请先填写本地路由器地址', '#e74c3c'); return; }
+    if (!isAllowedCastBase(base)) { setDlnaStatus('请填写本地路由器的局域网地址，不要填媒体服务器的公网地址', '#e74c3c'); return; }
+    dlnaDiscoverSeq++;
+    if (dlnaCastWin && !dlnaCastWin.closed) {
+        try { dlnaCastWin.close(); } catch (e) {}
+    }
+    dlnaCastWin = null;
+    dlnaCastWinOpened = false;
+    window.open(base.replace(/\/+$/, '') + '/cgi-bin/luci/dlna/caster', '_blank');
 };
 var dlnaSettingsBtn = document.getElementById('dlna-settings-btn');
 if (dlnaSettingsBtn) dlnaSettingsBtn.onclick = window.openDlnaAgentSettings;
 var modeBtns=document.querySelectorAll('#mode-bar button[data-mode]');
 modeBtns.forEach(function(b){b.onclick=function(){playMode=b.getAttribute('data-mode');modeBtns.forEach(function(x){x.classList.toggle('active',x===b)})}});
-function formatToHHMMSS(seconds) {
-    var h = Math.floor(seconds / 3600);
-    var m = Math.floor((seconds % 3600) / 60);
-    var s = Math.floor(seconds % 60);
-    var fmt = function(n) { return n < 10 ? '0' + n : n; };
-    return fmt(h) + ':' + fmt(m) + ':' + fmt(s);
-}
-function updateDlnaDuration(dur) {
-    var bar = document.getElementById('dlna-seek-bar');
-    var label = document.getElementById('dlna-duration-label');
-    if (bar && dur && isFinite(dur) && dur > 0) {
-        bar.max = Math.floor(dur);
-        if (label) label.innerText = '总时长: ' + formatToHHMMSS(dur);
-    } else {
-        if (label) label.innerText = '总时长: --:--:--';
-    }
-}
-window.updateSeekDisplay = function(seconds) {
-    var label = document.getElementById('dlna-seek-label');
-    if (label) label.innerText = formatToHHMMSS(seconds);
-};
-window.executeSeek = function(seconds) {
-    dlnaControl('seek', formatToHHMMSS(seconds));
-    if (!window.castOnlyMode && videoEl.duration) {
-        try { videoEl.currentTime = seconds; } catch(e) {}
-    }
-    var label = document.getElementById('dlna-seek-label');
-    if (label) label.innerText = formatToHHMMSS(seconds);
-};
-window.dlnaSkip = function(offset) {
-    if (!dlnaControlUrl) { alert('请先完成投屏'); return; }
-    var bar = document.getElementById('dlna-seek-bar');
-    var baseTime = bar ? parseFloat(bar.value) : (videoEl.currentTime || 0);
-    var newTime = baseTime + offset;
-    var maxDur = bar ? parseFloat(bar.max) : (videoEl.duration || 0);
-    if (newTime < 0) newTime = 0;
-    if (maxDur && newTime > maxDur) newTime = maxDur;
-    executeSeek(newTime);
-};
-videoEl.addEventListener('timeupdate', function() {
-    if (window.castOnlyMode) return;
-    if (window.dlnaIsPaused) return;
-    if (dlnaControlUrl && !window.isDlnaDragging) {
-        var bar = document.getElementById('dlna-seek-bar');
-        var label = document.getElementById('dlna-seek-label');
-        if (bar && label) {
-            var cur = Math.floor(videoEl.currentTime);
-            if (videoEl.duration && isFinite(videoEl.duration) && Math.floor(videoEl.duration) !== parseInt(bar.max)) {
-                bar.max = Math.floor(videoEl.duration);
-                var durLabel = document.getElementById('dlna-duration-label');
-                if (durLabel) durLabel.innerText = '总时长: ' + formatToHHMMSS(videoEl.duration);
-            }
-            bar.value = Math.min(cur, parseInt(bar.max));
-            label.innerText = formatToHHMMSS(cur);
-        }
-    }
-});
-var dlnaPollTimer = null;
-var lastDlnaTime = -1;
-var sameTimeCount = 0;
-var remoteSyncFailed = 0;
-function startDlnaPolling() {
-    if (dlnaPollTimer) clearInterval(dlnaPollTimer);
-    lastDlnaTime = -1;
-    sameTimeCount = 0;
-    remoteSyncFailed = 0;
-    dlnaPollTimer = setInterval(function() {
-        if (!dlnaControlUrl) return;
-        if (window.isDlnaDragging) return;
-        if (remoteSyncFailed > 5) {
-            console.log('远端连续 5 次未返回状态，停止轮询。');
-            clearInterval(dlnaPollTimer);
-            if (window.castOnlyMode) {
-                window.castOnlyMode = false;
-                hideCastOverlay();
-                if (videoEl.src) videoEl.play().catch(function(){});
-            }
-            return;
-        }
-        fetch(dlnaApiUrl('get_position', 'control_url=' + encodeURIComponent(dlnaControlUrl)))
-            .then(function(r) { return r.json(); })
-            .then(function(res) {
-                if (res.status === 'success') {
-                    remoteSyncFailed = 0;
-                    if (res.state) {
-                        if (res.state === 'PAUSED_PLAYBACK' || res.state === 'STOPPED') {
-                            window.dlnaIsPaused = true;
-                        } else if (res.state === 'PLAYING') {
-                            window.dlnaIsPaused = false;
-                        }
-                    }
-                    if (res.rel_time) {
-                        var parts = res.rel_time.split(':');
-                        if (parts.length === 3) {
-                            var seconds = parseInt(parts[0])*3600 + parseInt(parts[1])*60 + parseInt(parts[2]);
-                            lastDlnaTime = seconds;
-                            sameTimeCount = 0;
-                            var bar = document.getElementById('dlna-seek-bar');
-                            var label = document.getElementById('dlna-seek-label');
-                            if (bar && label) {
-                                bar.value = seconds;
-                                label.innerText = res.rel_time;
-                            }
-                        }
-                    }
-                } else {
-                    remoteSyncFailed++;
-                }
-            })
-            .catch(function() { remoteSyncFailed++; });
-    }, 5000);
-}
-videoEl.addEventListener('loadedmetadata', function() {
-    updateDlnaDuration(videoEl.duration);
-    updateDlnaFileName();
-});
-videoEl.addEventListener('durationchange', function() {
-    updateDlnaDuration(videoEl.duration);
-});
-window.dlnaAction = function(action) {
-    dlnaControl(action);
-    if (action === 'play') {
-        window.dlnaIsPaused = false;
-        if (!window.castOnlyMode) videoEl.play().catch(function(){});
-    } else if (action === 'pause') {
-        window.dlnaIsPaused = true;
-        if (!window.castOnlyMode) videoEl.pause();
-    } else if (action === 'stop') {
-        window.dlnaIsPaused = true;
-        if (!window.castOnlyMode) {
-            videoEl.pause();
-            videoEl.currentTime = 0;
-        }
-        var bar = document.getElementById('dlna-seek-bar');
-        var label = document.getElementById('dlna-seek-label');
-        if (bar && label) {
-            bar.value = 0;
-            label.innerText = '00:00:00';
-        }
-    }
-};
-window.dlnaPrevNext = function(direction) {
-    if (!dlnaControlUrl) { alert('请先完成投屏'); return; }
-    var targetIndex = -1;
-    if (direction === 'prev') {
-        for (var i = currentIndex - 1; i >= 0; i--) {
-            if (listItems[i].kind === 'media') { targetIndex = i; break; }
-        }
-        if (targetIndex === -1) { console.log('已经是第一集'); return; }
-    } else if (direction === 'next') {
-        for (var i = currentIndex + 1; i < listItems.length; i++) {
-            if (listItems[i].kind === 'media') { targetIndex = i; break; }
-        }
-        if (targetIndex === -1) { console.log('已经是最后一集'); return; }
-    }
-    if (targetIndex >= 0) {
-        if (window.castOnlyMode) {
-            var it = listItems[targetIndex];
-            currentIndex = targetIndex;
-            renderList();
-            setNowPlaying('▶',(it.displayName||it.name),getCueBadge(targetIndex));
-            var bar = document.getElementById('dlna-seek-bar');
-            if (bar) bar.value = 0;
-            var lbl = document.getElementById('dlna-seek-label');
-            if (lbl) lbl.innerText = '00:00:00';
-            updateDlnaFileName();
-            var newVideoUrl = /^https?:\/\//i.test(it.url) ? it.url : (window.location.origin + it.url);
-            fetch(dlnaApiUrl('cast'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: dlnaApiBody('control_url=' + encodeURIComponent(dlnaControlUrl) + '&video_url=' + encodeURIComponent(newVideoUrl))
-            }).catch(function(){});
-        } else {
-            playIndex(targetIndex);
-        }
-    }
-};
-window.toggleDlnaMute = function() {
-    var btn = document.getElementById('dlna-mute-btn');
-    if (!window.dlnaMuted) {
-        lastVolume = parseInt(document.getElementById('dlna-vol').value) || 50;
-        window.dlnaMuted = true;
-        dlnaControl('volume', '0');
-        document.getElementById('dlna-vol-val').innerText = '0';
-        document.getElementById('dlna-vol').value = 0;
-        if (btn) btn.innerText = '🔇 取消静音';
-    } else {
-        window.dlnaMuted = false;
-        dlnaControl('volume', lastVolume);
-        document.getElementById('dlna-vol-val').innerText = lastVolume;
-        document.getElementById('dlna-vol').value = lastVolume;
-        if (btn) btn.innerText = '🔊 静音';
-    }
-};
-videoEl.addEventListener('play', function() {
-    if (window.castOnlyMode) return;
-    window.dlnaIsPaused = false;
-    if (dlnaControlUrl && !window.isAutoSwitching) dlnaControl('play');
-});
-videoEl.addEventListener('pause', function() {
-    if (window.castOnlyMode) return;
-    window.dlnaIsPaused = true;
-    if (dlnaControlUrl && !videoEl.ended) dlnaControl('pause');
-});
 document.getElementById('dlna-cast-btn').onclick = function() {
     var it = listItems[currentIndex];
     if (!it || it.kind !== 'media') { alert('请先点击左侧列表选择一个视频进行播放，然后再投屏！'); return; }
@@ -1365,176 +1481,25 @@ document.getElementById('dlna-cast-btn').onclick = function() {
             return;
         }
     }
-    var base = dlnaAgentBase();
-    if (base) {
-        // 本地代理模式不在当前公网页面里 fetch 本地路由器（会被 Chrome PNA 拦），
-        // 而是打开 B 本机的 /caster.html，让发现/投屏在本地页面里完成。
-        var caster = base + '/cgi-bin/luci/dlna/caster?video=' + encodeURIComponent(targetUrl);
-        if (dlnaAgentKey()) caster += '&key=' + encodeURIComponent(dlnaAgentKey());
-        if (it.displayName || it.name) caster += '&title=' + encodeURIComponent(it.displayName || it.name);
-        try { videoEl.pause(); } catch(e) {}
-        window.open(caster, '_blank');
+    var base = resolveCastBase();
+    if (!base || !isAllowedCastBase(base)) {
+        // 先同步打开一个空白页（在用户点击手势内），自动发现完成后再导航过去，
+        // 避免异步 window.open 被浏览器当成弹窗拦截。
+        dlnaPendingVideoUrl = targetUrl;
+        dlnaPendingTitle = it.displayName || it.name || '';
+        try { videoEl.pause(); } catch (e) {}
+        dlnaCastWin = null;
+        dlnaCastWinOpened = false;
+        try { dlnaCastWin = window.open('about:blank', '_blank'); } catch (e) {}
+        if (dlnaCastWin) {
+            dlnaCastWinOpened = true;
+            writeDlnaLoading(dlnaCastWin);
+        }
+        openDlnaSettings(currentLanBase());
+        startDlnaAutoDiscover(false);
         return;
     }
-    openDlnaCastModal(targetUrl);
-};
-function openDlnaCastModal(videoUrlToCast) {
-    var modal = document.getElementById('dlna-modal');
-    var list = document.getElementById('dlna-device-list');
-    var manualArea = document.getElementById('manual-ip-area');
-    dlnaPendingVideoUrl = videoUrlToCast || '';
-    modal.style.display = 'block';
-    resetDlnaModalPosition();
-    manualArea.style.display = 'none';
-    document.getElementById('dlna-control-panel').style.display = 'none';
-    var agentBox = document.getElementById('dlna-agent-settings');
-    if (agentBox) agentBox.style.display = 'none';
-    document.getElementById('dlna-modal-title').innerText = '📺 选择投屏设备' + (dlnaAgentBase() ? '（本地代理）' : '');
-    list.style.display = 'block';
-    updateDlnaDuration(videoEl.duration);
-    list.innerHTML = '<div style="color:#f1c40f; padding:10px;">📡 正在通过' +
-        (dlnaAgentBase() ? '本地投屏代理' : '媒体服务器') + '发现 DLNA 设备...</div>';
-
-    fetch(dlnaApiUrl('discover'))
-        .then(function(r) {
-            return r.json().then(function(j) {
-                if (!r.ok) throw new Error((j && j.message) || ('HTTP ' + r.status));
-                if (!Array.isArray(j)) throw new Error((j && j.message) || '投屏控制端返回格式异常');
-                return j;
-            });
-        })
-        .then(function(devices) {
-            list.innerHTML = '';
-            if (!devices || devices.length === 0) {
-                list.innerHTML = '<div style="color:#e67e22; padding:15px;">❌ 没有发现任何 DLNA 设备<br>' +
-                    '<a href="javascript:void(0)" onclick="toggleDlnaAgentSettings()" style="color:#4a9eff;">⚙ 检查投屏控制端 / 本地代理</a></div>';
-                manualArea.style.display = 'block';
-                document.getElementById('manual-tv-ip').focus();
-                return;
-            }
-            list.innerHTML = '<div style="color:#2ecc71; padding:5px; font-size:12px;">✅ 发现以下设备：</div>';
-            devices.forEach(function(dev) {
-                var div = document.createElement('div');
-                div.className = 'it';
-                div.innerHTML = '📺 ' + esc(dev.name || '未知设备');
-                div.onclick = function() {
-                    list.innerHTML = '<div style="color:#f1c40f; padding:10px;">📤 正在发送投屏指令...</div>';
-                    fetch(dlnaApiUrl('cast'), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: dlnaApiBody('control_url=' + encodeURIComponent(dev.control_url) + '&video_url=' + encodeURIComponent(videoUrlToCast))
-                    })
-                    .then(function(r) { return r.json(); })
-                    .then(function(res) {
-                        if (res.status === 'success') {
-                            dlnaControlUrl = dev.control_url;
-                            window.dlnaIsPaused = false;
-                            window.castOnlyMode = true;
-                            videoEl.pause();
-                            showCastOverlay();
-                            list.style.display = 'none';
-                            document.getElementById('dlna-control-panel').style.display = 'block';
-                            updateDlnaFileName();
-                            startDlnaPolling();
-                        } else {
-                            list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 失败: ' + esc(res.message || '未知错误') + '</div>';
-                        }
-                    })
-                    .catch(function(e) {
-                        list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求失败：' + esc(e.message || '') +
-                            '<br><a href="javascript:void(0)" onclick="toggleDlnaAgentSettings()" style="color:#4a9eff;">⚙ 检查投屏控制端</a></div>';
-                    });
-                };
-                list.appendChild(div);
-            });
-        })
-        .catch(function(err) {
-            list.innerHTML = '<div style="color:#e74c3c; padding:15px;">❌ 投屏设备发现失败：' +
-                esc(err.message || '无法连接投屏控制端') +
-                '<br><a href="javascript:void(0)" onclick="toggleDlnaAgentSettings()" style="color:#4a9eff;">⚙ 检查投屏控制端 / 本地代理</a></div>';
-            manualArea.style.display = 'block';
-            document.getElementById('manual-tv-ip').focus();
-        });
-}
-window.manualCast = function() {
-    var it = listItems[currentIndex];
-    if (!it || it.kind !== 'media') { alert('请先选择视频播放'); return; }
-    var inputVal = document.getElementById('manual-tv-ip').value.trim();
-    if (!inputVal) { alert('请输入电视的 IP 或 IP:端口'); return; }
-    var ip = inputVal; var port = "9197"; var hasPort = false;
-    if (inputVal.indexOf(':') > -1) { var parts = inputVal.split(':'); ip = parts[0]; port = parts[1]; hasPort = true; }
-    if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) { alert('IP 格式不正确'); return; }
-    var list = document.getElementById('dlna-device-list');
-    var videoUrl = /^https?:\/\//i.test(it.url) ? it.url : (window.location.origin + it.url);
-    document.getElementById('dlna-control-panel').style.display = 'none';
-    if (hasPort) {
-        list.innerHTML = '<div style="color:#f1c40f; padding:10px;">🎯 正在进行【端口强制投送】模式...</div>';
-        var paths = ['/AVTransport/action','/upnp/control/rendertransport1','/upnp/control/AVTransport','/AVTransport/control','/control/AVTransport','/control','/AVTransport','/upnp/control/AVTransport1'];
-        var idx = 0;
-        function tryNextPath() {
-            if (idx >= paths.length) { list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 端口强制投送尝试了所有路径均失败</div>'; return; }
-            var control_url = 'http://' + ip + ':' + port + paths[idx];
-            list.innerHTML = '<div style="color:#f1c40f; padding:10px;">🎯 尝试路径: ' + paths[idx] + '</div>';
-            doCast(control_url, videoUrl, list, function(success) { if (success) return; idx++; tryNextPath(); });
-        }
-        tryNextPath();
-    } else {
-        list.innerHTML = '<div style="color:#f1c40f; padding:10px;">📡 单播 SSDP 扫描中...</div>';
-        fetch(dlnaApiUrl('probe'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: dlnaApiBody('ip=' + encodeURIComponent(ip))
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(res) {
-            if (res.status === 'success') { doCast(res.control_url, videoUrl, list); }
-            else { list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 扫描失败：' + esc(res.message || '该 IP 没有响应') + '，建议输入 "IP:端口" 强制投送。</div>'; }
-        })
-        .catch(function() { list.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求投屏控制端失败，请检查“⚙ 投屏控制端”设置。</div>'; });
-    }
-};
-function doCast(control_url, videoUrl, listEl, callback) {
-    fetch(dlnaApiUrl('cast'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: dlnaApiBody('control_url=' + encodeURIComponent(control_url) + '&video_url=' + encodeURIComponent(videoUrl))
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
-        if (res.status === 'success') {
-            dlnaControlUrl = control_url;
-            window.dlnaIsPaused = false;
-            window.castOnlyMode = true;
-            videoEl.pause();
-            showCastOverlay();
-            document.getElementById('dlna-device-list').style.display = 'none';
-            document.getElementById('dlna-control-panel').style.display = 'block';
-            updateDlnaFileName();
-            startDlnaPolling();
-        } else {
-            listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 发送失败: ' + esc(res.message || '') + '</div>';
-        }
-        if (callback) callback(res.status === 'success');
-    })
-    .catch(function(e) {
-        listEl.innerHTML = '<div style="color:#e74c3c; padding:10px;">✗ 请求失败：' + esc(e.message || '') +
-            '<br><a href="javascript:void(0)" onclick="toggleDlnaAgentSettings()" style="color:#4a9eff;">⚙ 检查投屏控制端</a></div>';
-        if (callback) callback(false);
-    });
-}
-window.dlnaPrevNext = function(dir) {
-    dlnaControl(dir === 'next' ? 'next' : 'previous');
-};
-window.dlnaControl = function(action, value) {
-    if (!dlnaControlUrl) { alert('请先完成投屏'); return; }
-    fetch(dlnaApiUrl('control'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: dlnaApiBody('action=' + encodeURIComponent(action) + '&control_url=' + encodeURIComponent(dlnaControlUrl) + '&value=' + encodeURIComponent(value || ''))
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(res) { if (res.status !== 'success') console.warn('控制指令发送失败:', res.message); })
-    .catch(function() { console.warn('控制请求失败'); });
+    openLocalCaster(base, targetUrl, it.displayName || it.name || '');
 };
 var COVER_NAMES=/^(cover|front|folder|album|poster|thumb|default|artwork|cd|disc|scan)$/i;
 function findBgImages(audioName){
@@ -2359,24 +2324,6 @@ function playIndex(idx){
   if (window.audioCheckTimeout) clearTimeout(window.audioCheckTimeout);
   window.hasShownAudioTip = false;
 
-  if (dlnaControlUrl) {
-      window.isAutoSwitching = true;
-      var newVideoUrl = /^https?:\/\//i.test(it.url) ? it.url : (window.location.origin + it.url);
-      fetch(dlnaApiUrl('cast'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: dlnaApiBody('control_url=' + encodeURIComponent(dlnaControlUrl) + '&video_url=' + encodeURIComponent(newVideoUrl))
-      })
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-          window.isAutoSwitching = false;
-          updateDlnaFileName();
-      })
-      .catch(function() {
-          window.isAutoSwitching = false;
-          updateDlnaFileName();
-      });
-  }
   if(isAudioOnly(it.url) && !it.isStream){
     startAudioBackground(it.name);
   } else {
@@ -2409,7 +2356,6 @@ function playIndex(idx){
             }
           }
         });
-        updateDlnaFileName();
         var active0=listEl.querySelector('li.active');
         if(active0)active0.scrollIntoView({block:'nearest',behavior:'smooth'});
         checkRunningTask(it.url); // ★ 检查后台任务
@@ -2420,7 +2366,6 @@ function playIndex(idx){
     }
     videoEl.src = url;
     if (!window.castOnlyMode) videoEl.play().catch(function(){});
-    updateDlnaFileName();
     var active1=listEl.querySelector('li.active');
     if(active1)active1.scrollIntoView({block:'nearest',behavior:'smooth'});
     checkRunningTask(it.url);
@@ -2448,7 +2393,6 @@ function playIndex(idx){
     videoEl.src = url;
     if (!window.castOnlyMode) videoEl.play().catch(function(){});
   }
-  updateDlnaFileName();
   var active=listEl.querySelector('li.active');
   if(active)active.scrollIntoView({block:'nearest',behavior:'smooth'});
   checkRunningTask(it.url); // ★ 检查后台任务
@@ -2600,6 +2544,8 @@ window.showFileInfo = function(){
   modal.style.display = 'flex';
   content.innerHTML = '<div style="color:#4a9eff;padding:10px;">⏳ 正在使用 ffprobe 分析文件...</div>';
   document.getElementById('file-info-footer').style.display = 'none';
+  var afSel = document.getElementById('fi-audio-format-sel');
+  if (afSel) afSel.value = 'none';
 
   fetch('/cgi-bin/luci/dlna/ffprobe', {
     method: 'POST',
@@ -2958,6 +2904,21 @@ function showFiFooter(){
   if(footer) footer.style.display = 'flex';
 }
 
+function firstAudioIndexForExport(){
+  var secs = document.querySelectorAll('#file-info-content .fi-section[data-idx]');
+  var fallback = null;
+  for(var i=0;i<secs.length;i++){
+    var sec = secs[i];
+    if(sec.getAttribute('data-type') !== 'audio') continue;
+    var idx = parseInt(sec.getAttribute('data-idx'), 10);
+    if(isNaN(idx)) continue;
+    if(fallback == null) fallback = idx;
+    var cb = sec.querySelector('input.fi-copy');
+    if(cb && cb.checked) return idx;
+  }
+  return fallback;
+}
+
 function buildFiPlan(){
   var streams = [];
   var secs = document.querySelectorAll('#file-info-content .fi-section[data-idx]');
@@ -2979,6 +2940,16 @@ function buildFiPlan(){
 document.getElementById('fi-start-transcode-btn').onclick = function() {
     var it = listItems[currentIndex];
     if(!it) return;
+    var afEl = document.getElementById('fi-audio-format-sel');
+    var audioFmt = afEl ? afEl.value : 'none';
+    var prefix = getTranscodePrefix();
+    saveTranscodePrefix(prefix);
+    if (audioFmt && audioFmt !== 'none') {
+        var aidx = firstAudioIndexForExport();
+        closeFileInfo();
+        startTranscode(it.url, { container: 'mp4', streams: [] }, { format: audioFmt, prefix: prefix, audioIndex: aidx });
+        return;
+    }
     var plan = buildFiPlan();
     var kept = plan.streams.filter(function(x){ return x.copy || (x.transcode && x.transcode !== 'none'); });
     if(!kept.length){ alert('至少保留一条数据流（勾选复制或选一项转码）'); return; }
@@ -2986,7 +2957,7 @@ document.getElementById('fi-start-transcode-btn').onclick = function() {
         if(!confirm('TS 容器不支持文本字幕，字幕会被丢弃。继续？')) return;
     }
     closeFileInfo();
-    startTranscode(it.url, plan);
+    startTranscode(it.url, plan, { prefix: prefix });
 };
 
 var fileInfoBtn = document.getElementById('file-info-btn');
@@ -3062,7 +3033,8 @@ function playTranscodedAudio(fileUrl, aidx) {
         videoEl.src = fileUrl;
         if (!window.castOnlyMode) videoEl.play().catch(function(){});
     }
-    setNowPlaying('🎬', isTs ? '正在播放转码音轨（AAC）' : '正在播放转码版本（H.264 + AAC）', '转码', false);
+    var isAudioFile = /\.(m4a|mp3|wav)(\?|#|$)/i.test(fileUrl);
+    setNowPlaying('🎬', isAudioFile ? '正在播放转码音频' : (isTs ? '正在播放转码音轨（AAC）' : '正在播放转码版本（H.264 + AAC）'), '转码', false);
     currentAudioTrackIdx = aidx;
     window.transcodeActive = false;
     hideTranscodePanel();
@@ -3082,6 +3054,21 @@ function basenameOf(u){
   var i=s.lastIndexOf('/');
   s=i>=0?s.slice(i+1):s;
   try{return decodeURIComponent(s)}catch(e){return s}
+}
+function getTranscodePrefix(){
+  var el=document.getElementById('fi-prefix-input');
+  var p;
+  if(el){ p=el.value; }
+  else { try{p=localStorage.getItem('nm_transcode_prefix')||''}catch(e){p=''} }
+  return String(p||'').trim().slice(0,40);
+}
+function saveTranscodePrefix(p){
+  p=String(p||'').trim().slice(0,40);
+  try{localStorage.setItem('nm_transcode_prefix',p)}catch(e){}
+  var a=document.getElementById('fi-prefix-input');
+  if(a)a.value=p;
+  var b=document.getElementById('batch-prefix');
+  if(b)b.value=p;
 }
 // 记住“已确认到哪个时间点”，避免刷新后反复弹出更早的已完成任务
 function isTranscodeAcked(task){
@@ -3224,7 +3211,7 @@ function checkRunningTask(itUrl) {
     })
     .then(function(r){return r.json()})
     .then(function(res) {
-        if (res.status !== 'found') return;
+        if (res.status !== 'found' || res.batch) return;
         currentTranscodeToken = res.token;
         currentTranscodeNewUrl = res.new_file_url;
         currentTranscodeSource = itUrl;
@@ -3313,15 +3300,24 @@ function restoreTranscodeTasks(){
         var tasks=(res&&res.tasks)||[];
         var t=null,i;
         for(i=0;i<tasks.length;i++){
+            if(tasks[i].batch && (tasks[i].status==='running'||tasks[i].status==='starting'||tasks[i].status==='finalizing')){
+                // 批量任务还在跑：阻止页面自动播放并占用资源；批量队列不跨刷新恢复
+                return true;
+            }
+        }
+        for(i=0;i<tasks.length;i++){
+            if(tasks[i].batch) continue;
             if(tasks[i].status==='running'||tasks[i].status==='starting'||tasks[i].status==='finalizing'){t=tasks[i];break;}
         }
         if(!t){
             for(i=0;i<tasks.length;i++){
+                if(tasks[i].batch) continue;
                 if(tasks[i].status==='done' && !isTranscodeAcked(tasks[i])){t=tasks[i];break;}
             }
         }
         if(!t){
             for(i=0;i<tasks.length;i++){
+                if(tasks[i].batch) continue;
                 if(tasks[i].status==='error' && !isTranscodeAcked(tasks[i])
                    && (Date.now()/1000-(tasks[i].updated||0))<600){t=tasks[i];break;}
             }
@@ -3403,8 +3399,15 @@ function startTranscode(fileUrl, plan, opts) {
   setTranscodePanel(fileUrl,{starting:true});
 
   var body = 'file=' + encodeURIComponent(fileUrl)
-           + '&plan=' + encodeURIComponent(JSON.stringify(plan || { container: 'mp4', streams: [] }))
            + '&duration=' + encodeURIComponent(String(duration));
+  if (opts.format) body += '&format=' + encodeURIComponent(opts.format);
+  else body += '&plan=' + encodeURIComponent(JSON.stringify(plan || { container: 'mp4', streams: [] }));
+  if (opts.audioIndex != null && !isNaN(opts.audioIndex)) {
+      body += '&audio_index=' + encodeURIComponent(String(opts.audioIndex));
+  }
+  var prefix = (opts.prefix != null) ? opts.prefix : getTranscodePrefix();
+  if (opts.prefix == null) saveTranscodePrefix(prefix);
+  if (prefix) body += '&prefix=' + encodeURIComponent(prefix);
   if(opts.cacheKey) body += '&cache_key=' + encodeURIComponent(opts.cacheKey);
   fetch('/cgi-bin/luci/dlna/extract_audio', {
     method: 'POST',
@@ -3448,6 +3451,339 @@ function startTranscode(fileUrl, plan, opts) {
     alert('转码请求失败: ' + e.message);
   });
 }
+
+// ---------------------------------------------------------------------------
+// 批量提取音频
+//   当前目录多选 / 全选，逐个调用 extract_audio，前端排队轮询进度。
+//   输出 M4A / MP3 / WAV，写到源文件同目录，文件名带可配置前缀。
+// ---------------------------------------------------------------------------
+var batchState = {
+    active: false, queue: [], idx: 0, ok: 0, fail: 0, failed: [],
+    token: '', timer: null, format: 'm4a', prefix: '', total: 0, consecutive: 0
+};
+
+function batchMediaItems() {
+    var out = [];
+    for (var i = 0; i < listItems.length; i++) {
+        var it = listItems[i];
+        if (!it || it.kind !== 'media') continue;
+        if (it.isStream || it.isCueChild || it.isPlaylistChild) continue;
+        if (!it.url || it.url.charAt(0) !== '/') continue;
+        if (/_TRANS_/i.test(it.name || '')) continue;
+        out.push(it);
+    }
+    return out;
+}
+
+function batchSelected() {
+    var out = [];
+    var boxes = document.querySelectorAll('#batch-list input.batch-file:checked');
+    for (var i = 0; i < boxes.length; i++) {
+        var b = boxes[i];
+        out.push({
+            url: b.getAttribute('data-url') || '',
+            name: b.getAttribute('data-name') || '',
+            size: parseInt(b.getAttribute('data-size'), 10) || 0
+        });
+    }
+    return out;
+}
+
+function batchUpdateCount() {
+    var boxes = document.querySelectorAll('#batch-list input.batch-file');
+    var n = document.querySelectorAll('#batch-list input.batch-file:checked').length;
+    var el = document.getElementById('batch-count');
+    if (el) el.textContent = '已选 ' + n + ' 个';
+    var all = document.getElementById('batch-select-all');
+    if (all) {
+        all.checked = boxes.length > 0 && n === boxes.length;
+        all.indeterminate = n > 0 && n < boxes.length;
+    }
+}
+
+function batchSetControls(disabled) {
+    var ids = ['batch-select-all', 'batch-format', 'batch-prefix', 'batch-start-btn'];
+    for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (el) el.disabled = !!disabled;
+    }
+    var boxes = document.querySelectorAll('#batch-list input.batch-file');
+    for (var j = 0; j < boxes.length; j++) boxes[j].disabled = !!disabled;
+    var btns = document.querySelectorAll('#batch-modal .ba-toolbar button');
+    for (var k = 0; k < btns.length; k++) btns[k].disabled = !!disabled;
+}
+
+function batchShowRefresh(show) {
+    var b = document.getElementById('batch-refresh-btn');
+    if (b) b.style.display = show ? 'inline-block' : 'none';
+}
+
+function batchUpdateProgress(text, pct, detail) {
+    var box = document.getElementById('batch-progress');
+    if (box) box.style.display = 'block';
+    var t = document.getElementById('batch-progress-text');
+    if (t) t.textContent = text || '';
+    var bar = document.getElementById('batch-progress-bar');
+    if (bar) bar.style.width = Math.max(0, Math.min(100, Math.round(Number(pct) || 0))) + '%';
+    var d = document.getElementById('batch-progress-detail');
+    if (d) d.textContent = detail || '';
+}
+
+function cancelExtractToken(token) {
+    if (!token) return;
+    fetch('/cgi-bin/luci/dlna/cancel_extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'token=' + encodeURIComponent(token) + '&new_url='
+    }).catch(function() {});
+}
+
+function batchStartNext() {
+    if (!batchState.active) return;
+    if (batchState.idx >= batchState.queue.length) { batchFinish(); return; }
+    var it = batchState.queue[batchState.idx];
+    var pos = batchState.idx + 1;
+    batchUpdateProgress('第 ' + pos + '/' + batchState.total + ' 个：' + (it.name || ''), 0, '');
+    var ext = getExt(it.name);
+    var srcTag = ext.replace(/^\./, '').replace(/[^a-z0-9]/gi, '') || 'x';
+    var cacheKey = 'F' + batchState.format + '_a0_' + srcTag;
+    if (cacheKey.length > 24) cacheKey = cacheKey.slice(0, 24);
+    var body = 'file=' + encodeURIComponent(it.url)
+        + '&format=' + encodeURIComponent(batchState.format)
+        + '&prefix=' + encodeURIComponent(batchState.prefix)
+        + '&cache_key=' + encodeURIComponent(cacheKey)
+        + '&batch=1&duration=0';
+    fetch('/cgi-bin/luci/dlna/extract_audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+    })
+    .then(function(r) { return r.text(); })
+    .then(function(text) {
+        var res;
+        try { res = JSON.parse(text); } catch (e) { throw new Error('后端返回异常: ' + text.slice(0, 160)); }
+        if (!batchState.active) {
+            // 用户在请求返回前取消了：把后端已经起的任务一并取消
+            if (res && res.token) cancelExtractToken(res.token);
+            return;
+        }
+        if (!res || res.status !== 'success') throw new Error((res && res.error) || '任务启动失败');
+        if (res.cached) { batchItemDone(true); return; }
+        if (!res.token) throw new Error('后端未返回任务 token');
+        batchState.token = res.token;
+        batchPoll();
+    })
+    .catch(function(e) { batchItemDone(false, e.message || String(e)); });
+}
+
+function batchPoll() {
+    if (!batchState.active || !batchState.token) return;
+    if (batchState.timer) { clearInterval(batchState.timer); batchState.timer = null; }
+    batchState.consecutive = 0;
+    batchState.timer = setInterval(function() {
+        if (!batchState.active || !batchState.token) return;
+        fetch('/cgi-bin/luci/dlna/get_progress?token=' + encodeURIComponent(batchState.token), { cache: 'no-store' })
+            .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function(prog) {
+                if (!batchState.active) return;
+                if (!prog || prog.error) throw new Error((prog && prog.error) || '返回为空');
+                batchState.consecutive = 0;
+                var dur = parseFloat(prog.duration) || 0;
+                var out = parseFloat(prog.out_time_us) || 0;
+                var pct = 0;
+                if (typeof prog.percent === 'number' && prog.percent >= 0) pct = prog.percent;
+                else if (dur > 0 && out > 0) pct = Math.min(99, Math.floor(out / 1000000 / dur * 100));
+                var detail = [];
+                if (out > 0) detail.push('已处理 ' + formatTime(out / 1000000));
+                if (dur > 0) detail.push('总时长 ' + formatTime(dur));
+                if (prog.speed) detail.push('速度 ' + prog.speed);
+                if (prog.total_size) detail.push('已写入 ' + formatSize(prog.total_size));
+                if (prog.status === 'finalizing') {
+                    pct = 100;
+                    detail.push('正在完成文件...');
+                }
+                var cur = batchState.queue[batchState.idx];
+                batchUpdateProgress('第 ' + (batchState.idx + 1) + '/' + batchState.total + ' 个：' + (cur ? cur.name : ''), pct, detail.join('　'));
+                if (prog.status === 'done') {
+                    batchItemDone(true);
+                } else if (prog.status === 'error') {
+                    batchItemDone(false, prog.log || prog.message || 'FFmpeg 进程意外退出');
+                }
+            })
+            .catch(function(e) {
+                batchState.consecutive++;
+                if (batchState.consecutive >= 12) {
+                    batchItemDone(false, '进度读取失败：' + (e.message || e));
+                }
+            });
+    }, 1000);
+}
+
+function batchItemDone(ok, msg) {
+    if (!batchState.active) return;
+    if (batchState.timer) { clearInterval(batchState.timer); batchState.timer = null; }
+    batchState.token = '';
+    var it = batchState.queue[batchState.idx];
+    if (ok) {
+        batchState.ok++;
+    } else {
+        batchState.fail++;
+        if (batchState.failed.length < 50 && it) {
+            batchState.failed.push({ name: it.name || '', message: String(msg || '失败') });
+        }
+    }
+    batchState.idx++;
+    batchStartNext();
+}
+
+function batchFinish() {
+    batchState.active = false;
+    if (batchState.timer) { clearInterval(batchState.timer); batchState.timer = null; }
+    batchState.token = '';
+    window.transcodeActive = false;
+    batchSetControls(false);
+    var text = '✅ 批量完成：成功 ' + batchState.ok + ' 个，失败 ' + batchState.fail + ' 个';
+    var detail = '输出文件已写入源文件同目录，可点“刷新目录查看结果”。';
+    if (batchState.failed.length) {
+        detail = '失败文件：\n' + batchState.failed.map(function(f) {
+            return f.name + '：' + String(f.message || '').slice(-160);
+        }).join('\n');
+    }
+    batchUpdateProgress(text, 100, detail);
+    batchShowRefresh(true);
+    var btn = document.getElementById('batch-start-btn');
+    if (btn) { btn.disabled = false; btn.textContent = '🚀 再次开始'; }
+}
+
+function batchCancel() {
+    if (!batchState.active) return;
+    if (batchState.timer) { clearInterval(batchState.timer); batchState.timer = null; }
+    var token = batchState.token;
+    batchState.token = '';
+    batchState.active = false;
+    window.transcodeActive = false;
+    batchSetControls(false);
+    var btn = document.getElementById('batch-start-btn');
+    if (btn) { btn.disabled = false; btn.textContent = '🚀 开始批量'; }
+    batchUpdateProgress('已取消。', 0, '');
+    batchShowRefresh(false);
+    cancelExtractToken(token);
+}
+
+window.batchSelectAll = function(on) {
+    if (batchState.active) return;
+    var boxes = document.querySelectorAll('#batch-list input.batch-file');
+    for (var i = 0; i < boxes.length; i++) boxes[i].checked = !!on;
+    batchUpdateCount();
+};
+
+window.batchInvert = function() {
+    if (batchState.active) return;
+    var boxes = document.querySelectorAll('#batch-list input.batch-file');
+    for (var i = 0; i < boxes.length; i++) boxes[i].checked = !boxes[i].checked;
+    batchUpdateCount();
+};
+
+window.closeBatchModal = function() {
+    if (batchState.active) {
+        if (!confirm('批量任务正在执行，关闭会取消当前任务，确定吗？')) return;
+        batchCancel();
+    }
+    var modal = document.getElementById('batch-modal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.startBatchAudio = function() {
+    if (batchState.active) return;
+    if (window.transcodeActive || currentTranscodeTimer) {
+        alert('已有转封装任务在执行，请等待完成或先取消。');
+        return;
+    }
+    var items = batchSelected();
+    if (!items.length) { alert('请至少勾选一个文件'); return; }
+    var fmtEl = document.getElementById('batch-format');
+    var fmt = fmtEl ? fmtEl.value : 'm4a';
+    if (fmt !== 'm4a' && fmt !== 'mp3' && fmt !== 'wav') fmt = 'm4a';
+    var pfxEl = document.getElementById('batch-prefix');
+    var prefix = pfxEl ? String(pfxEl.value || '').trim().slice(0, 40) : '';
+    saveTranscodePrefix(prefix);
+    try { localStorage.setItem('nm_batch_format', fmt); } catch (e) {}
+    if (!confirm('将把 ' + items.length + ' 个文件导出为 ' + fmt.toUpperCase() + '，输出到源文件同目录。继续？')) return;
+
+    batchState = {
+        active: true, queue: items, idx: 0, ok: 0, fail: 0, failed: [],
+        token: '', timer: null, format: fmt, prefix: prefix, total: items.length, consecutive: 0
+    };
+    window.transcodeActive = true;
+    try { videoEl.pause(); } catch (e) {}
+    batchSetControls(true);
+    batchUpdateProgress('准备批量处理 ' + items.length + ' 个文件…', 0, '');
+    batchShowRefresh(false);
+    batchStartNext();
+};
+
+window.openBatchModal = function() {
+    if (window.transcodeActive || currentTranscodeTimer || batchState.active) {
+        alert('已有转封装/批量任务在执行，请等待完成或先取消。');
+        return;
+    }
+    var items = batchMediaItems();
+    var list = document.getElementById('batch-list');
+    var modal = document.getElementById('batch-modal');
+    var prog = document.getElementById('batch-progress');
+    var fmtSel = document.getElementById('batch-format');
+    var pfx = document.getElementById('batch-prefix');
+    var startBtn = document.getElementById('batch-start-btn');
+    var storedFmt = 'm4a', storedPfx = '';
+    try {
+        storedFmt = localStorage.getItem('nm_batch_format') || 'm4a';
+    } catch (e) {}
+    storedPfx = getTranscodePrefix();
+    if (fmtSel) fmtSel.value = (storedFmt === 'mp3' || storedFmt === 'wav') ? storedFmt : 'm4a';
+    if (pfx) pfx.value = storedPfx;
+    if (prog) prog.style.display = 'none';
+    batchShowRefresh(false);
+    if (startBtn) { startBtn.textContent = '🚀 开始批量'; }
+    if (!items.length) {
+        list.innerHTML = '<div style="padding:20px;color:#888;text-align:center;">当前目录没有可处理的媒体文件。</div>';
+        list.onchange = null;
+    } else {
+        var cur = (currentIndex >= 0 && listItems[currentIndex]) ? listItems[currentIndex].url : '';
+        var html = '';
+        for (var i = 0; i < items.length; i++) {
+            var it = items[i];
+            var checked = (it.url === cur) ? ' checked' : '';
+            var icon = isAudioOnly(it.name) ? '🎵' : '🎬';
+            html += '<label class="ba-item"><input type="checkbox" class="batch-file"'
+                + ' data-url="' + esc(it.url) + '" data-name="' + esc(it.name) + '"'
+                + ' data-size="' + (it.size || 0) + '"' + checked + '>'
+                + '<span class="nm">' + icon + ' ' + esc(it.name) + '</span>'
+                + '<span class="sz">' + formatSize(it.size || 0) + '</span></label>';
+        }
+        list.innerHTML = html;
+        list.onchange = function(e) {
+            if (e.target && e.target.classList && e.target.classList.contains('batch-file')) batchUpdateCount();
+        };
+    }
+    modal.style.display = 'flex';
+    batchUpdateCount();
+    batchSetControls(false);
+    if (!items.length && startBtn) startBtn.disabled = true;
+};
+
+(function bindBatchButton() {
+    var b = document.getElementById('batch-audio-btn');
+    if (b) b.onclick = window.openBatchModal;
+})();
+
+(function initTranscodePrefix() {
+    var p = '';
+    try { p = localStorage.getItem('nm_transcode_prefix') || ''; } catch (e) {}
+    var a = document.getElementById('fi-prefix-input');
+    if (a) a.value = p;
+    var b = document.getElementById('batch-prefix');
+    if (b) b.value = p;
+})();
 
 // 页面加载时先找回后台任务；目录列表会等这个结果，避免转封装期间自动加载文件
 transcodeRestorePromise = restoreTranscodeTasks();

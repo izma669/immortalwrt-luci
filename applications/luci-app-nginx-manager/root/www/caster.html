@@ -52,7 +52,7 @@ input[type=text]:focus{border-color:#4a9eff}
 <body>
 <div class="wrap">
     <h1>📺 本地投屏控制</h1>
-    <div class="sub">这个页面由你本地路由器的 880 端口提供，所以 SSDP 发现和投屏控制都在你本地网络执行；视频文件仍然从远程媒体服务器的公网地址读取。</div>
+    <div class="sub">这个页面由你的本地路由器提供，只显示与本地路由器同一局域网的电视（不会显示媒体服务器所在网络的远端设备）；SSDP 发现和投屏控制都在本地网络执行，视频文件仍然从远程媒体服务器的公网地址读取。</div>
 
     <div class="card">
         <h2>当前视频</h2>
@@ -110,21 +110,16 @@ input[type=text]:focus{border-color:#4a9eff}
 'use strict';
 var params = new URLSearchParams(location.search);
 var videoUrl = params.get('video') || '';
-var agentKey = params.get('key') || '';
+
 var title = params.get('title') || '';
 var currentControl = '';
 var currentDevice = '';
 
 function apiUrl(path, query) {
-    var qs = [];
-    if (agentKey) qs.push('key=' + encodeURIComponent(agentKey));
-    if (query) qs.push(query);
-    return '/cgi-bin/luci/dlna/' + path + (qs.length ? '?' + qs.join('&') : '');
+    return '/cgi-bin/luci/dlna/' + path + (query ? '?' + query : '');
 }
 function apiBody(extra) {
-    var body = extra || '';
-    if (agentKey) body += (body ? '&' : '') + 'key=' + encodeURIComponent(agentKey);
-    return body;
+    return extra || '';
 }
 function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
@@ -403,7 +398,7 @@ window.manualProbe = function() {
         if (res.status !== 'success') throw new Error(res.message || '扫描失败');
         castTo({name: res.name || ip, control_url: res.control_url});
     }).catch(function(e){
-        setStatus('扫描失败：' + esc(e.message || e) + '（可尝试输入 IP:端口 由播放页的旧模式处理）', 'err');
+        setStatus('扫描失败：' + esc(e.message || e) + '（请确认电视已开机、开启 DLNA，并与本路由器在同一局域网）', 'err');
     });
 };
 
@@ -443,7 +438,7 @@ fetch(apiUrl('discover'), {cache:'no-store'})
     })
     .catch(function(e){
         document.getElementById('devices').innerHTML = '<div class="msg err">设备发现失败：' + esc(e.message || e) + '</div>';
-        setStatus('检查本地路由器“远程投屏代理”是否启用；如果设置了密钥，请从播放页重新打开本页。', 'err');
+        setStatus('请确认本地路由器的“媒体服务器”正在运行；如果本页不是从本地路由器打开的，请回到播放页的“⚙ 投屏设置”里填写本地路由器地址。', 'err');
     });
 })();
 </script>
