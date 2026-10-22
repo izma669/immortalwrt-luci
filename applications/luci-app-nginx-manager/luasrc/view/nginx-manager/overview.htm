@@ -502,6 +502,15 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
 .nm-wrap { max-width: 960px; }
 .nm-card { background:#fff; border:1px solid #e4e7eb; border-radius:10px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,0.04); overflow:hidden; }
 .nm-head { background:linear-gradient(135deg,#f8f9fb,#eef2f7); border-bottom:1px solid #e4e7eb; padding:14px 22px; font-size:15px; font-weight:600; color:#1f2d3d; }
+.nm-tabs { display:flex; gap:4px; margin:0 0 16px 0; border-bottom:1px solid #e4e7eb; overflow-x:auto; }
+.nm-tab { background:transparent; border:none; border-bottom:2px solid transparent; padding:10px 18px; font-size:13.5px; color:#5a6272; cursor:pointer; font-family:inherit; border-radius:6px 6px 0 0; white-space:nowrap; flex-shrink:0; }
+.nm-tab:hover { color:#2a6fc5; background:#f4f8fd; }
+.nm-tab.active { color:#2a6fc5; border-bottom-color:#4a9eff; font-weight:600; }
+.nm-panes { display:flex; flex-direction:column; }
+.nm-pane-card { order:3; display:none; }
+.nm-pane-card[data-pane="media"] { order:1; display:block; }
+.nm-pane-card[data-pane="cast"] { order:2; }
+.nm-pane-card[data-pane="global"] { order:3; }
 .nm-row { padding:12px 22px; border-bottom:1px solid #f4f6f8; display:flex; align-items:center; }
 .nm-row:last-child { border-bottom:none; }
 .nm-label { width:150px; flex-shrink:0; font-size:13px; color:#4a5568; font-weight:500; }
@@ -535,15 +544,25 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
     <h2 style="font-size:22px;color:#1f2d3d;margin:0 0 8px 0;">Nginx 媒体服务器管理</h2>
     <div style="color:#666;font-size:13px;margin-bottom:20px;">管理媒体服务器的启动、配置以及媒体服务配置文件的生成。</div>
 
-    <div style="margin-bottom:20px;">
-        <button type="button" class="nm-btn gray" onclick="location.reload()">🔃 刷新页面</button>
-    </div>
-
-    <!-- 1. 媒体服务器总开关 -->
-    <div class="nm-card" style="border-left: 4px solid #4a9eff;">
-        <div class="nm-head">🎛️ 媒体服务器总开关</div>
+    <!-- 顶部：运行状态 / 刷新 / 媒体服务器总开关 -->
+    <div class="nm-card" style="border-left: 4px solid #2ecc71;">
+        <div class="nm-head">🛠️ 运行状态</div>
         <div class="nm-row">
-            <div class="nm-label">服务状态</div>
+            <div class="nm-label">Nginx</div>
+            <div class="nm-field">
+                <span id="nginx-status-badge" style="font-weight:600;color:#95a5b8;">检测中...</span>
+                <button type="button" id="nm-restart-nginx" class="nm-btn" onclick="nmRestartNginx()">🔄 重启 NGINX</button>
+                <button type="button" class="nm-btn gray" onclick="location.reload()">🔃 刷新页面</button>
+            </div>
+        </div>
+        <div class="nm-row">
+            <div class="nm-label">进程信息</div>
+            <div class="nm-field">
+                <span id="nginx-status-detail" style="color:#8898aa;font-size:12.5px;">-</span>
+            </div>
+        </div>
+        <div class="nm-row">
+            <div class="nm-label">媒体服务器总开关</div>
             <div class="nm-field">
                 <form method="post" style="display:inline;">
                     <input type="hidden" name="action" value="toggle_server">
@@ -556,24 +575,6 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
                     当前状态：<b style="color:<%= (server_enabled == "1") and "#2ecc71" or "#e74c3c" %>;"><%= (server_enabled == "1") and "运行中" or "已停止" %></b>
                     <br><small>启动后自动运行 DLNA 发现守护进程并开启 880 网站。停止后关闭守护进程并禁用 880 网站。</small>
                 </span>
-            </div>
-        </div>
-    </div>
-
-    <!-- 2. Nginx 运行状态 / 后台重启 -->
-    <div class="nm-card" style="border-left: 4px solid #2ecc71;">
-        <div class="nm-head">🛠️ Nginx 运行状态</div>
-        <div class="nm-row">
-            <div class="nm-label">当前状态</div>
-            <div class="nm-field">
-                <span id="nginx-status-badge" style="font-weight:600;color:#95a5b8;">检测中...</span>
-                <button type="button" id="nm-restart-nginx" class="nm-btn" onclick="nmRestartNginx()" style="margin-left:10px;">🔄 重启 NGINX</button>
-            </div>
-        </div>
-        <div class="nm-row">
-            <div class="nm-label">进程信息</div>
-            <div class="nm-field">
-                <span id="nginx-status-detail" style="color:#8898aa;font-size:12.5px;">-</span>
             </div>
         </div>
         <div class="nm-row" style="background:#fbfcfe;">
@@ -590,8 +591,16 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
         </div>
     </div>
 
-    <!-- 3. 本地投屏 -->
-    <div class="nm-card" style="border-left: 4px solid #9b59b6;">
+    <!-- 三个分页 -->
+    <div class="nm-tabs">
+        <button type="button" class="nm-tab active" data-nm-tab="media">🎬 媒体服务器设置</button>
+        <button type="button" class="nm-tab" data-nm-tab="cast">📺 投屏设置</button>
+        <button type="button" class="nm-tab" data-nm-tab="global">⚙️ 全局设置</button>
+    </div>
+    <div class="nm-panes">
+
+    <!-- 投屏设置 -->
+    <div class="nm-card nm-pane-card" data-pane="cast" style="border-left: 4px solid #9b59b6;">
         <div class="nm-head">📺 本地投屏（DLNA）</div>
         <div class="nm-row">
             <div class="nm-label">发现服务</div>
@@ -606,27 +615,17 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
                 <span class="nm-ro" id="dlna-caster-url"><%= (dlna_caster_url ~= "") and dlna_caster_url or "请用局域网 IP 打开本页" %></span>
                 <button type="button" class="nm-btn" onclick="openDlnaCaster()">📺 打开</button>
                 <button type="button" class="nm-btn gray" onclick="copyDlnaCaster()">📋 复制</button>
-                <span style="color:#95a5b8;font-size:11.5px;">地址是媒体端口（默认 880）；复制后可粘贴到播放页“⚙ 投屏设置”</span>
+                <span style="color:#95a5b8;font-size:11.5px;">地址是媒体端口（默认 880）；复制后可粘贴到播放页“投屏选项 → ⚙ 投屏设置”</span>
             </div>
         </div>
         <div class="nm-row" style="background:#fbfcfe;color:#95a5b8;font-size:12px;">
-            <span>💡 投屏只列出与本机同一局域网的 DLNA 电视，不再显示远端服务器所在网络的设备，也不需要密钥。播放页 → 📺 投屏 会自动发现本地投屏服务并打开这个控制页（需“媒体服务器总开关”为运行中）；只有在自动发现失败时，才需要在“⚙ 投屏设置”里手动填上面的地址。</span>
+            <span>💡 投屏只列出与本机同一局域网的 DLNA 电视，不再显示远端服务器所在网络的设备，也不需要密钥。播放页 → 📺 投屏 会自动发现本地投屏服务并打开这个控制页（需“媒体服务器总开关”为运行中）；只有在自动发现失败时，才需要在“投屏选项 → ⚙ 投屏设置”里手动填上面的地址。</span>
         </div>
-        <form method="post" style="margin:0;">
-            <input type="hidden" name="action" value="regen_media_conf">
-            <div class="nm-row">
-                <div class="nm-label">880 配置</div>
-                <div class="nm-field">
-                    <button type="submit" class="nm-btn">🔄 重新生成媒体配置</button>
-                    <span style="color:#95a5b8;font-size:12px;">写入最新的 media.conf 并 reload（升级后点一次）</span>
-                </div>
-            </div>
-        </form>
     </div>
 
-    <!-- 4. 媒体服务（独立配置） -->
-    <div class="nm-card">
-        <div class="nm-head">🎬 媒体服务（独立配置）</div>
+    <!-- 媒体服务器设置 -->
+    <div class="nm-card nm-pane-card" data-pane="media">
+        <div class="nm-head">🎬 媒体服务器设置</div>
 
         <form method="post">
             <input type="hidden" name="action" value="change_port">
@@ -656,6 +655,17 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
             </div>
         </form>
 
+        <form method="post" style="margin:0;">
+            <input type="hidden" name="action" value="regen_media_conf">
+            <div class="nm-row">
+                <div class="nm-label">880 配置</div>
+                <div class="nm-field">
+                    <button type="submit" class="nm-btn">🔄 重新生成媒体配置</button>
+                    <span style="color:#95a5b8;font-size:12px;">写入最新的 media.conf 并 reload（升级后点一次）</span>
+                </div>
+            </div>
+        </form>
+
         <form method="post">
             <input type="hidden" name="action" value="change_root">
             <div class="nm-row">
@@ -673,8 +683,8 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
         </div>
     </div>
 
-    <!-- 3. 全局设置 -->
-    <div class="nm-card">
+    <!-- 全局设置 -->
+    <div class="nm-card nm-pane-card" data-pane="global">
         <div class="nm-head">⚙️ 全局设置</div>
         <div class="nm-row">
             <div class="nm-label">启用 UCI 配置</div>
@@ -687,7 +697,7 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
 
     <!-- 4. HTTP / HTTPS 只读信息 -->
     <% if http_server then %>
-    <div class="nm-card">
+    <div class="nm-card nm-pane-card" data-pane="global">
         <div class="nm-head">🌐 HTTP 服务（只读，系统保留）</div>
         <div class="nm-row">
             <div class="nm-label">监听地址</div>
@@ -701,7 +711,7 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
     <% end %>
 
     <% if https_server then %>
-    <div class="nm-card">
+    <div class="nm-card nm-pane-card" data-pane="global">
         <div class="nm-head">🔒 HTTPS 服务（只读，系统保留）</div>
         <div class="nm-row">
             <div class="nm-label">监听地址</div>
@@ -721,6 +731,7 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
         </div>
     </div>
     <% end %>
+    </div><!-- /.nm-panes -->
 </div>
 
 <div id="nm-modal">
@@ -741,6 +752,32 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
     var nmCur = '/mnt';
     var nmPort = '<%= media_port %>';
     var nmRestartTimer = null;
+
+    // 三个分页：媒体服务器设置 / 投屏设置 / 全局设置
+    var nmTabs = document.querySelectorAll('.nm-tab');
+    function nmShowTab(name) {
+        if (name !== 'media' && name !== 'cast' && name !== 'global') name = 'media';
+        for (var i = 0; i < nmTabs.length; i++) {
+            var t = nmTabs[i];
+            var on = t.getAttribute('data-nm-tab') === name;
+            t.classList.toggle('active', on);
+        }
+        var cards = document.querySelectorAll('.nm-pane-card');
+        for (var j = 0; j < cards.length; j++) {
+            cards[j].style.display = (cards[j].getAttribute('data-pane') === name) ? 'block' : 'none';
+        }
+        try { localStorage.setItem('nm_admin_tab', name); } catch (e) {}
+    }
+    for (var k = 0; k < nmTabs.length; k++) {
+        nmTabs[k].onclick = (function(tab) {
+            return function() { nmShowTab(tab); };
+        })(nmTabs[k].getAttribute('data-nm-tab'));
+    }
+    (function initNmTab() {
+        var saved = '';
+        try { saved = localStorage.getItem('nm_admin_tab') || ''; } catch (e) {}
+        nmShowTab(saved === 'cast' || saved === 'global' ? saved : 'media');
+    })();
 
     window.openBrowser = function() {
         document.getElementById('nm-modal').style.display = 'flex';

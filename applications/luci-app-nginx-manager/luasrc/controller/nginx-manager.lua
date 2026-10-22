@@ -15,6 +15,8 @@ function index()
     entry({"dlna", "caster"}, call("dlna_caster")).leaf = true
 
     entry({"dlna", "ffprobe"}, post("dlna_ffprobe")).leaf = true
+    entry({"dlna", "subtitle"}, call("dlna_subtitle")).leaf = true
+    entry({"dlna", "image"}, call("dlna_image")).leaf = true
     entry({"dlna", "extract_audio"}, post("dlna_extract_audio")).leaf = true
     entry({"dlna", "get_progress"}, call("dlna_get_progress")).leaf = true
     entry({"dlna", "cancel_extract"}, post("dlna_cancel_extract")).leaf = true
@@ -409,6 +411,104 @@ function dlna_ffprobe()
     http.write(out)
 end
 
+-- 提取内嵌字幕为 WebVTT：GET /cgi-bin/luci/dlna/subtitle?file=...&index=...
+-- 只支持文本字幕（SRT/ASS/SSA/mov_text 等）；PGS/DVD 图形字幕无法转成网页文本。
+function dlna_subtitle()
+    local http = require "luci.http"
+    local file = decode_file(http.formvalue("file"))
+    local index = tonumber(http.formvalue("index"))
+    local path = resolve_media(file)
+    if not path then
+        http.status(404)
+        http.prepare_content("text/plain; charset=utf-8")
+        http.write("文件不存在")
+        return
+    end
+    if not index or index < 0 then
+        http.status(400)
+        http.prepare_content("text/plain; charset=utf-8")
+        http.write("缺少字幕流索引")
+        return
+    end
+    if not file_exists("/usr/bin/ffmpeg") then
+        http.status(500)
+        http.prepare_content("text/plain; charset=utf-8")
+        http.write("系统缺少 ffmpeg")
+        return
+    end
+
+    local cmd = string.format(
+        "LANG=C.UTF-8 /usr/bin/ffmpeg -hide_banner -loglevel error -i %s -map 0:%d -c:s webvtt -f webvtt -",
+        shell_quote(path), index)
+    local p = io.popen(cmd, "r")
+    local data = p and p:read("*a") or ""
+    if p then p:close() end
+
+    if data and data:find("WEBVTT", 1, true) then
+        http.prepare_content("text/vtt; charset=utf-8")
+        http.write(data)
+    else
+        http.status(415)
+        http.prepare_content("text/plain; charset=utf-8")
+        http.write("该字幕不是文本字幕（可能是 PGS/DVD 图形字幕），网页播放器无法显示；可改用 MKV 输出后在电视或本地播放器里选择字幕。")
+    end
+end
+
+-- iOS 16 及更早的 Safari 不支持 HEIC/HEIF；这里按需转成 JPEG 再给浏览器。
+-- 优先 ImageMagick（magick/convert），其次 heif-convert，最后 ffmpeg。
+function dlna_image()
+    local http = require "luci.http"
+    local sys = require "luci.sys"
+    local file = decode_file(http.formvalue("file"))
+    local path = resolve_media(file)
+    if not path then
+        http.status(404); http.prepare_content("text/plain; charset=utf-8"); http.write("文件不存在"); return
+    end
+    local ext = path:match("%.([^.]+)$")
+    ext = ext and ext:lower() or ""
+    local needs = (ext == "heic" or ext == "heif" or ext == "avif" or ext == "tif" or ext == "tiff")
+    if not needs then
+        http.status(302); http.header("Location", file); return
+    end
+
+    local data = nil
+    for _, bin in ipairs({ "magick", "convert" }) do
+        if sys.call("command -v " .. bin .. " >/dev/null 2>&1") == 0 then
+            local cmd = string.format(
+                "LANG=C.UTF-8 %s %s -auto-orient -resize %s -quality 85 jpg:- 2>/dev/null",
+                bin, shell_quote(path), shell_quote("1600x1600>"))
+            local p = io.popen(cmd, "r")
+            if p then data = p:read("*a"); p:close() end
+            if data and #data > 0 then break end
+        end
+    end
+    if (not data or #data == 0) and sys.call("command -v heif-convert >/dev/null 2>&1") == 0 then
+        local tmp = string.format("/tmp/nm_img_%d_%d.jpg", os.time(), math.random(1000, 9999))
+        sys.exec(string.format("heif-convert -q 85 %s %s >/dev/null 2>&1",
+            shell_quote(path), shell_quote(tmp)))
+        local f = io.open(tmp, "rb")
+        if f then data = f:read("*a"); f:close() end
+        os.remove(tmp)
+    end
+    if (not data or #data == 0) and file_exists("/usr/bin/ffmpeg") then
+        local cmd = string.format(
+            "LANG=C.UTF-8 /usr/bin/ffmpeg -hide_banner -loglevel error -i %s -frames:v 1 "
+            .. "-vf scale=1600:-2:force_original_aspect_ratio=decrease -f image2 -vcodec mjpeg - 2>/dev/null",
+            shell_quote(path))
+        local p = io.popen(cmd, "r")
+        if p then data = p:read("*a"); p:close() end
+    end
+    if not data or #data == 0 then
+        http.status(415)
+        http.prepare_content("text/plain; charset=utf-8")
+        http.write("无法转换该图片：请安装带 HEIC 支持的 ImageMagick（magick/convert）或 heif-convert。")
+        return
+    end
+    http.header("Cache-Control", "public, max-age=86400")
+    http.prepare_content("image/jpeg")
+    http.write(data)
+end
+
 -- 目录列表兜底接口：GET /cgi-bin/luci/dlna/list_dir?path=<encodeURIComponent(路径)>
 -- http.formvalue 已经解过一次编码，这里直接使用，避免文件名里的 % 被二次解码
 function dlna_list_dir()
@@ -494,10 +594,25 @@ local function build_plan_args(plan, container)
                     oa = oa + 1
                 end
             elseif typ == "subtitle" then
-                -- mpegts 不支持文本字幕：TS 下忽略；MP4 里转 mov_text
-                if copy and container == "mp4" then
-                    args[#args + 1] = string.format("-map 0:%d -c:s:%d mov_text", idx, osn)
-                    osn = osn + 1
+                -- MKV 可直接复制文本/图形字幕；MP4/MOV 只支持文本字幕转 mov_text；
+                -- TS/AVI 不支持字幕，忽略。
+                local codec = tostring(s.codec or ""):lower()
+                local image_sub = codec:find("pgs", 1, true) or codec:find("dvd_subtitle", 1, true)
+                    or codec:find("dvb_subtitle", 1, true) or codec:find("xsub", 1, true)
+                if copy then
+                    if container == "mkv" then
+                        local scodec = "copy"
+                        -- mov_text/webvtt 不能直接塞进 Matroska，统一转成 SRT；
+                        -- ASS/SSA 和 PGS/DVD 图形字幕保持原样。
+                        if codec == "mov_text" or codec == "webvtt" or codec == "text" then
+                            scodec = "srt"
+                        end
+                        args[#args + 1] = string.format("-map 0:%d -c:s:%d %s", idx, osn, scodec)
+                        osn = osn + 1
+                    elseif (container == "mp4" or container == "mov") and not image_sub then
+                        args[#args + 1] = string.format("-map 0:%d -c:s:%d mov_text", idx, osn)
+                        osn = osn + 1
+                    end
                 end
             end
         end
@@ -734,7 +849,10 @@ function dlna_extract_audio()
             local ok, plan = pcall(function() return jsonc.parse(plan_raw) end)
             if ok and type(plan) == "table" and type(plan.streams) == "table" then
                 plan_seen = true
-                if plan.container == "ts" then container = "ts" end
+                local pc = tostring(plan.container or "")
+                if pc == "ts" or pc == "mkv" or pc == "mov" or pc == "avi" then
+                    container = pc
+                end
                 args, nstream, has_video = build_plan_args(plan, container)
             end
         end
@@ -754,6 +872,9 @@ function dlna_extract_audio()
 
     local ext
     if container == "ts" then ext = ".ts"
+    elseif container == "mkv" then ext = ".mkv"
+    elseif container == "mov" then ext = ".mov"
+    elseif container == "avi" then ext = ".avi"
     elseif container == "m4a" then ext = ".m4a"
     elseif container == "mp3" then ext = ".mp3"
     elseif container == "wav" then ext = ".wav"
@@ -884,6 +1005,12 @@ function dlna_extract_audio()
     local tail
     if container == "ts" then
         tail = "-f mpegts"
+    elseif container == "mkv" then
+        tail = "-f matroska"
+    elseif container == "mov" then
+        tail = "-avoid_negative_ts make_zero -movflags +faststart -f mov"
+    elseif container == "avi" then
+        tail = "-f avi"
     elseif container == "mp3" then
         tail = "-f mp3"
     elseif container == "wav" then
