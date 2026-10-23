@@ -3,24 +3,11 @@ local m, s, o
 m = Map("gmediarender", "GR_DLNA音频接收器",
     "GMediaRender 是一个 UPnP/DLNA 音频渲染器，可以将手机或电脑上的音频推送到此设备播放。")
 
--- ==========================================
--- 1. 状态模块
--- ==========================================
-s = m:section(NamedSection, "main", "gmediarender")
-s.anonymous = true
-o = s:option(DummyValue, "_status", "服务状态")
-o.template = "gmediarender/status"
+-- 服务状态 / 正在播放等展示模块已经移到 888 端口的“音乐中心”，
+-- 这里只保留设置项，避免 LuCI 管理面板里重复展示。
 
 -- ==========================================
--- 2. 正在播放模块
--- ==========================================
-s = m:section(NamedSection, "main", "gmediarender")
-s.anonymous = true
-o = s:option(DummyValue, "_nowplaying", "播放信息")
-o.template = "gmediarender/nowplaying"
-
--- ==========================================
--- 3. 基本设置模块
+-- 基本设置模块
 -- ==========================================
 s = m:section(NamedSection, "main", "gmediarender", "基本设置")
 s.anonymous = true
@@ -56,8 +43,12 @@ o = s:option(Value, "download_dir", "下载歌曲存放位置",
 o.default = "/mnt/mmcblk0p1/music"
 o.rmempty = false
 
+-- 给 download_dir 注入“浏览”按钮（弹窗逻辑放在独立模板里）
+o = s:option(DummyValue, "_dirpicker", "")
+o.template = "gmediarender/dirpicker"
+
 -- ==========================================
--- 4. 服务控制模块
+-- 服务控制模块
 -- ==========================================
 s = m:section(NamedSection, "main", "gmediarender", "服务控制")
 s.anonymous = true
