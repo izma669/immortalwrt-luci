@@ -7,8 +7,8 @@ m = Map("owntone")
 m.title = translate("Music Remote Center")
 m.description = translate("Music Remote Center is a DAAP (iTunes Remote), MPD (Music Player Daemon) and RSP (Roku) media server.")
 
--- 1. 正在播放状态框
-m:section(SimpleSection).template = "owntone/owntone_status"
+-- 正在播放 / 状态展示已经移到 888 端口的“音乐中心”，
+-- 这里只保留播放设置、定时音量、服务设置和日志。
 
 -- ==================== 标签页定义 ====================
 s = m:section(TypedSection, "owntone")
