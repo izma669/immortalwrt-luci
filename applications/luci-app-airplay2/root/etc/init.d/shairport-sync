@@ -11,9 +11,25 @@ append_str() {
     local file="$2"
     local var="$3"
     local name="$4"
+    local default="$5"
     local val
-    config_get val "$cfg" "$var"
+    config_get val "$cfg" "$var" "$default"
     [ -n "$val" ] && echo -e "\t$name = \"$val\";" >> "$file"
+}
+
+append_yes_no() {
+    local cfg="$1"
+    local file="$2"
+    local var="$3"
+    local name="$4"
+    local default="$5"
+    local val
+    config_get val "$cfg" "$var" "$default"
+    case "$val" in
+        1|yes|on|true|enabled) val=yes ;;
+        *) val=no ;;
+    esac
+    echo -e "\t$name = \"$val\";" >> "$file"
 }
 
 append_num() {
@@ -63,9 +79,9 @@ start_instance() {
 
         echo -e "metadata =" >> $conf_file
         echo -e "{" >> $conf_file
-        append_str "$cfg" "$conf_file" metadata_enabled "enabled"
-        append_str "$cfg" "$conf_file" metadata_cover_art "include_cover_art"
-        append_str "$cfg" "$conf_file" metadata_pipe_name "pipe_name"
+        append_yes_no "$cfg" "$conf_file" metadata_enabled "enabled" "yes"
+        append_yes_no "$cfg" "$conf_file" metadata_cover_art "include_cover_art" "yes"
+        append_str "$cfg" "$conf_file" metadata_pipe_name "pipe_name" "/tmp/shairport-sync-metadata"
         append_num "$cfg" "$conf_file" metadata_pipe_timeout "pipe_timeout"
         append_str "$cfg" "$conf_file" metadata_socket_address "socket_address"
         append_num "$cfg" "$conf_file" metadata_socket_port "socket_port"
@@ -86,7 +102,12 @@ start_instance() {
         append_str "$cfg" "$conf_file" alsa_output_device "output_device"
         append_str "$cfg" "$conf_file" alsa_mixer_control_name "mixer_control_name"
         append_str "$cfg" "$conf_file" alsa_mixer_device "mixer_device"
-        append_str "$cfg" "$conf_file" alsa_output_rate "output_rate" "44100"
+        local out_rate
+        config_get out_rate "$cfg" alsa_output_rate "44100"
+        case "$out_rate" in
+            ""|auto) out_rate=44100 ;;
+        esac
+        echo -e "\toutput_rate = $out_rate;" >> $conf_file
         append_num "$cfg" "$conf_file" alsa_latency_offset "audio_backend_latency_offset"
         append_num "$cfg" "$conf_file" alsa_buffer_length "audio_backend_buffer_desired_length"
         append_str "$cfg" "$conf_file" alsa_disable_synchronization "disable_synchronization"
@@ -129,6 +150,10 @@ start_instance() {
 
 start_service() {
     config_load shairport-sync
+    # AirPlay 2 需要 nqptp 提供精确定时；有该服务就先拉起
+    if [ -x /etc/init.d/nqptp ]; then
+        /etc/init.d/nqptp start >/dev/null 2>&1
+    fi
     config_foreach start_instance shairport-sync
 }
 
