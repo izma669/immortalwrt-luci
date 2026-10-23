@@ -93,7 +93,7 @@ local function trigger_download(url, title, artist)
     elseif safe_title ~= "" then filename = safe_title
     else filename = url:match("([^/]+)$") or "download_song" end
     
-    local ext = url:match("%.([%a%d]+)(?:$|%?)")
+    local ext = url:gsub("%?.*$", ""):match("%.([%a%d]+)$")
     if not ext or #ext > 4 then ext = "mp3" end
     if not filename:match("%.%w+$") then filename = filename .. "." .. ext end
     
