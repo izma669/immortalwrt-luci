@@ -7,10 +7,10 @@
     <meta name="color-scheme" content="dark light">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; img-src 'self' data: http: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; img-src 'self' data: http: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http: https:; font-src 'self'">
     <title>音乐中心</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="app.css?v=9">
+    <link rel="stylesheet" href="app.css?v=49">
 </head>
 <body>
     <div class="bg" aria-hidden="true">
@@ -37,6 +37,12 @@
         </symbol>
         <symbol id="i-stop" viewBox="0 0 24 24" fill="currentColor">
             <rect x="6" y="6" width="12" height="12" rx="3"/>
+        </symbol>
+        <symbol id="i-shuffle" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
+        </symbol>
+        <symbol id="i-repeat" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
         </symbol>
         <symbol id="i-volume" viewBox="0 0 24 24" fill="currentColor">
             <path d="M4 9.2v5.6c0 .55.45 1 1 1h3.1l4.6 3.7c.65.52 1.6.06 1.6-.77V5.27c0-.83-.95-1.3-1.6-.77L8.1 8.2H5c-.55 0-1 .45-1 1z"/>
@@ -138,6 +144,7 @@
                 <header class="section-head">
                     <div class="section-title">
                         <span class="eyebrow">音乐播放器</span>
+                        <span class="player-name" id="owntone-name"></span>
                         <span class="chip chip--owntone" id="owntone-state"><i></i><span>连接中</span></span>
                         <span class="service-running" id="owntone-service">服务运行中</span>
                     </div>
@@ -158,48 +165,98 @@
                     </div>
 
                     <div class="player-info">
-                        <div class="marquee" id="owntone-marquee">
-                            <span class="marquee__label" id="owntone-marquee-label">正在播放</span>
-                            <div class="marquee__viewport">
-                                <div class="marquee__track">
-                                    <span class="marquee__text">暂无播放</span>
-                                    <span class="marquee__text" aria-hidden="true">暂无播放</span>
+                        <div class="led-screen" id="owntone-led" role="group" aria-label="播放中的歌曲信息">
+                            <div class="led-row led-row--title">
+                                <div class="led-viewport" id="owntone-title-marquee">
+                                    <div class="led-track">
+                                        <span class="led-text led-text--title">歌名：暂无播放</span>
+                                        <span class="led-text led-text--title" aria-hidden="true">歌名：暂无播放</span>
+                                    </div>
                                 </div>
                             </div>
+
+                            <div class="led-row led-row--meta">
+                                <div class="led-viewport led-viewport--right" id="owntone-meta-marquee">
+                                    <div class="led-track">
+                                        <span class="led-text led-text--meta">演唱者：等待音乐　专辑：OwnTone 音乐库</span>
+                                        <span class="led-text led-text--meta" aria-hidden="true">演唱者：等待音乐　专辑：OwnTone 音乐库</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="led-progress">
+                                <div class="led-bar">
+                                    <input id="owntone-progress" class="range range--progress" type="range" min="0" max="1000" step="1" value="0" aria-label="播放进度">
+                                </div>
+                                <div class="led-lower" id="owntone-lower">
+                                    <div class="led-time-flow" id="owntone-time-flow">
+                                        <span class="led-play is-idle" id="owntone-play-indicator" role="img" title="正在播放" aria-label="正在播放">
+                                            <svg class="icon led-note"><use href="#i-note"></use></svg>
+                                        </span>
+                                        <span class="time" id="owntone-pos">0:00</span>
+                                        <span class="ot-flow-arrow" aria-hidden="true">
+                                            <span class="ot-flow-beads"></span>
+                                        </span>
+                                        <span class="time" id="owntone-dur">0:00</span>
+                                    </div>
+                                    <div class="led-audio-info" id="owntone-audio-info" hidden aria-label="音频信息">
+                                        <span class="audio-cell" title="文件格式"><span class="audio-value" id="owntone-format">--</span></span>
+                                        <span class="audio-cell" title="码率"><span class="audio-value" id="owntone-bitrate">--</span></span>
+                                        <span class="audio-cell" title="采样"><span class="audio-value" id="owntone-samplerate">--</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="led-notch" id="owntone-led-notch" aria-hidden="true"></span>
+                            <svg class="led-frame" id="owntone-led-frame" viewBox="0 0 724 180" preserveAspectRatio="none" aria-hidden="true">
+                                <path id="owntone-led-path" d="M18 0 H706 Q724 0 724 18 V98 Q724 120 702 120 H340 Q326 120 326 134 V166 Q326 180 312 180 H18 Q0 180 0 162 V18 Q0 0 18 0 Z"></path>
+                            </svg>
                         </div>
 
-                        <div class="track-meta">
-                            <span id="owntone-artist">等待音乐</span>
-                            <span class="dot-sep">·</span>
-                            <span id="owntone-album">OwnTone 音乐库</span>
-                        </div>
+                        <div class="control-deck">
+                            <div class="control-cluster">
+                            <div class="transport">
+                                <button type="button" class="tbtn tbtn--labeled" id="owntone-prev" title="上一曲" aria-label="上一曲">
+                                    <svg class="icon"><use href="#i-prev"></use></svg>
+                                </button>
+                                <button type="button" class="tbtn tbtn--play tbtn--labeled" id="owntone-play" title="播放 / 暂停" aria-label="播放 / 暂停">
+                                    <svg class="icon" id="owntone-play-icon"><use href="#i-play"></use></svg>
+                                </button>
+                                <button type="button" class="tbtn tbtn--labeled" id="owntone-next" title="下一曲" aria-label="下一曲">
+                                    <svg class="icon"><use href="#i-next"></use></svg>
+                                </button>
+                            </div>
 
-                        <div class="progress-row">
-                            <span class="time" id="owntone-pos">0:00</span>
-                            <input id="owntone-progress" class="range range--progress" type="range" min="0" max="1000" step="1" value="0" aria-label="播放进度">
-                            <span class="time" id="owntone-dur">0:00</span>
-                        </div>
+                            <div class="mode-group" role="group" aria-label="播放模式">
+                                <button type="button" class="mode-btn" id="owntone-shuffle" aria-pressed="false" title="随机播放：关" disabled>
+                                    <span class="mode-led" aria-hidden="true"></span>
+                                    <svg class="icon"><use href="#i-shuffle"></use></svg>
+                                    <span class="mode-label">随机</span>
+                                </button>
+                                <button type="button" class="mode-btn" id="owntone-repeat" aria-pressed="false" title="循环播放：关" disabled>
+                                    <span class="mode-led" aria-hidden="true"></span>
+                                    <svg class="icon"><use href="#i-repeat"></use></svg>
+                                    <span class="mode-label">循环</span>
+                                </button>
+                            </div>
+                            </div>
 
-                        <div class="transport">
-                            <button type="button" class="tbtn tbtn--labeled" id="owntone-prev" title="上一曲" aria-label="上一曲">
-                                <svg class="icon"><use href="#i-prev"></use></svg><span>上一曲</span>
-                            </button>
-                            <button type="button" class="tbtn tbtn--play tbtn--labeled" id="owntone-play" title="播放 / 暂停" aria-label="播放 / 暂停">
-                                <svg class="icon" id="owntone-play-icon"><use href="#i-play"></use></svg><span>播放/暂停</span>
-                            </button>
-                            <button type="button" class="tbtn tbtn--labeled" id="owntone-next" title="下一曲" aria-label="下一曲">
-                                <svg class="icon"><use href="#i-next"></use></svg><span>下一曲</span>
-                            </button>
+                            <div class="volume-row volume-row--knob">
+                                <div class="knob" id="owntone-knob" role="slider" tabindex="0" aria-label="OwnTone 音量" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                    <div class="knob-dial"><span class="knob-pointer"></span></div>
+                                </div>
+                                <div class="knob-text">
+                                    <span class="knob-label"><span class="volume-label">Owntone 音量</span> <span class="softvol">softvol</span></span>
+                                    <output id="owntone-vol-value" class="knob-value">--%</output>
+                                </div>
+                                <div class="mute-wrap">
+                                    <span class="mute-led" aria-hidden="true"></span>
+                                    <button type="button" class="mute-btn" id="owntone-mute" title="静音" aria-pressed="false" aria-label="静音" disabled>
+                                        <svg class="icon"><use href="#i-mute"></use></svg><span>静音</span>
+                                    </button>
+                                </div>
+                                <input id="owntone-volume" class="knob-range" type="range" min="0" max="100" step="1" value="0" tabindex="-1" aria-hidden="true">
+                            </div>
                         </div>
-
-                        <div class="volume-row">
-                            <span class="volume-label">Owntone 音量</span>
-                            <span class="softvol">softvol</span>
-                            <input id="owntone-volume" class="range" type="range" min="0" max="100" step="1" value="0" aria-label="OwnTone 音量">
-                            <output id="owntone-vol-value" class="volume-value">--%</output>
-                        </div>
-
-                        <p class="hint" id="owntone-hint">也支持 iPhone Remote、MPD 客户端直接控制。</p>
                     </div>
                 </div>
             </div>
@@ -208,8 +265,8 @@
         <section class="receivers">
             <article class="receiver card" id="gmr-card" style="--svc: var(--dlna);">
                 <header class="receiver-head">
-                    <span class="chip chip--dlna" id="gmr-state"><i></i><span>连接中</span></span>
                     <span class="receiver-kind"><svg class="icon"><use href="#i-dlna"></use></svg> DLNA</span>
+                    <span class="chip chip--dlna" id="gmr-state"><i></i><span>连接中</span></span>
                 </header>
 
                 <div class="cover cover--receiver">
@@ -220,9 +277,8 @@
                 </div>
 
                 <h2 class="receiver-title" id="gmr-title">GmediaRender</h2>
-                <p class="receiver-artist">演唱者：<span id="gmr-artist">DLNA 音频接收器</span></p>
+                <p class="receiver-artist">演唱者：<span id="gmr-artist">等待手机 / 电脑推送</span></p>
                 <p class="receiver-album">专辑：<span id="gmr-album">在手机或电脑上选择这个设备推送音乐</span></p>
-                <p class="receiver-meta" id="gmr-meta">等待连接</p>
                 <p class="receiver-submeta" id="gmr-soundcard">输出声卡：-</p>
                 <p class="receiver-submeta receiver-broadcast">广播名称：<span id="gmr-broadcast">-</span></p>
 
@@ -271,8 +327,8 @@
 
             <article class="receiver card" id="air-card" style="--svc: var(--airplay);">
                 <header class="receiver-head">
-                    <span class="chip chip--air" id="air-state"><i></i><span>连接中</span></span>
                     <span class="receiver-kind"><svg class="icon"><use href="#i-airplay"></use></svg> AirPlay 2</span>
+                    <span class="chip chip--air" id="air-state"><i></i><span>连接中</span></span>
                 </header>
 
                 <div class="cover cover--receiver">
@@ -384,6 +440,6 @@
         <span id="toast-text"></span>
     </div>
 
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=49"></script>
 </body>
 </html>

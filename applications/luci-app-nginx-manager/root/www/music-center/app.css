@@ -27,6 +27,15 @@
     --radius-md: 16px;
     --shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
     --shadow-soft: 0 12px 36px rgba(0, 0, 0, 0.26);
+    /* 功放面板按键 */
+    --deck-face-1: #3d4757;
+    --deck-face-2: #252d3a;
+    --deck-face-3: #151b25;
+    --deck-rim: rgba(255, 255, 255, 0.2);
+    --deck-border: rgba(255, 255, 255, 0.13);
+    --deck-edge: #000000;
+    --deck-shadow: rgba(0, 0, 0, 0.8);
+    --deck-text: #eef3ff;
     --font: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", "Noto Sans SC",
         system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -53,6 +62,15 @@ html[data-theme="light"] {
     --track: rgba(15, 23, 42, 0.1);
     --shadow: 0 24px 60px rgba(30, 41, 59, 0.13);
     --shadow-soft: 0 10px 30px rgba(30, 41, 59, 0.09);
+    /* 功放面板按键（浅色主题的银色面板） */
+    --deck-face-1: #ffffff;
+    --deck-face-2: #e9eef6;
+    --deck-face-3: #ccd5e2;
+    --deck-rim: rgba(255, 255, 255, 0.96);
+    --deck-border: rgba(15, 23, 42, 0.16);
+    --deck-edge: #4f5a6b;
+    --deck-shadow: rgba(0, 0, 0, 0.5);
+    --deck-text: #17202c;
 }
 
 * { box-sizing: border-box; }
@@ -464,6 +482,19 @@ html[data-theme="light"] .player::after {
     margin-bottom: 14px;
 }
 .section-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.player-name {
+    max-width: 240px;
+    padding-left: 9px;
+    border-left: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.player-name:empty { display: none; }
 .eyebrow {
     font-size: 12px;
     font-weight: 600;
@@ -507,15 +538,27 @@ html[data-theme="light"] .player::after {
 .chip.is-idle { color: var(--muted); border-color: var(--border); background: var(--panel-2); }
 .chip.is-off { color: var(--danger); border-color: rgba(251, 113, 133, 0.25); background: rgba(251, 113, 133, 0.08); }
 .chip.is-off i { background: var(--danger); }
+.chip.is-paused { color: #ff9f2e; border-color: rgba(255, 159, 46, 0.32); background: rgba(255, 159, 46, 0.1); }
+.chip.is-paused i { background: #ff9f2e; }
 
 .player-main {
     display: grid;
     grid-template-columns: minmax(200px, 278px) minmax(0, 1fr);
-    align-items: center;
-    gap: clamp(22px, 4vw, 46px);
+    align-items: stretch;
+    gap: clamp(18px, 3vw, 40px);
+    padding: 16px;
+    border-radius: 22px;
+    background:
+        radial-gradient(120% 150% at 18% -10%, rgba(124, 156, 255, 0.08), transparent 55%),
+        linear-gradient(180deg, #0a0d12, #050608 58%, #07090d);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        inset 0 0 50px rgba(0, 0, 0, 0.6),
+        0 14px 34px rgba(0, 0, 0, 0.24);
 }
 
 .cover { display: flex; align-items: center; justify-content: center; }
+.cover--hero { align-self: flex-start; align-items: flex-start; padding-top: 1px; }
 .cover--hero .vinyl { width: min(100%, 276px); }
 .cover--receiver .vinyl { width: min(100%, 204px); margin: 10px auto 6px; }
 
@@ -573,7 +616,8 @@ html[data-theme="light"] .player::after {
     background: #1a1f2b;
     box-shadow:
         0 22px 46px rgba(0, 0, 0, 0.38),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+        0 0 0 1px rgba(165, 176, 192, 0.65),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 .vinyl--square::before {
     border-radius: 20px;
@@ -613,73 +657,431 @@ html[data-theme="light"] .player::after {
     min-width: 0;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
     gap: 14px;
 }
 
-/* 跑马灯 */
-.marquee {
+/* LED 电子屏：黑底、琥珀色点阵字；歌名左滚，演唱者 / 专辑右滚（两行各自独立） */
+.led-screen {
+    position: relative;
+    padding: 13px 16px 11px;
+    border: 0;
+    border-radius: 18px;
+    background:
+        linear-gradient(rgba(255, 150, 40, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 150, 40, 0.045) 1px, transparent 1px),
+        radial-gradient(130% 150% at 50% -30%, rgba(255, 178, 64, 0.09), transparent 58%),
+        linear-gradient(180deg, #0b0d10, #050608 55%, #08090c);
+    background-size: 22px 22px, 22px 22px, auto, auto;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.85),
+        inset 0 18px 44px rgba(0, 0, 0, 0.72),
+        0 16px 38px rgba(0, 0, 0, 0.42);
+    overflow: hidden;
+    isolation: isolate;
+}
+/* 点阵 + 扫描线，做出电子屏的颗粒感 */
+.led-screen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background-image:
+        repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px),
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.05) 0.6px, transparent 1px);
+    background-size: auto, 3px 3px;
+    opacity: 0.5;
+    pointer-events: none;
+}
+/* 屏幕玻璃反光 */
+.led-screen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 26%, transparent 84%, rgba(0, 0, 0, 0.3));
+    pointer-events: none;
+}
+.led-row {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: 12px;
-    min-height: 56px;
-    padding: 10px 14px;
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    background: rgba(0, 0, 0, 0.22);
+    min-height: 26px;
+}
+.led-row--meta { margin-top: 9px; }
+.led-play {
+    position: relative;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(255, 170, 60, 0.42);
+    border-radius: 50%;
+    background: radial-gradient(circle at 36% 28%, rgba(255, 190, 90, 0.26), rgba(255, 140, 20, 0.04) 72%);
+    color: #ffb238;
+    box-shadow:
+        inset 0 0 12px rgba(255, 140, 20, 0.14),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.32),
+        0 0 16px rgba(255, 130, 10, 0.14);
+}
+.led-note {
+    width: 20px;
+    height: 20px;
+    transform: translateY(0.5px);
+    filter: drop-shadow(0 0 6px rgba(255, 150, 20, 0.9));
+}
+.led-play.is-playing {
+    color: #5dff8a;
+    border-color: rgba(80, 255, 130, 0.78);
+    background: radial-gradient(circle at 36% 28%, rgba(120, 255, 160, 0.24), rgba(40, 255, 100, 0.04) 72%);
+    box-shadow:
+        inset 0 0 12px rgba(60, 255, 120, 0.25),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.32),
+        0 0 18px rgba(70, 255, 130, 0.55);
+}
+.led-play.is-playing .led-note {
+    animation: led-note-flash 0.8s steps(2, end) infinite;
+}
+@keyframes led-note-flash {
+    0%, 100% {
+        color: #79ff9f;
+        opacity: 1;
+        filter:
+            drop-shadow(0 0 6px rgba(80, 255, 120, 0.95))
+            drop-shadow(0 0 14px rgba(60, 255, 110, 0.65));
+    }
+    50% {
+        color: #1f9e4a;
+        opacity: 0.18;
+        filter: none;
+    }
+}
+.led-play.is-paused {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.58);
+    background: radial-gradient(circle at 36% 28%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02) 72%);
+    box-shadow:
+        inset 0 0 12px rgba(255, 255, 255, 0.08),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.32),
+        0 0 14px rgba(255, 255, 255, 0.18);
+}
+.led-play.is-paused .led-note {
+    color: #ffffff;
+    opacity: 1;
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.7));
+    animation: none;
+}
+.led-play.is-idle,
+.led-play.is-off {
+    display: none;
+}
+
+.led-viewport {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
     overflow: hidden;
 }
-html[data-theme="light"] .marquee { background: rgba(15, 23, 42, 0.04); }
-.marquee__label {
-    flex: 0 0 auto;
-    padding: 5px 9px;
-    border-radius: 8px;
-    background: rgba(124, 156, 255, 0.14);
-    color: var(--accent);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-}
-.marquee__viewport { position: relative; flex: 1; min-width: 0; overflow: hidden; }
-.marquee__track {
+.led-track {
     display: inline-flex;
-    gap: 48px;
+    gap: var(--gap, 72px);
     white-space: nowrap;
     will-change: transform;
 }
-.marquee.is-scrolling .marquee__track {
-    animation: marquee var(--duration, 18s) linear infinite;
+.led-viewport.is-scrolling .led-track {
+    animation: led-scroll-left var(--duration, 16s) linear infinite;
 }
-.marquee:hover .marquee__track { animation-play-state: paused; }
-@keyframes marquee {
-    0%, 18% { transform: translateX(0); }
-    100% { transform: translateX(var(--distance, -100%)); }
+.led-viewport--right.is-scrolling .led-track {
+    animation-name: led-scroll-right;
 }
-.marquee.is-scrolling .marquee__viewport {
-    -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 12px), transparent 100%);
-    mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 12px), transparent 100%);
+.led-viewport:hover .led-track { animation-play-state: paused; }
+@keyframes led-scroll-left {
+    from { transform: translateX(0); }
+    to { transform: translateX(var(--distance, -50%)); }
 }
-.marquee__text {
-    font-size: clamp(18px, 2.2vw, 25px);
+@keyframes led-scroll-right {
+    from { transform: translateX(var(--distance, -50%)); }
+    to { transform: translateX(0); }
+}
+.led-text {
+    display: inline-block;
+    font-family: "Cascadia Mono", "JetBrains Mono", "SFMono-Regular", Consolas,
+        "Liberation Mono", "Courier New", monospace;
+    -webkit-font-smoothing: antialiased;
+}
+.led-text--title {
+    color: #ffb238;
+    font-size: clamp(19px, 2.05vw, 25px);
     font-weight: 700;
-    letter-spacing: -0.01em;
-    line-height: 1.25;
+    letter-spacing: 0.05em;
+    line-height: 1.35;
+    text-shadow: 0 0 3px rgba(255, 160, 40, 0.6), 0 0 15px rgba(255, 120, 0, 0.34);
 }
-.marquee__text[aria-hidden="true"] { display: none; }
-.marquee.is-scrolling .marquee__text[aria-hidden="true"] { display: inline; }
-.marquee.is-empty .marquee__text { color: var(--faint); font-weight: 600; }
+.led-text--meta {
+    color: #ffcf86;
+    font-size: clamp(13px, 1.25vw, 15.5px);
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    line-height: 1.4;
+    text-shadow: 0 0 3px rgba(255, 180, 70, 0.45), 0 0 12px rgba(255, 130, 10, 0.24);
+}
+.led-viewport.is-empty .led-text { color: #c98a2e; text-shadow: none; }
 
-.track-meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 20px;
-    color: var(--muted);
-    font-size: 13.5px;
-    white-space: nowrap;
+.led-progress {
+    position: relative;
+    z-index: 1;
+    margin-top: 11px;
+}
+
+/* 屏幕右下角的切角：让 LED 屏不是普通四边形 */
+.led-notch {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    z-index: 4;
+    width: 55%;
+    height: 33.3%;
+    background: #06070a;
+    border-top-left-radius: 14px;
+    pointer-events: none;
+}
+/* 连续的外框线：圆角、切角、无断线 */
+.led-frame {
+    position: absolute;
+    left: 0.8px;
+    top: 0.8px;
+    z-index: 5;
+    width: calc(100% - 1.6px);
+    height: calc(100% - 1.6px);
+    overflow: visible;
+    pointer-events: none;
+}
+.led-frame path {
+    fill: none;
+    stroke: rgba(226, 183, 93, 0.9);
+    stroke-width: 1.2;
+    vector-effect: non-scaling-stroke;
+}
+.led-progress .time {
+    color: rgba(255, 194, 112, 0.72);
+    font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 8px rgba(255, 150, 30, 0.3);
+}
+
+/* 时间 + 音频信息合并成同一个框：时间在上，格式/码率/采样在下 */
+.led-lower {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    width: max-content;
+    min-width: min(320px, 100%);
+    max-width: 100%;
+    margin-top: 18px;
+    margin-left: -2px;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.18);
     overflow: hidden;
 }
-.track-meta span { overflow: hidden; text-overflow: ellipsis; }
-.track-meta .dot-sep { color: var(--faint); flex-shrink: 0; }
+.led-audio-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px;
+    width: 100%;
+    height: 34px;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0 7px 0 12px;
+    border: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0;
+    background: rgba(255, 255, 255, 0.035);
+    color: #f4f7ff;
+    font-family: "Cascadia Mono", "JetBrains Mono", Consolas, "Courier New", monospace;
+    line-height: 1.2;
+    white-space: nowrap;
+    box-shadow: none;
+}
+.audio-cell { display: inline-flex; align-items: baseline; }
+.audio-value {
+    font-size: clamp(15px, 1.4vw, 19px);
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.35);
+}
+
+/* 进度条下面的时间行：2:18 一条粗绿条 3:49，绿色能量持续向右流动 */
+.led-time-flow {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+    max-width: 100%;
+    height: 52px;
+    box-sizing: border-box;
+    margin-top: 0;
+    padding: 0 7px 0 12px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+}
+.led-time-flow .led-play {
+    width: 32px;
+    height: 32px;
+}
+.led-time-flow .time {
+    color: #ffffff;
+    font-family: "Cascadia Mono", "JetBrains Mono", Consolas, "Courier New", monospace;
+    font-size: clamp(20px, 2.1vw, 28px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.055em;
+    line-height: 1;
+    text-shadow:
+        0 0 5px rgba(255, 255, 255, 0.4),
+        0 0 14px rgba(255, 255, 255, 0.16);
+    white-space: nowrap;
+}
+.ot-flow-arrow {
+    position: relative;
+    flex: 0 0 auto;
+    width: clamp(64px, 6vw, 104px);
+    min-width: 0;
+    height: 20px;
+    overflow: hidden;
+    border-radius: 5px;
+    background: rgba(57, 255, 20, 0.08);
+    box-shadow:
+        inset 0 0 0 1px rgba(57, 255, 20, 0.2),
+        0 0 7px rgba(57, 255, 20, 0.18);
+}
+.ot-flow-arrow::before {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, rgba(57, 255, 20, 0.14), rgba(57, 255, 20, 0.7));
+    opacity: 0.35;
+}
+.ot-flow-arrow::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: -45%;
+    width: 45%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, transparent, rgba(190, 255, 170, 0.85), transparent);
+    filter: blur(2px);
+    animation: ot-flow-sweep 1.4s linear infinite;
+}
+.ot-flow-beads {
+    position: absolute;
+    inset: 3px;
+    border-radius: 4px;
+    background: repeating-linear-gradient(90deg,
+        rgba(57, 255, 20, 0.25) 0 3px,
+        rgba(150, 255, 120, 0.95) 3px 7px,
+        rgba(57, 255, 20, 0.2) 7px 11px);
+    background-size: 22px 100%;
+    animation: ot-flow-move 1.2s linear infinite;
+    filter: drop-shadow(0 0 4px rgba(57, 255, 20, 0.6));
+    opacity: 0.9;
+}
+@keyframes ot-flow-move {
+    from { background-position: 0 0; }
+    to { background-position: 22px 0; }
+}
+@keyframes ot-flow-sweep {
+    from { left: -45%; }
+    to { left: 100%; }
+}
+/* 进度条：已播放部分外面套一层会呼吸的渐变光晕，上面再叠一层流动的高光 */
+.led-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+.led-bar::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: var(--val, 0%);
+    height: 6px;
+    border-radius: 999px;
+    transform: translateY(-50%);
+    background: linear-gradient(90deg, #ff7a00, #ffd36a 48%, #ff9a1f);
+    filter: blur(7px);
+    opacity: 0.3;
+    pointer-events: none;
+    transition: width 0.5s linear;
+    z-index: 0;
+}
+.led-bar::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: var(--val, 0%);
+    height: 6px;
+    border-radius: 999px;
+    transform: translateY(-50%);
+    background: linear-gradient(90deg,
+        rgba(255, 140, 0, 0) 0%,
+        rgba(255, 240, 190, 0.75) 45%,
+        rgba(255, 170, 40, 0.05) 100%);
+    background-size: 220% 100%;
+    background-position: 0% 50%;
+    mix-blend-mode: screen;
+    opacity: 0.35;
+    pointer-events: none;
+    transition: width 0.5s linear;
+    z-index: 2;
+}
+.led-screen.is-playing .led-bar::before {
+    animation: led-bar-glow 2.6s ease-in-out infinite;
+}
+.led-screen.is-playing .led-bar::after {
+    animation: led-bar-sheen 2.6s ease-in-out infinite;
+}
+@keyframes led-bar-glow {
+    0%, 100% { opacity: 0.18; filter: blur(4px); }
+    50% { opacity: 0.9; filter: blur(10px); }
+}
+@keyframes led-bar-sheen {
+    0%, 100% { opacity: 0.2; background-position: 0% 50%; }
+    50% { opacity: 0.85; background-position: 100% 50%; }
+}
+.led-bar .range--progress {
+    position: relative;
+    z-index: 1;
+}
+.led-screen .range--progress {
+    background:
+        linear-gradient(90deg, #ff7a00, #ffd36a 52%, #ff9a1f) left center / var(--val, 0%) 100% no-repeat,
+        linear-gradient(90deg, rgba(255, 178, 60, 0.16), rgba(255, 178, 60, 0.16));
+}
+.led-screen .range--progress::-webkit-slider-thumb {
+    background: #ffd08a;
+    border-color: rgba(255, 170, 60, 0.95);
+    box-shadow: 0 0 10px rgba(255, 150, 20, 0.65);
+}
+.led-screen .range--progress::-moz-range-thumb {
+    background: #ffd08a;
+    border-color: rgba(255, 170, 60, 0.95);
+    box-shadow: 0 0 10px rgba(255, 150, 20, 0.65);
+}
 
 .progress-row {
     display: grid;
@@ -695,90 +1097,431 @@ html[data-theme="light"] .marquee { background: rgba(15, 23, 42, 0.04); }
     white-space: nowrap;
 }
 
+/* 控制面板：上一曲 / 播放 / 下一曲 + 音量同一行，按键做成功放面板的立体键 */
+.control-deck {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px 18px;
+    margin-top: 14px;
+}
+/* 5 个按键连成一个整体 */
+.control-cluster {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    padding: 4px;
+    border: 1px solid rgba(165, 176, 192, 0.5);
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.12);
+}
+.control-cluster .transport {
+    padding: 0;
+    gap: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+}
+.control-cluster .tbtn {
+    width: 34px;
+    height: 38px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #e8eefc;
+}
+.control-cluster .tbtn + .tbtn { border-left: 1px solid rgba(165, 176, 192, 0.25); }
+.control-cluster .tbtn:hover { background: rgba(255, 255, 255, 0.07); }
+.control-cluster .tbtn--play.tbtn--labeled {
+    width: 46px;
+    height: 40px;
+    border-radius: 0;
+    color: #6a4bf5;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 48%),
+        linear-gradient(180deg, var(--deck-face-1), var(--deck-face-2) 55%, var(--deck-face-3));
+}
+.control-cluster .tbtn--play.is-playing .icon { color: #4ade80; }
+.control-cluster .tbtn--play.is-paused .icon { color: #ff9f2e; }
+.control-cluster .mode-group {
+    padding: 0 0 0 6px;
+    margin-left: 6px;
+    gap: 0;
+    border: 0;
+    border-left: 1px solid rgba(165, 176, 192, 0.25);
+    border-radius: 0;
+    background: none;
+}
+.control-cluster .mode-btn {
+    height: 36px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #e8eefc;
+}
+.control-cluster .mode-btn + .mode-btn { border-left: 1px solid rgba(165, 176, 192, 0.2); }
+.control-cluster .mode-btn:hover { background: rgba(255, 255, 255, 0.07); }
 .transport {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 22px;
-    padding: 2px 0;
+    flex: 0 0 auto;
+    gap: 12px;
+    padding: 6px 8px;
+    border: 1px solid rgba(165, 176, 192, 0.5);
+    border-radius: 12px;
 }
 .tbtn {
+    position: relative;
     display: inline-grid;
     place-items: center;
     width: 48px;
     height: 48px;
     padding: 0;
-    border: 1px solid var(--border);
+    border: 1px solid var(--deck-border);
     border-radius: 50%;
-    background: var(--panel-2);
-    color: var(--text);
+    background: linear-gradient(180deg, var(--deck-face-1), var(--deck-face-2) 55%, var(--deck-face-3));
+    color: var(--deck-text);
     cursor: pointer;
-    transition: background 0.2s, border-color 0.2s, transform 0.15s, opacity 0.2s;
+    box-shadow:
+        inset 0 1px 0 var(--deck-rim),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.42),
+        0 4px 0 var(--deck-edge),
+        0 10px 18px var(--deck-shadow);
+    transition: transform 0.12s, box-shadow 0.12s, filter 0.18s, opacity 0.2s;
 }
-.tbtn:hover { background: var(--panel-3); border-color: var(--border-strong); }
-.tbtn:active { transform: scale(0.94); }
+.tbtn::before {
+    content: "";
+    position: absolute;
+    inset: 3px 5px auto;
+    height: 42%;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent);
+    pointer-events: none;
+}
+.tbtn:hover { filter: brightness(1.07); }
+.tbtn:active {
+    transform: translateY(3px);
+    box-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 1px 0 var(--deck-edge),
+        0 4px 10px var(--deck-shadow);
+}
 .tbtn .icon { width: 20px; height: 20px; }
 .tbtn--play {
     width: 66px;
     height: 66px;
-    border: none;
-    color: #fff;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    box-shadow: 0 12px 32px rgba(90, 120, 255, 0.38);
+    color: #6a4bf5;
+    border-color: rgba(106, 75, 245, 0.55);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0) 48%),
+        linear-gradient(180deg, var(--deck-face-1), var(--deck-face-2) 55%, var(--deck-face-3));
+    box-shadow:
+        inset 0 1px 0 var(--deck-rim),
+        inset 0 -3px 7px rgba(60, 40, 160, 0.24),
+        0 4px 0 var(--deck-edge),
+        0 12px 24px rgba(70, 40, 180, 0.38);
 }
 .tbtn--play .icon { width: 26px; height: 26px; }
-.tbtn--play:hover { filter: brightness(1.06); }
-.tbtn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+.tbtn--play:hover { filter: brightness(1.08); }
+.tbtn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+    filter: none;
+}
 
-/* 主播放器使用“图标 + 文字”，和原 owntone_status.htm 的按钮文案一致 */
+/* 主播放器只保留图标：小号立体键，去掉文字 */
 .tbtn--labeled {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    width: auto;
-    height: 46px;
-    padding: 0 16px;
-    border-radius: 999px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 10px;
 }
-.tbtn--labeled span {
-    font-size: 12px;
+.tbtn--labeled .icon { width: 17px; height: 17px; }
+.tbtn--play.tbtn--labeled {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 12px;
+}
+.tbtn--play.tbtn--labeled .icon { width: 21px; height: 21px; }
+
+/* 随机 / 循环开关：和小按键同一套立体面板，开启时亮绿灯 */
+.mode-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 0 0 auto;
+    padding: 5px;
+    border: 1px solid rgba(165, 176, 192, 0.5);
+    border-radius: 12px;
+}
+.mode-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid var(--deck-border);
+    border-radius: 9px;
+    background: linear-gradient(180deg, var(--deck-face-1), var(--deck-face-2) 55%, var(--deck-face-3));
+    color: var(--deck-text);
+    font-size: 11px;
     font-weight: 600;
     white-space: nowrap;
+    cursor: pointer;
+    box-shadow:
+        inset 0 1px 0 var(--deck-rim),
+        0 3px 0 var(--deck-edge),
+        0 6px 10px var(--deck-shadow);
+    transition: transform 0.12s, box-shadow 0.12s, filter 0.18s, opacity 0.2s;
 }
-.tbtn--play.tbtn--labeled {
-    width: auto;
-    height: 58px;
-    padding: 0 22px;
+.mode-btn:hover { filter: brightness(1.07); }
+.mode-btn:active {
+    transform: translateY(2px);
+    box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.5),
+        0 1px 0 var(--deck-edge);
+}
+.mode-btn .icon { width: 13px; height: 13px; }
+.mode-led {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.55);
+    transition: background 0.2s, box-shadow 0.2s;
+}
+.mode-btn.is-on { border-color: rgba(74, 222, 128, 0.4); }
+.mode-btn.is-on .mode-led {
+    background: #4ade80;
+    box-shadow: 0 0 6px rgba(74, 222, 128, 0.95), 0 0 12px rgba(74, 222, 128, 0.5);
+}
+.mode-btn.is-single .mode-label::after {
+    content: "1";
+    margin-left: 2px;
+    font-size: 9px;
+    vertical-align: super;
+    color: #4ade80;
+}
+.mode-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+    filter: none;
 }
 
+/* 音量做成黑色控制面板右侧的凹槽 */
 .volume-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding-top: 2px;
+    flex: 1 1 260px;
+    max-width: 350px;
+    min-width: 0;
+    gap: 9px;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.4), rgba(255, 255, 255, 0.03));
+    box-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.5),
+        0 1px 0 rgba(255, 255, 255, 0.05);
 }
-.volume-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.volume-label { font-size: 12px; color: rgba(255, 255, 255, 0.66); white-space: nowrap; }
 .softvol {
     padding: 2px 6px;
-    border: 1px solid var(--border);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 5px;
-    color: var(--faint);
+    color: rgba(255, 255, 255, 0.42);
     font-size: 9.5px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
-.volume-row .range { flex: 1; min-width: 60px; }
+.volume-row .range {
+    flex: 1 1 90px;
+    min-width: 60px;
+    background: linear-gradient(90deg, var(--accent) 0 var(--val), rgba(255, 255, 255, 0.16) var(--val) 100%);
+}
 .volume-value {
     width: 42px;
     text-align: right;
-    color: var(--muted);
+    color: rgba(255, 255, 255, 0.72);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
 }
+
+/* OwnTone 音量：圆形旋钮 */
+.volume-row--knob {
+    position: relative;
+    z-index: 6;
+    flex: 0 1 auto;
+    max-width: 380px;
+    padding: 10px 14px;
+    gap: 14px;
+}
+.knob {
+    --knob-angle: -135deg;
+    --knob-fill: 0deg;
+    position: relative;
+    width: 132px;
+    height: 132px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    outline: none;
+}
+.knob:active { cursor: grabbing; }
+.knob:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.knob.is-disabled { opacity: 0.38; cursor: not-allowed; }
+.knob-dial {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.18), transparent 42%),
+        radial-gradient(circle at 50% 55%, #2b2a27, #121316 62%, #07080a);
+    border: 1px solid rgba(255, 180, 60, 0.45);
+    box-shadow:
+        inset 0 2px 6px rgba(255, 255, 255, 0.08),
+        inset 0 -8px 16px rgba(0, 0, 0, 0.7),
+        0 6px 16px rgba(0, 0, 0, 0.5);
+}
+.knob-dial::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    background: conic-gradient(from -135deg,
+        #ffb238 0deg,
+        #ffd36a var(--knob-fill),
+        rgba(255, 180, 60, 0.12) var(--knob-fill) 270deg,
+        transparent 270deg 360deg);
+    -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%);
+    mask: radial-gradient(circle, transparent 58%, #000 60%);
+    filter: drop-shadow(0 0 6px rgba(255, 150, 20, 0.45));
+    pointer-events: none;
+}
+.knob-dial::after {
+    content: "";
+    position: absolute;
+    inset: 24px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 30%, #3b3a35, #151619 70%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.1),
+        0 2px 4px rgba(0, 0, 0, 0.6);
+}
+.knob-pointer {
+    position: absolute;
+    left: 50%;
+    top: 18px;
+    z-index: 2;
+    width: 5px;
+    height: 30px;
+    margin-left: -2.5px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #fff3cf, #ffb238);
+    box-shadow: 0 0 7px rgba(255, 170, 40, 0.95);
+    transform-origin: 50% 48px;
+    transform: rotate(var(--knob-angle));
+    transition: transform 0.08s linear;
+}
+.knob-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+.knob-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.knob-value {
+    color: #ffcf86;
+    font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 6px rgba(255, 160, 40, 0.55);
+    line-height: 1.1;
+}
+.knob-range {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+/* 音量面板右下角静音键：按钮上方红色 LED，静音时点亮 */
+.mute-wrap {
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+.mute-led {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 90, 90, 0.55);
+    background: #4a0a0a;
+    box-shadow: inset 0 0 2px #000;
+}
+.mute-wrap.is-muted .mute-led {
+    border-color: #ff8a8a;
+    background: #ff2b2b;
+    box-shadow:
+        0 0 7px rgba(255, 30, 30, 0.95),
+        0 0 15px rgba(255, 0, 0, 0.55);
+}
+.mute-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 28px;
+    min-width: 64px;
+    padding: 0 9px;
+    border: 1px solid rgba(255, 90, 90, 0.3);
+    border-radius: 7px;
+    background: rgba(40, 0, 0, 0.18);
+    color: rgba(255, 170, 170, 0.6);
+    font-size: 11px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.mute-btn .icon { width: 14px; height: 14px; }
+.mute-btn.is-muted {
+    color: #ff8a8a;
+    border-color: rgba(255, 70, 70, 0.7);
+    background: rgba(90, 0, 0, 0.3);
+}
+.mute-btn:hover { filter: brightness(1.15); }
+.mute-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .hint {
     margin: 0;
-    color: var(--faint);
+    color: rgba(255, 255, 255, 0.42);
     font-size: 11px;
     line-height: 1.5;
 }
@@ -1315,6 +2058,10 @@ html[data-theme="light"] .banner { color: #9f1239; }
 /* --------------------------------------------------------------------------
    响应式
    -------------------------------------------------------------------------- */
+@media (max-width: 1120px) {
+    .transport { gap: 12px; }
+    .volume-row { max-width: 340px; }
+}
 @media (max-width: 900px) {
     .player-main {
         grid-template-columns: minmax(0, 1fr);
@@ -1323,11 +2070,16 @@ html[data-theme="light"] .banner { color: #9f1239; }
     }
     .cover--hero .vinyl { width: min(66vw, 244px); }
     .player-info { width: 100%; }
-    .track-meta { justify-content: center; }
     .hint { text-align: center; }
 }
 @media (max-width: 760px) {
     .receivers { grid-template-columns: minmax(0, 1fr); }
+    .led-notch { display: none; }
+    .led-frame { display: none; }
+    .led-screen { border: 1px solid rgba(165, 176, 192, 0.75); }
+    .led-time-flow { width: 100%; gap: 8px; }
+    .led-time-flow .time { font-size: 20px; }
+    .ot-flow-arrow { width: 64px; }
     .master {
         grid-template-columns: auto minmax(0, 1fr) auto auto;
         gap: 12px;
@@ -1341,6 +2093,9 @@ html[data-theme="light"] .banner { color: #9f1239; }
     }
     .service-state { display: none; }
     .service-buttons { grid-column: 1 / -1; justify-content: flex-start; }
+    .control-deck { justify-content: center; margin-top: 10px; }
+    .transport { width: auto; }
+    .volume-row { flex: 1 1 100%; max-width: 100%; }
 }
 @media (max-width: 560px) {
     .topbar { padding: 13px 15px 11px; gap: 10px; }
@@ -1355,16 +2110,23 @@ html[data-theme="light"] .banner { color: #9f1239; }
     .player { padding: 17px 15px 18px; border-radius: 22px; }
     .section-head { flex-wrap: wrap; }
     .section-actions { width: 100%; justify-content: flex-end; }
-    .marquee { min-height: 50px; padding: 8px 10px; gap: 9px; }
-    .marquee__label { font-size: 10px; padding: 4px 7px; }
-    .marquee__text { font-size: 17px; }
+    .led-screen { padding: 10px 11px 9px; border-radius: 15px; }
+    .led-row { gap: 9px; min-height: 24px; }
+    .led-row--meta { margin-top: 7px; }
+    .led-play { width: 28px; height: 28px; }
+    .led-note { width: 16px; height: 16px; }
+    .led-text--title { font-size: 17px; }
+    .led-text--meta { font-size: 12.5px; letter-spacing: 0.06em; }
+    .led-progress { margin-top: 9px; }
     .transport { gap: 10px; }
-    .tbtn { width: 44px; height: 44px; }
-    .tbtn--play { width: 58px; height: 58px; }
-    .tbtn--play .icon { width: 23px; height: 23px; }
-    .tbtn--labeled { width: auto; height: 42px; padding: 0 12px; }
-    .tbtn--labeled span { font-size: 11px; }
-    .tbtn--play.tbtn--labeled { width: auto; height: 52px; padding: 0 16px; }
+    .tbtn--labeled { width: 30px; height: 30px; padding: 0; }
+    .tbtn--labeled .icon { width: 16px; height: 16px; }
+    .tbtn--play.tbtn--labeled { width: 38px; height: 38px; padding: 0; }
+    .tbtn--play.tbtn--labeled .icon { width: 20px; height: 20px; }
+    .mode-group { gap: 3px; padding: 4px; }
+    .mode-btn { height: 28px; padding: 0 6px; gap: 4px; font-size: 10px; }
+    .mode-btn .icon { width: 12px; height: 12px; }
+    .mode-led { width: 5px; height: 5px; }
     .volume-row { gap: 8px; }
     .volume-label { font-size: 11px; }
     .softvol { display: none; }
@@ -1383,21 +2145,34 @@ html[data-theme="light"] .banner { color: #9f1239; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+    /* 只停掉环境光晕、指示点这类纯装饰动效；过渡也直接完成 */
+    .blob { animation: none !important; }
     *, *::before, *::after {
         animation-duration: 0.001ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.001ms !important;
         scroll-behavior: auto !important;
     }
-    /* 跑马灯在“减少动态效果”下改为可横向滑动，避免文字被动画瞬间推到屏幕外 */
-    .marquee.is-scrolling .marquee__viewport {
-        overflow-x: auto;
-        overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
+    /*
+     * 跑马灯和唱片旋转是「正在播放」的核心状态反馈，不再跟随系统动效开关关闭。
+     * 否则部分平板 / 手机开启“减少动态效果”后，会出现歌名不走、DLNA/AirPlay 封面不转。
+     * 跑马灯仍支持鼠标悬停暂停。
+     */
+    .led-viewport.is-scrolling .led-track {
+        animation-duration: var(--duration, 16s) !important;
+        animation-iteration-count: infinite !important;
     }
-    .marquee.is-scrolling .marquee__track {
-        animation: none !important;
-        transform: none !important;
+    .receiver .vinyl.is-playing {
+        animation-duration: 24s !important;
+        animation-iteration-count: infinite !important;
     }
-    .marquee.is-scrolling .marquee__text[aria-hidden="true"] { display: none; }
+    .led-play.is-playing .led-note {
+        animation-duration: 1.1s !important;
+        animation-iteration-count: infinite !important;
+    }
+    .led-screen.is-playing .led-bar::before,
+    .led-screen.is-playing .led-bar::after {
+        animation-duration: 2.6s !important;
+        animation-iteration-count: infinite !important;
+    }
 }

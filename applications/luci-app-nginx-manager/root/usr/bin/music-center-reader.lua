@@ -16,6 +16,27 @@
 local PIPE  = "/tmp/shairport-sync-metadata"
 local OUT   = "/tmp/shairport-now.json"
 local COVER = "/tmp/shairport-cover.jpg"
+local LOG   = "/tmp/music-center-reader.log"
+
+-- 运行日志：只记异常和启动，上限 64KB，避免占满 /tmp
+local function log(msg)
+    local f = io.open(LOG, "a")
+    if not f then return end
+    f:write(os.date("%Y-%m-%d %H:%M:%S ") .. tostring(msg) .. "\n")
+    f:close()
+    local r = io.open(LOG, "r")
+    if r then
+        r:seek("end")
+        local size = r:seek()
+        r:close()
+        if size > 65536 then os.remove(LOG) end
+    end
+end
+
+local function safe_call(label, fn, ...)
+    local ok, err = pcall(fn, ...)
+    if not ok then log(label .. ": " .. tostring(err)) end
+end
 
 -- 读取 AirPlay 端口（用于从 /proc/net/tcp 找客户端 IP）
 local function uci_get(opt, default)
@@ -239,7 +260,8 @@ local function write_json()
         '"snam":"%s","clip":"%s","soundcard":"%s"}',
         json_escape(state.title), json_escape(state.artist), json_escape(state.album),
         json_escape(state.lyric),
-        state.volume, state.playing and "true" or "false", cover_flag, state.cover_ts,
+        math.floor(state.volume or 0), state.playing and "true" or "false", cover_flag,
+        math.floor(state.cover_ts or 0),
         json_escape(state.snam), json_escape(state.clip),
         json_escape(state.soundcard)
     ))
@@ -256,8 +278,8 @@ local function handle_item(item)
     if data_b64 ~= "" then raw = b64decode(data_b64) end
 
     if code_str == "minm" then
-        -- 注意：minm 不一定是“换歌”，有些发送端把歌词也放在 minm 里。
-        -- 这里不要删封面，否则歌词每变一行，页面封面就闪回底图一次。
+        -- QQ音乐/网易云会通过 minm 持续发送歌词；不能把 minm 一律当曲名。
+        -- 曲名/艺术家由 asar 解析，minm 继续作为歌词。
         state.raw_minm = raw
         state.playing = true
         parse_title_artist()
@@ -317,17 +339,22 @@ local function sleep_one()
     end
 end
 
-os.remove(COVER .. ".tmp")
-state.clip = find_client_ip()
-state.snam = find_hostname(state.clip)
-state.soundcard = find_soundcard()
-write_json()
+log("reader started")
+
+safe_call("init", function()
+    os.remove(COVER .. ".tmp")
+    state.clip = find_client_ip()
+    state.snam = find_hostname(state.clip)
+    state.soundcard = find_soundcard()
+    write_json()
+end)
 
 local buffer = ""
 local counter = 0
 while true do
-    local pipe = io.open(PIPE, "r")
-    if pipe then
+    safe_call("pipe", function()
+        local pipe = io.open(PIPE, "r")
+        if not pipe then return end
         while true do
             local chunk = pipe:read(4096)
             if not chunk then break end
@@ -336,29 +363,32 @@ while true do
                 local s = buffer:find("<item>", 1, true)
                 local e = buffer:find("</item>", 1, true)
                 if not s or not e then break end
-                handle_item(buffer:sub(s, e + 6))
+                local item = buffer:sub(s, e + 6)
                 buffer = buffer:sub(e + 7)
+                safe_call("item", handle_item, item)
             end
             if #buffer > 1048576 then buffer = buffer:sub(-65536) end
         end
         pipe:close()
-    end
+    end)
 
     counter = counter + 1
     if counter >= 5 then
         counter = 0
-        local ip = find_client_ip()
-        if ip ~= "" and ip ~= state.clip then
-            state.clip = ip
-            state.snam = find_hostname(ip)
-            write_json()
-        end
-        local sc = find_soundcard()
-        if sc ~= state.soundcard then
-            state.soundcard = sc
-            write_json()
-        end
+        safe_call("periodic", function()
+            local ip = find_client_ip()
+            if ip ~= "" and ip ~= state.clip then
+                state.clip = ip
+                state.snam = find_hostname(ip)
+                write_json()
+            end
+            local sc = find_soundcard()
+            if sc ~= state.soundcard then
+                state.soundcard = sc
+                write_json()
+            end
+        end)
     end
 
-    sleep_one()
+    safe_call("sleep", sleep_one)
 end

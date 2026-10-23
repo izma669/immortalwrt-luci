@@ -32,6 +32,7 @@
         masterMuteIcon: $('master-mute-icon'),
 
         owntoneCard: $('owntone-card'),
+        owntoneName: $('owntone-name'),
         owntoneBg: $('owntone-bg'),
         owntoneState: $('owntone-state'),
         owntoneService: $('owntone-service'),
@@ -39,18 +40,31 @@
         owntoneWeb: $('owntone-web'),
         owntoneCover: $('owntone-cover'),
         owntoneVinyl: $('owntone-vinyl'),
-        owntoneMarquee: $('owntone-marquee'),
-        owntoneMarqueeLabel: $('owntone-marquee-label'),
-        owntoneArtist: $('owntone-artist'),
-        owntoneAlbum: $('owntone-album'),
+        owntoneLed: $('owntone-led'),
+        owntoneLedFrame: $('owntone-led-frame'),
+        owntoneLedPath: $('owntone-led-path'),
+        owntoneLedNotch: $('owntone-led-notch'),
+        owntoneTimeFlow: $('owntone-time-flow'),
+        owntonePlayIndicator: $('owntone-play-indicator'),
+        owntoneTitleMarquee: $('owntone-title-marquee'),
+        owntoneMetaMarquee: $('owntone-meta-marquee'),
         owntonePos: $('owntone-pos'),
         owntoneDur: $('owntone-dur'),
+        owntoneAudioInfo: $('owntone-audio-info'),
+        owntoneLower: $('owntone-lower'),
+        owntoneFormat: $('owntone-format'),
+        owntoneBitrate: $('owntone-bitrate'),
+        owntoneSamplerate: $('owntone-samplerate'),
         owntoneProgress: $('owntone-progress'),
         owntonePrev: $('owntone-prev'),
         owntonePlay: $('owntone-play'),
         owntonePlayIcon: document.querySelector('#owntone-play-icon use'),
         owntoneNext: $('owntone-next'),
+        owntoneShuffle: $('owntone-shuffle'),
+        owntoneRepeat: $('owntone-repeat'),
         owntoneVolume: $('owntone-volume'),
+        owntoneKnob: $('owntone-knob'),
+        owntoneMute: $('owntone-mute'),
         owntoneVolValue: $('owntone-vol-value'),
         owntoneHint: $('owntone-hint'),
 
@@ -61,7 +75,6 @@
         gmrTitle: $('gmr-title'),
         gmrArtist: $('gmr-artist'),
         gmrAlbum: $('gmr-album'),
-        gmrMeta: $('gmr-meta'),
         gmrSoundcard: $('gmr-soundcard'),
         gmrBroadcast: $('gmr-broadcast'),
         gmrUrl: $('gmr-url'),
@@ -109,16 +122,23 @@
         toastText: $('toast-text')
     };
 
+    var ledResizeObserver = null;
+
     var state = {
         data: null,
         timer: null,
         inFlight: false,
         failures: 0,
         overrides: {},
+        localMute: false,
+        localMuteVolume: 0,
         seeking: {},
         progress: {},
         lyric: { key: '', lines: [] },
-        marquee: { text: '', empty: false },
+        led: {
+            title: { text: '', empty: false },
+            meta: { text: '', empty: false }
+        },
         serviceBusy: {},
         bgUrl: '',
         failedCovers: {},
@@ -126,7 +146,10 @@
         downloading: false,
         downloadName: '',
         lastAutoDownload: '',
-        toastTimer: null
+        toastTimer: null,
+        owntoneApi: { url: '', busy: false, failures: 0, pausedUntil: 0 },
+        directOwntone: false,
+        modes: { shuffle: false, repeat: 'off' }
     };
 
     var PROGRESS = {
@@ -174,6 +197,10 @@
         if (!input) return;
         var pct = max > 0 ? clamp(value / max * 100, 0, 100) : 0;
         input.style.setProperty('--val', pct.toFixed(2) + '%');
+        var bar = input.parentElement;
+        if (bar && bar.classList.contains('led-bar')) {
+            bar.style.setProperty('--val', pct.toFixed(2) + '%');
+        }
     }
 
     function setIcon(use, id) {
@@ -374,38 +401,60 @@
         }
     }
 
-    function setMarquee(text, empty) {
-        text = text || '';
-        empty = !!empty;
-        if (state.marquee.text === text && state.marquee.empty === empty) return;
-        state.marquee.text = text;
-        state.marquee.empty = empty;
+    /* -----------------------------------------------------------------------
+       LED 电子屏跑马灯：歌名向左，演唱者 / 专辑向右，两行各自独立
+       -------------------------------------------------------------------- */
+    var LED_LINES = {
+        title: { viewport: 'owntoneTitleMarquee', speed: 46 },
+        meta: { viewport: 'owntoneMetaMarquee', speed: 52 }
+    };
 
-        var spans = $$('.marquee__text', el.owntoneMarquee);
-        spans.forEach(function (s) { s.textContent = text; });
-        el.owntoneMarquee.classList.toggle('is-empty', empty);
-        el.owntoneMarquee.classList.remove('is-scrolling');
+    function renderLedLine(key) {
+        var line = LED_LINES[key];
+        var viewport = line && el[line.viewport];
+        if (!viewport) return;
+
+        var slot = state.led[key];
+        var spans = $$('.led-text', viewport);
+        var track = viewport.querySelector('.led-track');
+        spans.forEach(function (s) { s.textContent = slot.text; });
+        viewport.classList.toggle('is-empty', slot.empty);
+        viewport.classList.remove('is-scrolling');
+        if (!track) return;
 
         requestAnimationFrame(function () {
-            var viewport = el.owntoneMarquee.querySelector('.marquee__viewport');
-            if (!viewport || !spans[0]) return;
-            var w = spans[0].getBoundingClientRect().width;
+            var w = spans[0] ? spans[0].getBoundingClientRect().width : 0;
+            if (slot.empty || !slot.text || w <= 0) return;
+
+            // 文字比屏幕窄时，把间距撑到整屏宽再复制，
+            // 这样同一时刻屏幕上只出现一份文字，不会并排重复。
             var vw = viewport.clientWidth;
-            if (!empty && w > vw - 6) {
-                el.owntoneMarquee.style.setProperty('--distance', '-' + Math.ceil(w + 48) + 'px');
-                el.owntoneMarquee.style.setProperty('--duration',
-                    Math.max(9, w / 42).toFixed(1) + 's');
-                el.owntoneMarquee.classList.add('is-scrolling');
-            }
+            var gap = Math.max(72, vw - w + 20);
+            var distance = w + gap;
+
+            viewport.style.setProperty('--gap', Math.ceil(gap) + 'px');
+            viewport.style.setProperty('--distance', '-' + Math.ceil(distance) + 'px');
+            viewport.style.setProperty('--duration',
+                (distance / line.speed).toFixed(1) + 's');
+            viewport.classList.add('is-scrolling');
         });
     }
 
+    function setLedLine(key, text, empty) {
+        var slot = state.led[key];
+        if (!slot) return;
+        text = text || '';
+        empty = !!empty;
+        if (slot.text === text && slot.empty === empty) return;
+        slot.text = text;
+        slot.empty = empty;
+        renderLedLine(key);
+    }
+
     function refreshMarquee() {
-        if (!state.marquee.text) return;
-        var t = state.marquee.text;
-        var e = state.marquee.empty;
-        state.marquee.text = null;
-        setMarquee(t, e);
+        Object.keys(state.led).forEach(function (key) {
+            if (state.led[key].text) renderLedLine(key);
+        });
     }
 
     /* -----------------------------------------------------------------------
@@ -459,6 +508,7 @@
 
     function renderOwntone(o) {
         o = o || {};
+        setText(el.owntoneName, o.name || '');
         var installed = !!o.installed;
         var running = !!o.running;
         var playing = !!o.playing;
@@ -469,12 +519,25 @@
         el.owntoneWeb.hidden = !installed;
         if (installed) el.owntoneWeb.href = owntoneWebUrl(o.port);
 
+        // OwnTone 自带的 API 允许跨域，直接用它取精确进度；
+        // 这样即使 LuCI 的 status 接口慢或旧 Lua 返回 0，时间也不会漂。
+        var apiUrl = (installed && running)
+            ? owntoneWebUrl(o.port).replace(/\/+$/, '') + '/api/player'
+            : '';
+        if (apiUrl !== state.owntoneApi.url) {
+            state.owntoneApi.url = apiUrl;
+            state.owntoneApi.failures = 0;
+            state.owntoneApi.pausedUntil = 0;
+        }
+        if (!apiUrl) state.directOwntone = false;
+
         var chipText, chipState;
         if (!installed) { chipText = '未安装'; chipState = 'is-off'; }
         else if (!running) { chipText = '未运行'; chipState = 'is-off'; }
         else if (playing) { chipText = '播放中'; chipState = ''; }
-        else if (paused) { chipText = '已暂停'; chipState = 'is-idle'; }
-        else { chipText = '空闲'; chipState = 'is-idle'; }
+        else if (paused) { chipText = '暂停中'; chipState = 'is-paused'; }
+        else if (o.state === 'stop') { chipText = '已停止'; chipState = 'is-off'; }
+        else { chipText = '缓冲中'; chipState = 'is-idle'; }
         setChip(el.owntoneState, 'chip--owntone', chipText, chipState);
         setText(el.owntoneService, !installed
             ? '未安装'
@@ -488,35 +551,69 @@
         if (!installed) stateLabel = '未安装';
         else if (!running) stateLabel = '未运行';
         else if (playing) stateLabel = '播放中';
-        else if (paused) stateLabel = '已暂停';
+        else if (paused) stateLabel = '暂停中';
         else if (o.state === 'stop') stateLabel = '已停止';
         else stateLabel = '正在缓冲';
-        setText(el.owntoneMarqueeLabel, stateLabel);
+        var indicatorState = (!installed || !running) ? 'off' : (playing ? 'playing' : (paused ? 'paused' : 'idle'));
+        el.owntonePlayIndicator.className = 'led-play is-' + indicatorState;
+        el.owntonePlayIndicator.title = stateLabel;
+        el.owntonePlayIndicator.setAttribute('aria-label', stateLabel);
+        el.owntoneLed.classList.toggle('is-playing', playing);
 
         var empty = !title;
-        // 照搬原 owntone_status.htm 的“[播放中] 曲名：… 演唱者：… 专辑：…”
-        var marquee = title
-            ? ('曲名：' + title
-                + (artist ? ' 演唱者：' + artist : '')
-                + (album ? ' 专辑：' + album : ''))
-            : (!installed ? '未安装 OwnTone' : (!running ? 'OwnTone 未运行' : '暂无播放'));
-        setMarquee(marquee, empty);
+        // 第一行“歌名”向左滚；第二行“演唱者 + 专辑”向右滚，两行互不影响
+        var titleLine = title
+            ? ('歌名：' + title)
+            : ('歌名：' + (!installed ? '未安装 OwnTone' : (!running ? 'OwnTone 未运行' : '暂无播放')));
+        var metaLine = title
+            ? ('演唱者：' + (artist || '未知艺术家') + '　专辑：' + (album || '未知专辑'))
+            : '演唱者：等待音乐　专辑：OwnTone 音乐库';
+        setLedLine('title', titleLine, empty);
+        setLedLine('meta', metaLine, empty);
 
-        setText(el.owntoneArtist, title ? (artist || '未知艺术家') : '等待音乐');
-        setText(el.owntoneAlbum, title ? (album || '未知专辑') : 'OwnTone 音乐库');
+        var fmt = String(o.format || '').toUpperCase();
+        var br = Number(o.bitrate) || 0;
+        var sr = Number(o.samplerate) || 0;
+        var hasAudioInfo = !!(fmt || br || sr);
+        if (el.owntoneAudioInfo) el.owntoneAudioInfo.hidden = !hasAudioInfo;
+        setText(el.owntoneFormat, fmt || '未知');
+        setText(el.owntoneBitrate, br ? br + 'K/s' : '--');
+        setText(el.owntoneSamplerate, sr ? (Math.round(sr / 100) / 10) + 'kHz' : '--');
 
         setCover(el.owntoneCover, el.owntoneVinyl, o.art);
         setVinylPlaying(el.owntoneVinyl, playing);
         setPlayerBg(o.art);
 
-        updateProgressSource('owntone', o, running);
+        if (!state.directOwntone) updateProgressSource('owntone', o, running);
         setIcon(el.owntonePlayIcon, playing ? 'i-pause' : 'i-play');
+        el.owntonePlay.classList.toggle('is-playing', playing);
+        el.owntonePlay.classList.toggle('is-paused', !playing);
 
         el.owntonePrev.disabled = !running;
         el.owntonePlay.disabled = !running;
         el.owntoneNext.disabled = !running;
+        el.owntoneShuffle.disabled = !running;
+        el.owntoneRepeat.disabled = !running;
+        if (!state.directOwntone
+            && (typeof o.shuffle === 'boolean' || typeof o.repeat === 'string')) {
+            renderModes(o.shuffle, o.repeat);
+        }
         el.owntoneProgress.disabled = !running || !(Number(o.duration) > 0);
         setVolumeUI(el.owntoneVolume, el.owntoneVolValue, 'owntone', o.volume, running);
+
+        var vol = Number(o.volume) || 0;
+        if (state.localMute && vol > 0) {
+            state.localMute = false;
+            try {
+                localStorage.removeItem('music-center-owntone-mute');
+                localStorage.removeItem('music-center-owntone-mute-volume');
+            } catch (e) {}
+        }
+        var muted = !!(o.muted || state.localMute);
+        if (el.owntoneMute) {
+            el.owntoneMute.disabled = !running;
+            setMuteUI(muted);
+        }
 
         if (!installed) {
             setText(el.owntoneHint, '未安装 OwnTone 插件，无法播放本地音乐库。');
@@ -527,6 +624,69 @@
         } else {
             setText(el.owntoneHint, '也支持 iPhone Remote、MPD 客户端直接控制。');
         }
+        if (typeof updateLedFrame === 'function') setTimeout(updateLedFrame, 0);
+    }
+
+    function renderModes(shuffle, repeat) {
+        var sh = !!shuffle;
+        var rep = String(repeat || 'off').toLowerCase();
+        var repOn = rep === 'all' || rep === 'single';
+        state.modes.shuffle = sh;
+        state.modes.repeat = rep;
+
+        el.owntoneShuffle.classList.toggle('is-on', sh);
+        el.owntoneShuffle.setAttribute('aria-pressed', sh ? 'true' : 'false');
+        el.owntoneShuffle.title = '随机播放：' + (sh ? '开' : '关');
+
+        el.owntoneRepeat.classList.toggle('is-on', repOn);
+        el.owntoneRepeat.classList.toggle('is-single', rep === 'single');
+        el.owntoneRepeat.setAttribute('aria-pressed', repOn ? 'true' : 'false');
+        el.owntoneRepeat.title = '循环播放：'
+            + (rep === 'single' ? '单曲' : (repOn ? '全部' : '关'));
+    }
+
+    function ownToneApiBase() {
+        return String(state.owntoneApi.url || '').replace(/\/api\/player\/?$/, '');
+    }
+
+    function putOwnToneMode(kind, query) {
+        var base = ownToneApiBase();
+        if (!base) return Promise.reject(new Error('OwnTone API 不可用'));
+        return fetch(base + '/api/player/' + kind + '?' + query, {
+            method: 'PUT',
+            cache: 'no-store',
+            credentials: 'omit'
+        }).then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return true;
+        });
+    }
+
+    function toggleShuffle() {
+        var prev = state.modes.shuffle;
+        var next = !prev;
+        renderModes(next, state.modes.repeat);
+        putOwnToneMode('shuffle', 'state=' + next).catch(function () {
+            return control('owntone', 'shuffle', next ? 'true' : 'false').then(function (ok) {
+                if (!ok) throw new Error('control failed');
+            });
+        }).catch(function () {
+            renderModes(prev, state.modes.repeat);
+        });
+    }
+
+    function toggleRepeat() {
+        var prev = state.modes.repeat;
+        var on = prev === 'all' || prev === 'single';
+        var next = on ? 'off' : 'all';
+        renderModes(state.modes.shuffle, next);
+        putOwnToneMode('repeat', 'state=' + next).catch(function () {
+            return control('owntone', 'repeat', next).then(function (ok) {
+                if (!ok) throw new Error('control failed');
+            });
+        }).catch(function () {
+            renderModes(state.modes.shuffle, prev);
+        });
     }
 
     /* -----------------------------------------------------------------------
@@ -563,9 +723,6 @@
             ? (artist || '未知艺术家')
             : (running ? '等待手机 / 电脑推送' : (installed ? '服务未运行' : '未安装插件')));
         setText(el.gmrAlbum, hasTitle ? (album || '') : (running ? '在 DLNA 客户端中选择这个设备' : ''));
-        setText(el.gmrMeta, hasTitle
-            ? ([g.media, g.format].filter(Boolean).join(' · ') || 'DLNA 音频')
-            : (running ? 'DLNA 音频接收器' : (installed ? '点击下方按钮启动' : '未安装')));
         setText(el.gmrSoundcard, '输出声卡：' + (g.soundcard || '-'));
         setText(el.gmrBroadcast, g.broadcast || 'GMediaRender');
 
@@ -701,16 +858,76 @@
        进度
        -------------------------------------------------------------------- */
     function updateProgressSource(key, data, running) {
+        var now = performance.now();
         var dur = Math.max(0, Number(data && data.duration) || 0);
-        var pos = Math.max(0, Number(data && data.position) || 0);
-        if (dur > 0) pos = Math.min(pos, dur);
+        var serverPos = Math.max(0, Number(data && data.position) || 0);
+        if (dur > 0) serverPos = Math.min(serverPos, dur);
+
+        var playing = !!(data && data.playing && running);
+        var trackKey = String((data && data.title) || '') + '|' + String((data && data.artist) || '');
+        var prev = state.progress[key];
+        var sameTrack = !!(prev && prev.trackKey === trackKey
+            && Math.abs((prev.duration || 0) - (running ? dur : 0)) < 0.75);
+        var localPos = prev ? prev.base + (prev.playing ? (now - prev.at) / 1000 : 0) : 0;
+
+        var base = running ? serverPos : 0;
+        // 有些 OwnTone 版本 / 老 Lua 返回的进度一直是 0，轮询会把时间反复拉回 0:00。
+        // 只要还是同一首歌且本地时钟已经走远，就继续用本地时间，避免 0→1→2 循环。
+        if (sameTrack && running && serverPos + 1.5 < localPos) {
+            base = localPos;
+        }
+        if (dur > 0) base = Math.min(base, dur);
+
         state.progress[key] = {
-            base: running ? pos : 0,
-            at: performance.now(),
+            base: base,
+            at: now,
             duration: running ? dur : 0,
-            playing: !!(data && data.playing && running)
+            playing: playing,
+            trackKey: trackKey
         };
         renderProgress(key);
+    }
+
+    // 直接向 OwnTone 的 /api/player 要精确进度（局域网跨端口，OwnTone 已允许 CORS）
+    function pollDirectProgress() {
+        var api = state.owntoneApi;
+        if (!api.url || api.busy || document.hidden) return;
+        if (performance.now() < api.pausedUntil) return;
+
+        api.busy = true;
+        fetch(api.url, { cache: 'no-store', credentials: 'omit' }).then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        }).then(function (d) {
+            api.busy = false;
+            api.failures = 0;
+            if (typeof d.shuffle === 'boolean') renderModes(d.shuffle, d.repeat);
+            var dur = Math.max(0, Number(d && d.item_length_ms) || 0) / 1000;
+            var pos = Math.max(0, Number(d && d.item_progress_ms) || 0) / 1000;
+            if (!(dur > 0)) return;
+            if (pos > dur) pos = dur;
+            if (state.seeking.owntone) return;
+
+            var prev = state.progress.owntone;
+            state.progress.owntone = {
+                base: pos,
+                at: performance.now(),
+                duration: dur,
+                playing: (d.state === 'play'),
+                trackKey: (prev && Math.abs((prev.duration || 0) - dur) < 0.75)
+                    ? prev.trackKey : ('direct:' + dur)
+            };
+            state.directOwntone = true;
+            renderProgress('owntone');
+        }).catch(function () {
+            api.busy = false;
+            api.failures++;
+            // 直连被防火墙/CORS/密码挡住时，退回 status 接口的进度，不再反复请求
+            if (api.failures >= 3) {
+                state.directOwntone = false;
+                api.pausedUntil = performance.now() + 30000;
+            }
+        });
     }
 
     function renderProgress(key) {
@@ -750,6 +967,35 @@
     /* -----------------------------------------------------------------------
        音量 UI
        -------------------------------------------------------------------- */
+    function setKnobVisual(value, disabled) {
+        var knob = el.owntoneKnob;
+        if (!knob) return;
+        var v = clamp(Math.round(Number(value) || 0), 0, 100);
+        knob.style.setProperty('--knob-angle', (-135 + v * 2.7) + 'deg');
+        knob.style.setProperty('--knob-fill', (v * 2.7) + 'deg');
+        knob.setAttribute('aria-valuenow', v);
+        knob.classList.toggle('is-disabled', !!disabled);
+    }
+
+    function setMuteUI(muted) {
+        if (!el.owntoneMute) return;
+        el.owntoneMute.classList.toggle('is-muted', !!muted);
+        el.owntoneMute.setAttribute('aria-pressed', muted ? 'true' : 'false');
+        el.owntoneMute.title = muted ? '取消静音' : '静音';
+        var wrap = el.owntoneMute.closest('.mute-wrap');
+        if (wrap) wrap.classList.toggle('is-muted', !!muted);
+    }
+
+    function initMuteState() {
+        try {
+            state.localMute = localStorage.getItem('music-center-owntone-mute') === '1';
+            state.localMuteVolume = Number(localStorage.getItem('music-center-owntone-mute-volume')) || 0;
+        } catch (e) {
+            state.localMute = false;
+            state.localMuteVolume = 0;
+        }
+    }
+
     function setVolumeUI(input, output, target, value, enabled) {
         if (!input) return;
         if (!isFresh(target) && document.activeElement !== input) {
@@ -760,6 +1006,7 @@
             setRangeFill(input, v, 100);
         }
         input.disabled = !enabled;
+        if (input === el.owntoneVolume) setKnobVisual(input.value, !enabled);
     }
 
     function bindVolume(input, output, target) {
@@ -769,11 +1016,79 @@
             var value = clamp(Math.round(Number(input.value) || 0), 0, 100);
             setText(output, value + '%');
             setRangeFill(input, value, 100);
+            if (input === el.owntoneVolume) setKnobVisual(value, input.disabled);
             state.overrides[target] = { value: value, at: performance.now() };
             clearTimeout(timer);
             timer = setTimeout(function () {
                 sendVolume(target, value);
             }, 300);
+        });
+    }
+
+    function bindKnob(input, knob) {
+        if (!input || !knob) return;
+        var dragging = false;
+
+        function valueFromEvent(ev) {
+            var r = knob.getBoundingClientRect();
+            var cx = r.left + r.width / 2;
+            var cy = r.top + r.height / 2;
+            var deg = Math.atan2(ev.clientX - cx, cy - ev.clientY) * 180 / Math.PI;
+            if (deg < -135) deg = -135;
+            if (deg > 135) deg = 135;
+            return Math.round((deg + 135) / 270 * 100);
+        }
+
+        function apply(v) {
+            v = clamp(Math.round(Number(v) || 0), 0, 100);
+            if (String(input.value) !== String(v)) {
+                input.value = v;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+
+        function down(ev) {
+            if (input.disabled) return;
+            dragging = true;
+            try { knob.setPointerCapture(ev.pointerId); } catch (e) {}
+            apply(valueFromEvent(ev));
+            ev.preventDefault();
+        }
+        function move(ev) {
+            if (!dragging) return;
+            apply(valueFromEvent(ev));
+            ev.preventDefault();
+        }
+        function up(ev) {
+            dragging = false;
+            try { knob.releasePointerCapture(ev.pointerId); } catch (e) {}
+        }
+
+        knob.addEventListener('pointerdown', down);
+        knob.addEventListener('pointermove', move);
+        knob.addEventListener('pointerup', up);
+        knob.addEventListener('pointercancel', up);
+        knob.addEventListener('wheel', function (ev) {
+            if (input.disabled) return;
+            ev.preventDefault();
+            apply((Number(input.value) || 0) + (ev.deltaY < 0 ? 2 : -2));
+        }, { passive: false });
+        knob.addEventListener('keydown', function (ev) {
+            if (input.disabled) return;
+            var v = Number(input.value) || 0;
+            var step = ev.shiftKey ? 10 : 2;
+            var handled = true;
+            if (ev.key === 'ArrowUp' || ev.key === 'ArrowRight') v += step;
+            else if (ev.key === 'ArrowDown' || ev.key === 'ArrowLeft') v -= step;
+            else if (ev.key === 'PageUp') v += 10;
+            else if (ev.key === 'PageDown') v -= 10;
+            else if (ev.key === 'Home') v = 0;
+            else if (ev.key === 'End') v = 100;
+            else handled = false;
+            if (handled) {
+                ev.preventDefault();
+                apply(v);
+            }
         });
     }
 
@@ -1128,6 +1443,53 @@
 
         bindVolume(el.masterSlider, el.masterValue, 'physical');
         bindVolume(el.owntoneVolume, el.owntoneVolValue, 'owntone');
+        bindKnob(el.owntoneVolume, el.owntoneKnob);
+        if (el.owntoneVolume) setKnobVisual(el.owntoneVolume.value, true);
+        if (el.owntoneMute) {
+            el.owntoneMute.addEventListener('click', function () {
+                var muted = el.owntoneMute.classList.contains('is-muted');
+                el.owntoneMute.disabled = true;
+                if (!muted) {
+                    var current = Number(el.owntoneVolume ? el.owntoneVolume.value : 0) || 0;
+                    var save = current > 0 ? current : 70;
+                    state.localMute = true;
+                    state.localMuteVolume = save;
+                    try {
+                        localStorage.setItem('music-center-owntone-mute', '1');
+                        localStorage.setItem('music-center-owntone-mute-volume', String(save));
+                    } catch (e) {}
+                    setMuteUI(true);
+                    post('/volume', { target: 'owntone', value: 0 })
+                        .then(function () {
+                            toast('已静音');
+                            pollLater([300]);
+                        })
+                        .catch(function (err) {
+                            toast('静音设置失败：' + err.message, true);
+                        })
+                        .then(function () { el.owntoneMute.disabled = false; });
+                } else {
+                    var restore = Number(state.localMuteVolume)
+                        || Number(localStorage.getItem('music-center-owntone-mute-volume'))
+                        || 70;
+                    state.localMute = false;
+                    try {
+                        localStorage.removeItem('music-center-owntone-mute');
+                        localStorage.removeItem('music-center-owntone-mute-volume');
+                    } catch (e) {}
+                    setMuteUI(false);
+                    post('/volume', { target: 'owntone', value: restore })
+                        .then(function () {
+                            toast('已取消静音');
+                            pollLater([300]);
+                        })
+                        .catch(function (err) {
+                            toast('取消静音失败：' + err.message, true);
+                        })
+                        .then(function () { el.owntoneMute.disabled = false; });
+                }
+            });
+        }
         bindVolume(el.gmrVolume, el.gmrVolValue, 'gmediarender');
         bindSeek(el.owntoneProgress, 'owntone', 'owntone', el.owntonePos);
         bindSeek(el.gmrProgress, 'gmediarender', 'gmr', el.gmrPos);
@@ -1148,6 +1510,8 @@
         });
         el.owntonePrev.addEventListener('click', function () { control('owntone', 'previous'); });
         el.owntoneNext.addEventListener('click', function () { control('owntone', 'next'); });
+        el.owntoneShuffle.addEventListener('click', toggleShuffle);
+        el.owntoneRepeat.addEventListener('click', toggleRepeat);
 
         el.gmrPlay.addEventListener('click', function () {
             var playing = !!(state.data && state.data.gmediarender && state.data.gmediarender.playing);
@@ -1210,15 +1574,75 @@
         });
     }
 
+    // LED 外框用像素坐标重画：圆角在任何宽高比下都是正圆；
+    // 切角左边/上边直接跟着时间框，避免和播放时间之间留大空隙。
+    function updateLedFrame() {
+        var screen = el.owntoneLed;
+        var time = el.owntoneTimeFlow;
+        var lower = el.owntoneLower || time;
+        var svg = el.owntoneLedFrame;
+        var path = el.owntoneLedPath;
+        var notch = el.owntoneLedNotch;
+        if (!screen || !time || !lower || !svg || !path || !notch) return;
+
+        var sr = screen.getBoundingClientRect();
+        var lr = lower.getBoundingClientRect();
+        var vr = svg.getBoundingClientRect();
+        var w = Math.round(vr.width * 100) / 100;
+        var h = Math.round(vr.height * 100) / 100;
+        if (w < 120 || h < 60) return;
+
+        var gap = 8;
+        var nx = Math.max(60, Math.min(w - 80, lr.right - vr.left + gap));
+        var ny = Math.max(50, Math.min(h - 50, lr.top - vr.top - 1));
+        var r = 18, trr = 22, nr = 14, br = 8;
+        var d = 'M' + r + ' 0 H' + (w - r) + ' Q' + w + ' 0 ' + w + ' ' + r
+            + ' V' + (ny - trr) + ' Q' + w + ' ' + ny + ' ' + (w - trr) + ' ' + ny
+            + ' H' + (nx + nr) + ' Q' + nx + ' ' + ny + ' ' + nx + ' ' + (ny + nr)
+            + ' V' + (h - br) + ' Q' + nx + ' ' + h + ' ' + (nx - br) + ' ' + h
+            + ' H' + r + ' Q0 ' + h + ' 0 ' + (h - r) + ' V' + r + ' Q0 0 ' + r + ' 0 Z';
+        svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+        path.setAttribute('d', d);
+
+        notch.style.left = (lr.right - sr.left + gap) + 'px';
+        notch.style.top = (lr.top - sr.top - 1) + 'px';
+        notch.style.width = 'auto';
+        notch.style.height = 'auto';
+
+        // 把音量旋钮所在的整块面板向上塞进 LED 屏右下角的切角空位
+        var volumeRow = el.owntoneVolume ? el.owntoneVolume.closest('.volume-row') : null;
+        if (volumeRow) {
+            if (window.innerWidth <= 760) {
+                volumeRow.style.marginTop = '0px';
+            } else {
+                var deck = volumeRow.closest('.control-deck');
+                var deckGap = deck ? (parseFloat(window.getComputedStyle(deck).marginTop) || 0) : 0;
+                var tuck = Math.max(0, Math.round(deckGap + (h - ny) - 3));
+                volumeRow.style.marginTop = (-tuck) + 'px';
+            }
+        }
+    }
+
     /* -----------------------------------------------------------------------
        启动
        -------------------------------------------------------------------- */
     function init() {
         initTheme();
+        initMuteState();
+        if (state.localMute) setMuteUI(true);
         tickClock();
         setInterval(tickClock, 1000);
         setInterval(tickProgress, 500);
+        setInterval(pollDirectProgress, 1000);
         bindEvents();
+        updateLedFrame();
+        setTimeout(updateLedFrame, 80);
+        window.addEventListener('resize', updateLedFrame);
+        if (window.ResizeObserver) {
+            ledResizeObserver = new ResizeObserver(updateLedFrame);
+            if (el.owntoneLed) ledResizeObserver.observe(el.owntoneLed);
+            if (el.owntoneTimeFlow) ledResizeObserver.observe(el.owntoneTimeFlow);
+        }
         poll(false);
     }
 

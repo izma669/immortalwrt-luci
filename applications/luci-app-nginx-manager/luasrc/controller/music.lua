@@ -23,6 +23,7 @@ local uci = require "luci.model.uci".cursor()
 
 local SND_CACHE = "/tmp/music-center-sndcard"
 local GMR_LAST_DL = "/tmp/gmediarender_last_dl.txt"
+local OWNTONE_MUTE_STATE = "/tmp/music-center-owntone-mute"
 
 function index()
     entry({"music", "status"}, call("action_status")).leaf = true
@@ -432,6 +433,9 @@ local function owntone_status()
         playing = false,
         title = "", artist = "", album = "", art = "",
         position = 0, duration = 0, volume = 0,
+        format = "", bitrate = 0, samplerate = 0,
+        muted = false, mute_volume = 0,
+        name = tostring(uci:get("owntone", "owntone", "player_name") or ""),
         port = port,
     }
     if not st.running then return st end
@@ -451,7 +455,17 @@ local function owntone_status()
     st.state = tostring(p.state or "stop")
     st.playing = (st.state == "play")
     st.volume = tonumber(p.volume) or 0
-    st.position = (tonumber(p.position_ms) or 0) / 1000
+    local mute_saved = tonumber(fs.readfile(OWNTONE_MUTE_STATE) or "")
+    if mute_saved and mute_saved > 0 and st.volume <= 0 then
+        st.muted = true
+        st.mute_volume = mute_saved
+    elseif mute_saved then
+        fs.unlink(OWNTONE_MUTE_STATE)
+    end
+    st.shuffle = (p.shuffle == true)
+    st["repeat"] = tostring(p["repeat"] or "off")
+    -- OwnTone 的 /api/player 用 item_progress_ms 表示当前进度（position_ms 只用于 seek 参数）
+    st.position = (tonumber(p.item_progress_ms) or tonumber(p.position_ms) or 0) / 1000
     st.duration = (tonumber(p.item_length_ms) or 0) / 1000
     local item_id = tonumber(p.item_id)
 
@@ -468,6 +482,13 @@ local function owntone_status()
                     if st.duration <= 0 then
                         st.duration = (tonumber(item.length_ms) or 0) / 1000
                     end
+                    local fmt = tostring(item.codec or item.format or "")
+                    if fmt == "" then
+                        fmt = tostring(item.path or ""):match("%.([%w]+)$") or ""
+                    end
+                    st.format = fmt:upper()
+                    st.bitrate = tonumber(item.bitrate) or 0
+                    st.samplerate = tonumber(item.samplerate) or 0
                     st.art = absolute_art(tostring(item.artwork_url or ""), port)
                 end
             end
@@ -486,6 +507,21 @@ local function owntone_control(action, value)
         local ok = http_put("127.0.0.1", port,
             "/api/player/seek?position_ms=" .. tostring(math.floor(sec * 1000)), 2)
         return ok, (not ok) and "OwnTone 不支持跳转或接口无响应" or nil
+    end
+
+    if action == "shuffle" then
+        local state = (value == "true" or value == "1" or value == "on") and "true" or "false"
+        local ok = http_put("127.0.0.1", port,
+            "/api/player/shuffle?state=" .. state, 2)
+        return ok, (not ok) and "OwnTone 随机播放接口无响应" or nil
+    end
+
+    if action == "repeat" then
+        local state = tostring(value or "off")
+        if state ~= "all" and state ~= "single" then state = "off" end
+        local ok = http_put("127.0.0.1", port,
+            "/api/player/repeat?state=" .. state, 2)
+        return ok, (not ok) and "OwnTone 循环播放接口无响应" or nil
     end
 
     local map = {
@@ -508,6 +544,31 @@ local function owntone_set_volume(value)
     local v = math.max(0, math.min(100, tonumber(value) or 0))
     local ok = http_put("127.0.0.1", port,
         "/api/player/volume?volume=" .. tostring(math.floor(v)), 2)
+    if ok then fs.unlink(OWNTONE_MUTE_STATE) end
+    return ok, (not ok) and "OwnTone 音量接口无响应" or nil
+end
+
+local function owntone_mute(action)
+    local port = owntone_port()
+    local body = http_get("127.0.0.1", port, "/api/player", 1)
+    local current = 0
+    if body then
+        local ok, p = pcall(jsonc.parse, body)
+        if ok and type(p) == "table" then current = tonumber(p.volume) or 0 end
+    end
+
+    if action == "unmute" then
+        local saved = tonumber(fs.readfile(OWNTONE_MUTE_STATE) or "") or current
+        if saved <= 0 then saved = 70 end
+        local ok = http_put("127.0.0.1", port,
+            "/api/player/volume?volume=" .. tostring(math.floor(saved)), 2)
+        if ok then fs.unlink(OWNTONE_MUTE_STATE) end
+        return ok, (not ok) and "OwnTone 音量接口无响应" or nil
+    end
+
+    if current <= 0 then current = 70 end
+    local ok = http_put("127.0.0.1", port, "/api/player/volume?volume=0", 2)
+    if ok then fs.writefile(OWNTONE_MUTE_STATE, tostring(math.floor(current))) end
     return ok, (not ok) and "OwnTone 音量接口无响应" or nil
 end
 
@@ -1012,7 +1073,11 @@ function action_volume()
     if target == "physical" then
         ok, err = set_physical_volume(action, value)
     elseif target == "owntone" then
-        ok, err = owntone_set_volume(value)
+        if action == "mute" or action == "unmute" then
+            ok, err = owntone_mute(action)
+        else
+            ok, err = owntone_set_volume(value)
+        end
     elseif target == "gmediarender" then
         ok, err = gmr_control("volume", value)
     else
