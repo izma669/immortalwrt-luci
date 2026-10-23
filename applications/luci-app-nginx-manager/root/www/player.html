@@ -2877,12 +2877,26 @@ videoEl.addEventListener('error', function() {
     // 先弹出错误提示并倒计时 8 秒，再自动播放下一曲；点按钮可取消
     handleMediaFailure(it, code);
 });
+function seekPlayerBy(delta) {
+  if (!videoEl) return;
+  var dur = videoEl.duration;
+  if (!isFinite(dur) || dur <= 0) return;
+  var t = Math.max(0, Math.min(dur - 0.2, (videoEl.currentTime || 0) + delta));
+  try { videoEl.currentTime = t; } catch (e) {}
+}
 document.addEventListener('keydown',function(e){
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
   if(window.castOnlyMode) return;
   if(e.key===' '){if(videoEl.style.display!=='none'&&videoEl.src){e.preventDefault();videoEl.paused?videoEl.play():videoEl.pause()}return}
-  if(e.key==='ArrowLeft')for(var i=currentIndex-1;i>=0;i--){var k=listItems[i].kind;if(k==='media'){playIndex(i);return}if(k==='image'){previewImage(i);return}if(k==='doc'){previewPDF(i);return}if(k==='text'){previewText(i);return}}
-  else if(e.key==='ArrowRight')for(var i=currentIndex+1;i<listItems.length;i++){var k=listItems[i].kind;if(k==='media'){playIndex(i);return}if(k==='image'){previewImage(i);return}if(k==='doc'){previewPDF(i);return}if(k==='text'){previewText(i);return}}
+  var videoActive = videoEl.style.display !== 'none' && !!videoEl.src;
+  if(e.key==='ArrowLeft'){
+    if(videoActive){e.preventDefault();seekPlayerBy(-5);return}
+    for(var i=currentIndex-1;i>=0;i--){var k=listItems[i].kind;if(k==='media'){playIndex(i);return}if(k==='image'){previewImage(i);return}if(k==='doc'){previewPDF(i);return}if(k==='text'){previewText(i);return}}
+  }
+  else if(e.key==='ArrowRight'){
+    if(videoActive){e.preventDefault();seekPlayerBy(5);return}
+    for(var i=currentIndex+1;i<listItems.length;i++){var k=listItems[i].kind;if(k==='media'){playIndex(i);return}if(k==='image'){previewImage(i);return}if(k==='doc'){previewPDF(i);return}if(k==='text'){previewText(i);return}}
+  }
 });
 
 var currentFfprobeData = null;
