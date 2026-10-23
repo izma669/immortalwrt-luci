@@ -110,21 +110,50 @@ wait_alive() {
     return 1
 }
 
+# 没有 /etc/init.d/nginx 时，直接找 master 发 HUP
+nginx_master() {
+    m=$(cat /var/run/nginx.pid 2>/dev/null)
+    [ -n "$m" ] && [ -d "/proc/$m" ] && { echo "$m"; return 0; }
+    m=$(cat /run/nginx.pid 2>/dev/null)
+    [ -n "$m" ] && [ -d "/proc/$m" ] && { echo "$m"; return 0; }
+    m=$(ps w 2>/dev/null | awk '/[n]ginx: master process/ {print $1; exit}')
+    [ -n "$m" ] && { echo "$m"; return 0; }
+    return 1
+}
+
+nginx_hup() {
+    m=$(nginx_master) || return 1
+    kill -HUP "$m" 2>/dev/null
+}
+
 check_config() {
-    nginx -t >/tmp/nginx-manager-nginxtest.log 2>&1
+    if [ -x /etc/init.d/nginx ]; then
+        nginx -t >/tmp/nginx-manager-nginxtest.log 2>&1
+    elif [ -f /etc/nginx/uci.conf ]; then
+        nginx -t -c /etc/nginx/uci.conf >/tmp/nginx-manager-nginxtest.log 2>&1
+    else
+        echo "没有 /etc/init.d/nginx 和 /etc/nginx/uci.conf，跳过 nginx -t" >/tmp/nginx-manager-nginxtest.log
+        return 0
+    fi
 }
 
 force_start() {
-    log "强制结束 nginx 残留进程（疑似卡死）"
-    killall -9 nginx >/dev/null 2>&1 || pkill -9 nginx >/dev/null 2>&1
-    sleep 1
-    rm -f /var/run/nginx.pid /run/nginx.pid /tmp/nginx.pid
-    if command -v timeout >/dev/null 2>&1; then
-        timeout 15 /etc/init.d/nginx start >>"$LOG" 2>&1
+    if [ -x /etc/init.d/nginx ]; then
+        log "强制结束 nginx 残留进程（疑似卡死）"
+        killall -9 nginx >/dev/null 2>&1 || pkill -9 nginx >/dev/null 2>&1
+        sleep 1
+        rm -f /var/run/nginx.pid /run/nginx.pid /tmp/nginx.pid
+        if command -v timeout >/dev/null 2>&1; then
+            timeout 15 /etc/init.d/nginx start >>"$LOG" 2>&1
+        else
+            /etc/init.d/nginx start >>"$LOG" 2>&1
+        fi
+        sleep 1
     else
-        /etc/init.d/nginx start >>"$LOG" 2>&1
+        log "没有 /etc/init.d/nginx，无法强制重启；改为给 nginx master 发 HUP"
+        nginx_hup
+        sleep 1
     fi
-    sleep 1
 }
 
 log "=== 手动重启 Nginx ==="
@@ -137,27 +166,35 @@ log "配置检查通过"
 
 attempt=1
 while [ $attempt -le 3 ]; do
-    log "第 $attempt 次：执行 /etc/init.d/nginx restart"
-    if command -v timeout >/dev/null 2>&1; then
-        timeout 20 /etc/init.d/nginx restart >>"$LOG" 2>&1
+    if [ -x /etc/init.d/nginx ]; then
+        log "第 $attempt 次：执行 /etc/init.d/nginx restart"
+        if command -v timeout >/dev/null 2>&1; then
+            timeout 20 /etc/init.d/nginx restart >>"$LOG" 2>&1
+        else
+            /etc/init.d/nginx restart >>"$LOG" 2>&1
+        fi
     else
-        /etc/init.d/nginx restart >>"$LOG" 2>&1
+        log "第 $attempt 次：没有 /etc/init.d/nginx，给 nginx master 发 HUP"
+        if ! nginx_hup; then
+            log "找不到 nginx master，无法 reload"
+            exit 1
+        fi
     fi
     if wait_alive; then
-        log "重启成功（PID: $(pidof nginx)）"
+        log "重载成功（PID: $(pidof nginx)）"
         exit 0
     fi
-    log "重启后 $PORT 端口无响应，执行强制重启"
+    log "重载后 $PORT 端口无响应，执行强制重启"
     force_start
     if wait_alive; then
-        log "强制重启成功（PID: $(pidof nginx)）"
+        log "强制重载成功（PID: $(pidof nginx)）"
         exit 0
     fi
     attempt=$((attempt+1))
     sleep 1
 done
 
-log "重启失败：3 次尝试后仍无响应，请检查 /var/log/nginx/error.log"
+log "重载失败：3 次尝试后仍无响应，请检查 nginx 日志"
 exit 1
 ]]
 end
@@ -188,7 +225,8 @@ if http.formvalue("ajax") == "nginx_restart" then
         http.write('{"status":"error","message":"无法写入 /tmp/nginx-manager-restart.sh"}')
         return
     end
-    sf:write(nginx_restart_script(port))
+    -- 模板在 Windows 下可能是 CRLF；生成 shell 脚本前统一成 LF
+    sf:write((nginx_restart_script(port)):gsub("\r\n", "\n"))
     sf:close()
     -- 用 sh 显式执行并完全脱离 stdout/stdin，避免 /tmp 挂载 noexec 或请求结束被带走
     sys.exec("/bin/sh /tmp/nginx-manager-restart.sh >/dev/null 2>&1 </dev/null &")
@@ -377,6 +415,14 @@ server {
             f:close()
         end
         sys.exec("/etc/init.d/nginx reload")
+
+    elseif action == "reload_music" then
+        -- 交给 music-center：它兼容标准 nginx init、HUP，以及独立 nginx 实例
+        sys.exec("/etc/init.d/music-center reload >/dev/null 2>&1")
+
+    elseif action == "restart_music_center" then
+        -- music-center 会恢复 888 配置并重启 AirPlay 元数据读取器
+        sys.exec("/etc/init.d/music-center restart >/dev/null 2>&1 &")
     end
 
     http.redirect(http.getenv("REQUEST_URI") or "/cgi-bin/luci/admin/services/nginx-manager")
@@ -495,6 +541,32 @@ end
 local dlna_caster_url = (dlna_host_only ~= "")
     and ("http://" .. dlna_host_only .. ":" .. media_port .. "/cgi-bin/luci/dlna/caster") or ""
 local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/dev/null 2>&1") == 0
+
+-- 音乐中心（888）：页面免登录，接口只接受内网来源（见 luci.controller.music）
+local music_port = 888
+local mf = io.open("/etc/nginx/conf.d/music.conf", "r")
+if mf then
+    local mc = mf:read("*a") or ""
+    mf:close()
+    local mp = mc:match("listen%s+(%d+)")
+    if mp then music_port = mp end
+end
+local music_url = (dlna_host_only ~= "")
+    and ("http://" .. dlna_host_only .. ":" .. music_port .. "/") or ""
+local music_nginx = sys.call("pidof nginx >/dev/null 2>&1") == 0
+local music_reader_running = sys.call(
+    "ps w 2>/dev/null | grep -q '[m]usic-center-reader.lua'") == 0
+    or sys.call(
+    "ps w 2>/dev/null | grep -q '[s]hairport-reader.lua'") == 0
+    or sys.call(
+    "pgrep -f '[m]usic-center-reader.lua' >/dev/null 2>&1") == 0
+    or sys.call(
+    "pgrep -f '[s]hairport-reader.lua' >/dev/null 2>&1") == 0
+local music_services = {
+    { label = "OwnTone", running = sys.call("pidof owntone >/dev/null 2>&1") == 0 },
+    { label = "GMediaRender", running = sys.call("pidof gmediarender >/dev/null 2>&1") == 0 },
+    { label = "AirPlay 2", running = sys.call("pidof shairport-sync >/dev/null 2>&1") == 0 },
+}
 %>
 <%+header%>
 
@@ -509,8 +581,9 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
 .nm-panes { display:flex; flex-direction:column; }
 .nm-pane-card { order:3; display:none; }
 .nm-pane-card[data-pane="media"] { order:1; display:block; }
-.nm-pane-card[data-pane="cast"] { order:2; }
-.nm-pane-card[data-pane="global"] { order:3; }
+.nm-pane-card[data-pane="music"] { order:2; }
+.nm-pane-card[data-pane="cast"] { order:3; }
+.nm-pane-card[data-pane="global"] { order:4; }
 .nm-row { padding:12px 22px; border-bottom:1px solid #f4f6f8; display:flex; align-items:center; }
 .nm-row:last-child { border-bottom:none; }
 .nm-label { width:150px; flex-shrink:0; font-size:13px; color:#4a5568; font-weight:500; }
@@ -594,6 +667,7 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
     <!-- 三个分页 -->
     <div class="nm-tabs">
         <button type="button" class="nm-tab active" data-nm-tab="media">🎬 媒体服务器设置</button>
+        <button type="button" class="nm-tab" data-nm-tab="music">🎵 音乐中心（888）</button>
         <button type="button" class="nm-tab" data-nm-tab="cast">📺 投屏设置</button>
         <button type="button" class="nm-tab" data-nm-tab="global">⚙️ 全局设置</button>
     </div>
@@ -683,6 +757,45 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
         </div>
     </div>
 
+    <!-- 音乐中心（888 免登录），独立分页，排在媒体服务器设置之后、投屏设置之前 -->
+    <div class="nm-card nm-pane-card" data-pane="music" style="border-left: 4px solid #8e44ad;">
+        <div class="nm-head">🎵 音乐中心（888 · 免登录）</div>
+        <div class="nm-row">
+            <div class="nm-label">访问地址</div>
+            <div class="nm-field">
+                <span class="nm-ro" id="music-center-url"><%= (music_url ~= "") and music_url or "请用局域网 IP 打开本页" %></span>
+                <button type="button" class="nm-btn" onclick="openMusicCenter()">🎵 打开</button>
+                <button type="button" class="nm-btn gray" onclick="copyMusicCenter()">📋 复制</button>
+            </div>
+        </div>
+        <div class="nm-row">
+            <div class="nm-label">服务状态</div>
+            <div class="nm-field" style="gap:6px 14px;line-height:1.8;">
+                <span>Nginx：<b style="color:<%= music_nginx and "#2ecc71" or "#e74c3c" %>;"><%= music_nginx and "运行中" or "未运行" %></b></span>
+                <span>元数据读取器：<b style="color:<%= music_reader_running and "#2ecc71" or "#e74c3c" %>;"><%= music_reader_running and "运行中" or "未运行" %></b></span>
+                <% for _, s in ipairs(music_services) do %>
+                <span><%= s.label %>：<b style="color:<%= s.running and "#2ecc71" or "#e74c3c" %>;"><%= s.running and "运行中" or "已停止" %></b></span>
+                <% end %>
+            </div>
+        </div>
+        <div class="nm-row">
+            <div class="nm-label">维护</div>
+            <div class="nm-field">
+                <form method="post" style="display:inline;margin:0;">
+                    <input type="hidden" name="action" value="reload_music">
+                    <button type="submit" class="nm-btn">🔄 重新加载 888 配置</button>
+                </form>
+                <form method="post" style="display:inline;margin:0;">
+                    <input type="hidden" name="action" value="restart_music_center">
+                    <button type="submit" class="nm-btn gray">♻️ 重启音乐中心服务</button>
+                </form>
+            </div>
+        </div>
+        <div class="nm-row" style="background:#fbfcfe;color:#95a5b8;font-size:12px;">
+            <span>💡 888 页面不需要 LuCI 登录；控制接口只接受内网来源，写操作还会校验同源。不要把 888 直接映射到公网。</span>
+        </div>
+    </div>
+
     <!-- 全局设置 -->
     <div class="nm-card nm-pane-card" data-pane="global">
         <div class="nm-head">⚙️ 全局设置</div>
@@ -753,10 +866,10 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
     var nmPort = '<%= media_port %>';
     var nmRestartTimer = null;
 
-    // 三个分页：媒体服务器设置 / 投屏设置 / 全局设置
+    // 四个分页：媒体服务器设置 / 音乐中心 / 投屏设置 / 全局设置
     var nmTabs = document.querySelectorAll('.nm-tab');
     function nmShowTab(name) {
-        if (name !== 'media' && name !== 'cast' && name !== 'global') name = 'media';
+        if (name !== 'media' && name !== 'music' && name !== 'cast' && name !== 'global') name = 'media';
         for (var i = 0; i < nmTabs.length; i++) {
             var t = nmTabs[i];
             var on = t.getAttribute('data-nm-tab') === name;
@@ -776,7 +889,7 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
     (function initNmTab() {
         var saved = '';
         try { saved = localStorage.getItem('nm_admin_tab') || ''; } catch (e) {}
-        nmShowTab(saved === 'cast' || saved === 'global' ? saved : 'media');
+        nmShowTab(saved === 'music' || saved === 'cast' || saved === 'global' ? saved : 'media');
     })();
 
     window.openBrowser = function() {
@@ -997,6 +1110,26 @@ local dlna_daemon_running = sys.call("pgrep -f '/usr/bin/nginx-manager.lua' >/de
         var url = dlnaCasterUrl();
         if (!url) { alert('请先用局域网 IP 打开本页，再复制地址'); return; }
         nmCopyText(url, '投屏控制页地址');
+    };
+
+    function musicCenterUrl() {
+        var el = document.getElementById('music-center-url');
+        if (!el) return '';
+        var text = el.textContent.trim();
+        if (!text || text.indexOf('请用') === 0) return '';
+        return text;
+    }
+
+    window.openMusicCenter = function() {
+        var url = musicCenterUrl();
+        if (!url) { alert('请先用局域网 IP 打开本页，再打开音乐中心'); return; }
+        window.open(url, '_blank');
+    };
+
+    window.copyMusicCenter = function() {
+        var url = musicCenterUrl();
+        if (!url) { alert('请先用局域网 IP 打开本页，再复制地址'); return; }
+        nmCopyText(url, '音乐中心地址');
     };
 
     window.nmLoadNginxStatus();
