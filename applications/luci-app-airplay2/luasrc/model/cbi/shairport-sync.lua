@@ -4,11 +4,11 @@
 m = Map("shairport-sync", translate("Apple AirPlay 2 Receiver"))
 m.description = translate("Apple AirPlay 2 Receiver is a simple AirPlay server implementation")
 
-m:section(SimpleSection).template = "shairport-sync/shairport-sync_status"
-m:section(SimpleSection).template = "shairport-sync/shairport-sync_nowplaying"
+-- 状态 / 正在播放展示已移到 888 端口的“音乐中心”，
+-- 这里只保留设置和服务控制，避免 LuCI 管理面板重复展示。
 
 -- ==========================================
--- 基本设置（会被 JS 折叠）
+-- 基本设置
 -- ==========================================
 s = m:section(TypedSection, "shairport-sync", "基本设置")
 s.addremove = false
