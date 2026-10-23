@@ -120,16 +120,11 @@ start_instance() {
     procd_close_instance
 
     # ============================================
-    # 附加：启动 shairport-reader（元数据解析）
+    # 元数据读取器已合并到 luci-app-nginx-manager 的 music-center 服务：
+    #   /usr/bin/music-center-reader.lua
+    # 由 /etc/init.d/music-center 统一启动，避免两个 reader 同时写
+    # /tmp/shairport-now.json。这里不再单独起 reader。
     # ============================================
-    if [ -x /usr/bin/shairport-reader.lua ]; then
-        procd_open_instance "reader"
-        procd_set_param command /usr/bin/lua /usr/bin/shairport-reader.lua
-        procd_set_param respawn 3600 5 5
-        procd_set_param stdout 0
-        procd_set_param stderr 0
-        procd_close_instance
-    fi
 }
 
 start_service() {
