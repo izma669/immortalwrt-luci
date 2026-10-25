@@ -1,3 +1,0 @@
-config music-center 'main'
-	# 是否启动 AirPlay/shairport 元数据读取器
-	option reader '1'

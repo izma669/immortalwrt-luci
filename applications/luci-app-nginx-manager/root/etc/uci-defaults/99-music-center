@@ -1,7 +1,0 @@
-#!/bin/sh
-# 首次安装后让音乐中心随系统启动
-# 手工复制/Windows 打包常丢 +x，这里顺手补上
-chmod +x /etc/init.d/music-center 2>/dev/null
-chmod +x /etc/uci-defaults/99-music-center 2>/dev/null
-[ -x /etc/init.d/music-center ] && /etc/init.d/music-center enable
-exit 0
