@@ -1,0 +1,113 @@
+#!/bin/sh
+# =============================================================================
+# 音乐中心 / 媒体服务器 —— 唯一后台脚本
+#
+# 一个 daemon 同时负责：
+#   1) 插件自己的 nginx（880 媒体 + 888 音乐中心，配置 /etc/music-center/nginx.conf）
+#   2) AirPlay / shairport 元数据读取器
+#   3) DLNA 接收端发现
+#   4) 歌曲封面后台下载
+#
+# 不再需要 music-center / music-cover / nginx-manager / music-otbridge 四个服务。
+# 系统 nginx 的 80/443 与本脚本无关，也不会被 reload / restart。
+# =============================================================================
+
+CONF=/etc/music-center/nginx.conf
+PID=/var/run/music-center-nginx.pid
+LOG=/var/log/music-center-nginx.log
+DAEMON_LOG=/var/log/music-center-daemon.log
+
+NGINX_BIN=$(command -v nginx 2>/dev/null)
+READER=/usr/bin/music-center-reader.lua
+DLNA=/usr/bin/nginx-manager.lua
+COVER=/usr/bin/music-cover-fetch
+
+READER_PID=""
+DLNA_PID=""
+COVER_PID=""
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >>"$DAEMON_LOG"
+}
+
+nginx_alive() {
+    [ -f "$PID" ] || return 1
+    local p
+    p=$(cat "$PID" 2>/dev/null)
+    [ -n "$p" ] && kill -0 "$p" 2>/dev/null
+}
+
+start_nginx() {
+    nginx_alive && return 0
+    [ -n "$NGINX_BIN" ] || { log "nginx not found"; return 1; }
+    "$NGINX_BIN" -c "$CONF" >>"$LOG" 2>&1
+    sleep 1
+    if nginx_alive; then
+        log "nginx started (880/888)"
+    else
+        log "nginx failed to start, see $LOG"
+        return 1
+    fi
+}
+
+start_reader() {
+    [ -x "$READER" ] || return 0
+    [ -n "$READER_PID" ] && kill -0 "$READER_PID" 2>/dev/null && return 0
+    "$READER" >>"$DAEMON_LOG" 2>&1 &
+    READER_PID=$!
+    log "reader started: $READER_PID"
+}
+
+start_dlna() {
+    [ -x "$DLNA" ] || return 0
+    [ -n "$DLNA_PID" ] && kill -0 "$DLNA_PID" 2>/dev/null && return 0
+    "$DLNA" >>"$DAEMON_LOG" 2>&1 &
+    DLNA_PID=$!
+    log "dlna discovery started: $DLNA_PID"
+}
+
+COVER_LAST=0
+# 封面扫描默认关闭；需要时 uci set music.@music[0].cover_scan=1
+COVER_ENABLED=$(uci -q get music.@music[0].cover_scan 2>/dev/null)
+[ -z "$COVER_ENABLED" ] && COVER_ENABLED=0
+
+start_cover() {
+    [ "$COVER_ENABLED" = "1" ] || return 0
+    [ -x "$COVER" ] || return 0
+    # 单次扫描；最低 CPU / IO 优先级，避免拖死路由器
+    if command -v ionice >/dev/null 2>&1; then
+        nice -n 19 ionice -c 3 "$COVER" --scan >>"$DAEMON_LOG" 2>&1 &
+    else
+        nice -n 19 "$COVER" --scan >>"$DAEMON_LOG" 2>&1 &
+    fi
+    COVER_PID=$!
+    COVER_LAST=$(date +%s)
+    log "cover scan started (nice19): $COVER_PID"
+}
+
+cleanup() {
+    log "stopping"
+    [ -n "$COVER_PID" ] && kill "$COVER_PID" 2>/dev/null
+    [ -n "$READER_PID" ] && kill "$READER_PID" 2>/dev/null
+    [ -n "$DLNA_PID" ] && kill "$DLNA_PID" 2>/dev/null
+    [ -n "$NGINX_BIN" ] && "$NGINX_BIN" -s quit -c "$CONF" >>"$LOG" 2>&1
+    exit 0
+}
+
+trap cleanup TERM INT
+
+start_nginx
+start_reader
+start_dlna
+start_cover
+
+while true; do
+    start_nginx
+    start_reader
+    start_dlna
+    now=$(date +%s)
+    if [ $((now - COVER_LAST)) -ge 1800 ]; then
+        start_cover
+    fi
+    sleep 10
+done
