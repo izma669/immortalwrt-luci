@@ -1,0 +1,21 @@
+﻿#!/bin/sh
+# 只重启插件自己的 880/888，不碰系统 nginx 的 80/443
+CONF=/etc/music-center/nginx.conf
+LOG=/var/log/music-center-restart.log
+echo "=== $(date '+%Y-%m-%d %H:%M:%S') restart plugin nginx ===" >> "$LOG"
+if ! nginx -t -c "$CONF" >> "$LOG" 2>&1; then
+    echo "config check failed" >> "$LOG"
+    exit 1
+fi
+/etc/init.d/music-center restart >> "$LOG" 2>&1
+n=0
+while [ $n -lt 10 ]; do
+    if netstat -ltn 2>/dev/null | grep -q ':880 '; then
+        echo "ok" >> "$LOG"
+        exit 0
+    fi
+    sleep 1
+    n=$((n + 1))
+done
+echo "880 not listening" >> "$LOG"
+exit 1
