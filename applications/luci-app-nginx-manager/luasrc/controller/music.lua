@@ -25,14 +25,45 @@ local SND_CACHE = "/tmp/music-center-sndcard"
 local GMR_LAST_DL = "/tmp/gmediarender_last_dl.txt"
 local OWNTONE_MUTE_STATE = "/tmp/music-center-owntone-mute"
 
+-- 歌曲封面：与歌曲同目录、同名的 jpg/png/webp
+local function urlencode(s)
+    return (tostring(s):gsub("([^%w%-%._~])", function(ch)
+        return string.format("%%%02X", string.byte(ch))
+    end))
+end
+
+local function cover_allowed(path)
+    if path == "" then return false end
+    local dirs = tostring(uci:get_first("owntone", "owntone", "directories") or "")
+    for raw_d in dirs:gmatch("[^:%s]+") do
+        local d = tostring(raw_d):gsub("/+$", "")
+        if d ~= "" and path:sub(1, #d + 1) == d .. "/" then return true end
+    end
+    return false
+end
+
+local function cover_sidecar(path)
+    if not cover_allowed(path) then return nil, nil end
+    local base = path:gsub("%.[%w]+$", "")
+    for _, ext in ipairs({ "jpg", "jpeg", "png", "webp" }) do
+        local p = base .. "." .. ext
+        if fs.access(p) then return p, ext end
+    end
+    return nil, nil
+end
+
 function index()
     entry({"music", "status"}, call("action_status")).leaf = true
     entry({"music", "control"}, post("action_control")).leaf = true
     entry({"music", "volume"}, post("action_volume")).leaf = true
+    entry({"music", "autoplay"}, post("action_autoplay")).leaf = true
+    entry({"music", "library"}, post("action_library")).leaf = true
+    entry({"music", "monitor"}, call("action_monitor")).leaf = true
     entry({"music", "service"}, post("action_service")).leaf = true
     entry({"music", "download"}, post("action_download")).leaf = true
     entry({"music", "download_log"}, call("action_download_log")).leaf = true
     entry({"music", "cover"}, call("action_cover")).leaf = true
+    entry({"music", "coverfetch"}, post("action_cover_fetch")).leaf = true
 end
 
 -------------------------------------------------------------------------------
@@ -303,6 +334,11 @@ local function http_put(host, port, path, timeout)
     return code == 200 or code == 204
 end
 
+local function http_post(host, port, path, timeout)
+    local _, code = http_send("POST", host, port, path, nil, nil, nil, timeout)
+    return code == 200 or code == 204
+end
+
 -------------------------------------------------------------------------------
 -- 物理声卡音量
 -------------------------------------------------------------------------------
@@ -423,7 +459,64 @@ local function absolute_art(url, port)
     return string.format("http://%s:%d%s", h, port, url)
 end
 
+local function log_last_pos(s, needle)
+    local pos = nil
+    local i = 1
+    while true do
+        local p = s:find(needle, i, true)
+        if not p then break end
+        pos = p
+        i = p + #needle
+    end
+    return pos
+end
+
+local function owntone_log_tail()
+    local path = "/var/log/owntone.log"
+    if not fs.access(path) then return "" end
+    local stt = fs.stat(path)
+    local size = stt and tonumber(stt.size) or 0
+    local f = io.open(path, "r")
+    if not f then return "" end
+    if size > 32768 then f:seek("set", size - 32768) end
+    local data = f:read("*a") or ""
+    f:close()
+    return data
+end
+
+
+local function shq(s)
+    return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+end
+
+local function probe_channels(path)
+    local cache = "/tmp/music-channels.cache"
+    local f = io.open(cache, "r")
+    if f then
+        local line = f:read("*l") or ""
+        f:close()
+        local p, c = line:match("^(.-)|(%d+)$")
+        if p == path then return tonumber(c) or 0 end
+    end
+    local out = sys.exec("ffprobe -v error -select_streams a:0 -show_entries stream=channels -of default=nw=1:nk=1 " .. shq(path) .. " 2>/dev/null") or ""
+    local ch = tonumber(out:match("%d+")) or 0
+    local w = io.open(cache, "w")
+    if w then w:write(path .. "|" .. tostring(ch)); w:close() end
+    return ch
+end
+
+local function cover_stage(path)
+    local f = io.open("/tmp/music-cover-stage", "r")
+    if not f then return "" end
+    local line = f:read("*l") or ""
+    f:close()
+    local s, p = line:match("^([^|]*)|([^|]*)")
+    if p and p == tostring(path or "") then return tostring(s or "") end
+    return ""
+end
+
 local function owntone_status()
+
     local port = owntone_port()
     local st = {
         installed = installed("/usr/sbin/owntone", "/etc/config/owntone"),
@@ -433,14 +526,19 @@ local function owntone_status()
         playing = false,
         title = "", artist = "", album = "", art = "",
         position = 0, duration = 0, volume = 0,
-        format = "", bitrate = 0, samplerate = 0,
+        format = "", bitrate = 0, samplerate = 0, channels = 0,
         muted = false, mute_volume = 0,
-        name = tostring(uci:get("owntone", "owntone", "player_name") or ""),
+        autoplay = (uci:get_first("owntone", "owntone", "autoplay") == "1"),
+        name = tostring(uci:get_first("owntone", "owntone", "player_name") or ""),
         port = port,
+        mpd_ok = false,
+        scanning = false,
+        db_error = false,
+        library_count = 0,
     }
     if not st.running then return st end
 
-    local body = http_get("127.0.0.1", port, "/api/player", 1)
+    local body = http_get(lan_ip(), port, "/api/player", 1)
     if not body then
         st.error = "OwnTone API 无响应"
         return st
@@ -452,6 +550,7 @@ local function owntone_status()
         return st
     end
 
+    st.mpd_ok = true
     st.state = tostring(p.state or "stop")
     st.playing = (st.state == "play")
     st.volume = tonumber(p.volume) or 0
@@ -462,6 +561,22 @@ local function owntone_status()
     elseif mute_saved then
         fs.unlink(OWNTONE_MUTE_STATE)
     end
+    local log = owntone_log_tail()
+    local db_ok = log_last_pos(log, "Database OK") or 0
+    local db_err = math.max(
+        log_last_pos(log, "database disk image is malformed") or 0,
+        log_last_pos(log, "Database init failed") or 0,
+        log_last_pos(log, "incompatible database") or 0,
+        log_last_pos(log, "Database version check errored") or 0)
+    st.db_error = (db_err > 0 and (db_ok == 0 or db_err > db_ok))
+    local scan_done = log_last_pos(log, "scan completed") or 0
+    local scan_cur = math.max(
+        log_last_pos(log, "Scanned") or 0,
+        log_last_pos(log, "Scanning") or 0,
+        log_last_pos(log, "scan:") or 0)
+    st.scanning = (scan_cur > scan_done)
+    if st.db_error then st.error = "OwnTone 数据库错误" end
+
     st.shuffle = (p.shuffle == true)
     st["repeat"] = tostring(p["repeat"] or "off")
     -- OwnTone 的 /api/player 用 item_progress_ms 表示当前进度（position_ms 只用于 seek 参数）
@@ -470,10 +585,11 @@ local function owntone_status()
     local item_id = tonumber(p.item_id)
 
     if (st.state == "play" or st.state == "pause") and item_id and item_id > 0 then
-        local q = http_get("127.0.0.1", port, "/api/queue?id=now_playing", 1)
+        local q = http_get(lan_ip(), port, "/api/queue?id=now_playing", 1)
         if q then
             local qok, qd = pcall(jsonc.parse, q)
             if qok and type(qd) == "table" then
+                st.library_count = tonumber(qd.count) or 0
                 local item = qd.items and qd.items[1] or qd
                 if type(item) == "table" then
                     st.title = tostring(item.title or item.name or "")
@@ -489,7 +605,42 @@ local function owntone_status()
                     st.format = fmt:upper()
                     st.bitrate = tonumber(item.bitrate) or 0
                     st.samplerate = tonumber(item.samplerate) or 0
-                    st.art = absolute_art(tostring(item.artwork_url or ""), port)
+                    st.channels = tonumber(item.channels) or 0
+                    st.path = tostring(item.path or item.uri or ""):gsub("^file:/+", "/")
+                    if st.channels == 0 and st.path ~= "" then
+                        st.channels = probe_channels(st.path)
+                    end
+                    st.cover_stage = cover_stage(st.path)
+                    local own_art = absolute_art(tostring(item.artwork_url or ""), port)
+                    -- 优先用同目录同名的封面（音乐中心页面按单曲显示）
+                    local has_side = false
+                    if st.path ~= "" and cover_allowed(st.path) then
+                        local base = st.path:gsub("%.[%w]+$", "")
+                        local ts = 0
+                        for _, ext in ipairs({ "jpg", "jpeg", "png", "webp" }) do
+                            local p = base .. "." .. ext
+                            if fs.access(p) then
+                                local stt = fs.stat(p)
+                                ts = stt and tonumber(stt.mtime) or 0
+                                has_side = true
+                                break
+                            end
+                        end
+                        if has_side then
+                            st.art = "/cgi-bin/luci/music/cover?path=" .. urlencode(st.path)
+                                .. "&t=" .. tostring(ts)
+                        end
+                        if not has_side and fs.access("/usr/bin/music-cover-fetch") then
+                            local stamp = "/tmp/music-cover-fetch.stamp"
+                            local now = os.time()
+                            local last = tonumber(fs.readfile(stamp) or "") or 0
+                            if now - last > 120 then
+                                fs.writefile(stamp, tostring(now))
+                                os.execute(string.format("/usr/bin/music-cover-fetch --one %q %q %q >/dev/null 2>&1 &", st.path, st.artist or "", st.title or ""))
+                            end
+                        end
+                    end
+                    if not has_side then st.art = own_art end
                 end
             end
         end
@@ -504,14 +655,14 @@ local function owntone_control(action, value)
     if action == "seek" then
         local sec = tonumber(value) or 0
         if sec < 0 then sec = 0 end
-        local ok = http_put("127.0.0.1", port,
+        local ok = http_put(lan_ip(), port,
             "/api/player/seek?position_ms=" .. tostring(math.floor(sec * 1000)), 2)
         return ok, (not ok) and "OwnTone 不支持跳转或接口无响应" or nil
     end
 
     if action == "shuffle" then
         local state = (value == "true" or value == "1" or value == "on") and "true" or "false"
-        local ok = http_put("127.0.0.1", port,
+        local ok = http_put(lan_ip(), port,
             "/api/player/shuffle?state=" .. state, 2)
         return ok, (not ok) and "OwnTone 随机播放接口无响应" or nil
     end
@@ -519,7 +670,7 @@ local function owntone_control(action, value)
     if action == "repeat" then
         local state = tostring(value or "off")
         if state ~= "all" and state ~= "single" then state = "off" end
-        local ok = http_put("127.0.0.1", port,
+        local ok = http_put(lan_ip(), port,
             "/api/player/repeat?state=" .. state, 2)
         return ok, (not ok) and "OwnTone 循环播放接口无响应" or nil
     end
@@ -535,14 +686,14 @@ local function owntone_control(action, value)
     local path = map[action]
     if not path then return false, "不支持的播放操作: " .. tostring(action) end
 
-    local ok = http_put("127.0.0.1", port, "/api/player/" .. path, 2)
+    local ok = http_put(lan_ip(), port, "/api/player/" .. path, 2)
     return ok, (not ok) and "OwnTone 控制接口无响应" or nil
 end
 
 local function owntone_set_volume(value)
     local port = owntone_port()
     local v = math.max(0, math.min(100, tonumber(value) or 0))
-    local ok = http_put("127.0.0.1", port,
+    local ok = http_put(lan_ip(), port,
         "/api/player/volume?volume=" .. tostring(math.floor(v)), 2)
     if ok then fs.unlink(OWNTONE_MUTE_STATE) end
     return ok, (not ok) and "OwnTone 音量接口无响应" or nil
@@ -550,7 +701,7 @@ end
 
 local function owntone_mute(action)
     local port = owntone_port()
-    local body = http_get("127.0.0.1", port, "/api/player", 1)
+    local body = http_get(lan_ip(), port, "/api/player", 1)
     local current = 0
     if body then
         local ok, p = pcall(jsonc.parse, body)
@@ -560,14 +711,14 @@ local function owntone_mute(action)
     if action == "unmute" then
         local saved = tonumber(fs.readfile(OWNTONE_MUTE_STATE) or "") or current
         if saved <= 0 then saved = 70 end
-        local ok = http_put("127.0.0.1", port,
+        local ok = http_put(lan_ip(), port,
             "/api/player/volume?volume=" .. tostring(math.floor(saved)), 2)
         if ok then fs.unlink(OWNTONE_MUTE_STATE) end
         return ok, (not ok) and "OwnTone 音量接口无响应" or nil
     end
 
     if current <= 0 then current = 70 end
-    local ok = http_put("127.0.0.1", port, "/api/player/volume?volume=0", 2)
+    local ok = http_put(lan_ip(), port, "/api/player/volume?volume=0", 2)
     if ok then fs.writefile(OWNTONE_MUTE_STATE, tostring(math.floor(current))) end
     return ok, (not ok) and "OwnTone 音量接口无响应" or nil
 end
@@ -1064,7 +1215,6 @@ end
 function action_volume()
     if not require_post() then return end
     if not guard(true) then return end
-
     local target = http.formvalue("target") or "physical"
     local action = http.formvalue("action") or "set"
     local value = tonumber(http.formvalue("value")) or 0
@@ -1078,12 +1228,108 @@ function action_volume()
         else
             ok, err = owntone_set_volume(value)
         end
+    elseif target == "autoplay" then
+        local enabled = http.formvalue("enabled")
+        local value2 = (enabled == "1" or enabled == "true" or enabled == "on") and "1" or "0"
+        uci:set("owntone", "owntone", "autoplay", value2)
+        ok = uci:commit("owntone")
+        err = (not ok) and "写入 OwnTone 自动播放设置失败" or nil
     elseif target == "gmediarender" then
         ok, err = gmr_control("volume", value)
     else
         ok, err = false, "未知音量目标: " .. tostring(target)
     end
     respond(ok, err)
+end
+
+function action_autoplay()
+    if not require_post() then return end
+    if not guard(true) then return end
+    local enabled = http.formvalue("enabled")
+    local value = (enabled == "1" or enabled == "true" or enabled == "on") and "1" or "0"
+    uci:set("owntone", "owntone", "autoplay", value)
+    local ok = uci:commit("owntone")
+    respond(ok, (not ok) and "写入 OwnTone 自动播放设置失败" or nil)
+end
+
+function action_library()
+    if not require_post() then return end
+    if not guard(true) then return end
+    local port = owntone_port()
+    if not port then respond(false, "OwnTone 端口未知"); return end
+    local shuffle = false
+    local repeat_state = "off"
+    local player_body = http_get(lan_ip(), port, "/api/player", 1)
+    if player_body then
+        local pok, pd = pcall(jsonc.parse, player_body)
+        if pok and type(pd) == "table" then
+            shuffle = (pd.shuffle == true)
+            repeat_state = tostring(pd["repeat"] or "off")
+        end
+    end
+    if not http_put(lan_ip(), port, "/api/queue/clear", 3) then
+        respond(false, "清空播放队列失败")
+        return
+    end
+    if not http_post(lan_ip(), port,
+        "/api/queue/items/add?expression=media_kind+is+music&clear=false", 30) then
+        respond(false, "加入音乐库失败")
+        return
+    end
+    http_put(lan_ip(), port,
+        "/api/player/shuffle?state=" .. (shuffle and "true" or "false"), 2)
+    http_put(lan_ip(), port,
+        "/api/player/repeat?state=" .. repeat_state, 2)
+    local ok = http_put(lan_ip(), port, "/api/player/play", 3)
+    respond(ok, (not ok) and "开始播放失败" or nil)
+end
+
+function action_monitor()
+    local path = http.formvalue("path") or ""
+    path = path:gsub("^file:/+", "/")
+    if path == "" then
+        local port = owntone_port()
+        local body = http_get(lan_ip(), port, "/api/queue?id=now_playing", 1)
+        if body then
+            local ok, qd = pcall(jsonc.parse, body)
+            if ok and type(qd) == "table" then
+                local item = qd.items and qd.items[1] or qd
+                if type(item) == "table" then
+                    path = tostring(item.path or item.uri or ""):gsub("^file:/+", "/")
+                end
+            end
+        end
+    end
+    local dirs = tostring(uci:get_first("owntone", "owntone", "directories") or "")
+    local allowed = false
+    for raw_d in dirs:gmatch("[^:%s]+") do
+        local d = tostring(raw_d):gsub("/+$", "")
+        if d ~= "" and path:sub(1, #d + 1) == d .. "/" then
+            allowed = true
+            break
+        end
+    end
+    if not allowed then respond(false, "监听路径不在音乐库内"); return end
+
+    local f = io.open(path, "rb")
+    if not f then respond(false, "监听文件不存在"); return end
+    local ext = path:match("%.([%w]+)$")
+    ext = ext and ext:lower() or ""
+    local types = {
+        mp3 = "audio/mpeg", flac = "audio/flac", m4a = "audio/mp4",
+        aac = "audio/aac", ogg = "audio/ogg", opus = "audio/ogg",
+        wav = "audio/wav", aif = "audio/aiff", aiff = "audio/aiff",
+        alac = "audio/mp4",
+    }
+    http.header("Content-Type", types[ext] or "application/octet-stream")
+    http.header("Cache-Control", "no-store, max-age=0")
+    http.header("Content-Disposition", "inline")
+    local chunk
+    repeat
+        chunk = f:read(65536)
+        if chunk then http.write(chunk) end
+    until not chunk
+    f:close()
 end
 
 -------------------------------------------------------------------------------
@@ -1153,25 +1399,60 @@ end
 -- 封面（AirPlay）
 -------------------------------------------------------------------------------
 
+function action_cover_fetch()
+    if not require_post() then return end
+    local st = safe_call(owntone_status, {}) or {}
+    local path = tostring(st.path or "")
+    if path == "" then respond(false, "没有正在播放的文件"); return end
+    local cmd = "/usr/bin/music-cover-fetch --one " .. shq(path) .. " >/dev/null 2>&1 &"
+    os.execute(cmd)
+    respond(true)
+end
+
 function action_cover()
     if not guard(false) then return end
 
     local service = http.formvalue("service") or ""
-    if service ~= "shairport" then
-        http.status(404)
-        return
-    end
+    local path = nil
+    local ctype = "image/jpeg"
 
-    local path = "/tmp/shairport-cover.jpg"
-    if not fs.access(path) then
-        http.status(404)
-        return
+    if service == "shairport" then
+        path = "/tmp/shairport-cover.jpg"
+        if not fs.access(path) then
+            http.status(404)
+            return
+        end
+    else
+        local p = http.formvalue("path") or ""
+        p = p:gsub("^file:/+", "/")
+        local side, ext = cover_sidecar(p)
+        if not side then
+            local tmp = "/tmp/music-cover-embed"
+            os.execute("rm -f " .. tmp .. ".jpg")
+            os.execute("ffmpeg -y -i " .. shq(p) .. " -an -vcodec mjpeg -frames:v 1 " .. tmp .. ".jpg >/dev/null 2>&1")
+            if fs.access(tmp .. ".jpg") then
+                side = tmp .. ".jpg"
+                ext = "jpg"
+            end
+        end
+        if not side then
+            http.status(404)
+            return
+        end
+        path = side
+        local types = { jpg = "image/jpeg", jpeg = "image/jpeg", png = "image/png", webp = "image/webp" }
+        ctype = types[ext] or "image/jpeg"
     end
 
     local data = fs.readfile(path) or ""
-    local ctype = "image/jpeg"
+    if data == "" then
+        http.status(404)
+        return
+    end
     -- AirPlay 的 PICT 可能是 JPEG 也可能是 PNG，按文件头给正确的类型
-    if data:sub(1, 8) == "\137PNG\r\n\26\n" then ctype = "image/png" end
+    if service == "shairport" and data:sub(1, 8) == "\137PNG\r\n\26\n" then
+        ctype = "image/png"
+    end
     http.header("Cache-Control", "no-store, max-age=0")
     http.prepare_content(ctype)
     http.write(data)

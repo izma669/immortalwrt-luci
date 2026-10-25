@@ -70,9 +70,9 @@ local function media_roots()
         if not seen[p] then seen[p] = true; roots[#roots + 1] = p end
     end
 
-    -- 1) /etc/nginx/conf.d/media.conf：这是 nginx 实际使用的映射，最权威。
+    -- 1) /etc/music-center/servers/880.conf：这是 nginx 实际使用的映射，最权威。
     --    改端口/改根目录后即使 UCI 没同步，也不会把路径解析到错误的地方。
-    local cf = io.open("/etc/nginx/conf.d/media.conf", "r")
+    local cf = io.open("/etc/music-center/servers/880.conf", "r")
     if cf then
         local c = cf:read("*a") or ""
         cf:close()
