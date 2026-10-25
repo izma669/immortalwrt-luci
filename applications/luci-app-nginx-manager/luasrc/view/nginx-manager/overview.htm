@@ -450,6 +450,24 @@ local music_reader_running = sys.call(
     "pgrep -f '[m]usic-center-reader.lua' >/dev/null 2>&1") == 0
     or sys.call(
     "pgrep -f '[s]hairport-reader.lua' >/dev/null 2>&1") == 0
+local function svc_pid(name)
+    return (sys.exec("pidof " .. name .. " 2>/dev/null") or ""):gsub("%s+$", "")
+end
+local function svc_port(cfg, typ, def)
+    local v = (sys.exec("uci -q get " .. cfg .. ".@" .. typ .. "[0].port 2>/dev/null") or ""):gsub("%s+$", "")
+    if v == "" then return def end
+    return v
+end
+local audio_services = {
+    { label = "OwnTone", name = "owntone", port = svc_port("owntone", "owntone", "3689") },
+    { label = "GMediaRender", name = "gmediarender", port = svc_port("gmediarender", "gmediarender", "49152") },
+    { label = "AirPlay 2", name = "shairport-sync", port = svc_port("shairport-sync", "shairport-sync", "5050") },
+}
+for _, s in ipairs(audio_services) do
+    s.pid = svc_pid(s.name)
+    s.running = (s.pid ~= "")
+end
+
 local music_services = {
     { label = "OwnTone", running = sys.call("pidof owntone >/dev/null 2>&1") == 0 },
     { label = "GMediaRender", running = sys.call("pidof gmediarender >/dev/null 2>&1") == 0 },
@@ -553,7 +571,20 @@ local music_services = {
     </div>
 
     <!-- 三个分页 -->
-    <div class="nm-tabs">
+    <div class="nm-card">
+    <div class="nm-head">🔊 音频服务运行状态</div>
+    <% for _, s in ipairs(audio_services) do %>
+    <div class="nm-row">
+        <div class="nm-label"><%= s.label %></div>
+        <div class="nm-field">
+            <b style="color:<%= s.running and "#2ecc71" or "#e74c3c" %>;"><%= s.running and "运行中" or "已停止" %></b>
+            <span style="color:#8898aa;font-size:12px;">PID: <%= s.pid ~= "" and s.pid or "--" %> · 端口: <%= s.port %></span>
+        </div>
+    </div>
+    <% end %>
+</div>
+
+<div class="nm-tabs">
         <button type="button" class="nm-tab active" data-nm-tab="media">🎬 媒体服务器设置</button>
         <button type="button" class="nm-tab" data-nm-tab="music">🎵 音乐中心（888）</button>
         <button type="button" class="nm-tab" data-nm-tab="cast">📺 投屏设置</button>
