@@ -1732,7 +1732,8 @@
                 if (handle) handle.style.bottom = streamVolume + '%';
                 if (el.streamVolumeValue) el.streamVolumeValue.textContent = streamVolume + '%';
                 el.streamFader.setAttribute('aria-valuenow', streamVolume);
-                el.streamAudio.volume = streamVolume / 100;
+                el.streamAudio.volume = streamMuted ? 0 : streamVolume / 100;
+                el.streamAudio.muted = streamMuted;
             }
             function setMuted(muted) {
                 streamMuted = muted;
@@ -1746,7 +1747,8 @@
                     paint(0);
                     el.streamAudio.pause();
                 } else {
-                    if (streamVolume <= 0 && lastStreamVolume > 0) paint(lastStreamVolume);
+                    var restore = streamVolume > 0 ? streamVolume : (lastStreamVolume > 0 ? lastStreamVolume : 100);
+                    paint(restore);
                     el.streamAudio.play().catch(function () {});
                 }
             }
@@ -1817,7 +1819,7 @@
                 }
             });
             paint(streamVolume);
-            setMuted(false);
+            setMuted(true);
             // 浏览器自动播放被拦时，任意点击/触摸后补一次播放
             document.addEventListener('pointerdown', function () {
                 if (streamMuted) return;
