@@ -254,14 +254,16 @@ local function write_json()
     local tmp = OUT .. ".tmp"
     local f = io.open(tmp, "w")
     if not f then return end
+    local volume_str = tostring(math.floor(tonumber(state.volume) or 0))
+    local cover_ts_str = tostring(math.floor(tonumber(state.cover_ts) or 0))
     f:write(string.format(
         '{"title":"%s","artist":"%s","album":"%s","lyric":"%s",' ..
-        '"volume":%d,"playing":%s,"has_cover":%s,"cover_ts":%d,' ..
+        '"volume":%s,"playing":%s,"has_cover":%s,"cover_ts":%s,' ..
         '"snam":"%s","clip":"%s","soundcard":"%s"}',
         json_escape(state.title), json_escape(state.artist), json_escape(state.album),
         json_escape(state.lyric),
-        math.floor(state.volume or 0), state.playing and "true" or "false", cover_flag,
-        math.floor(state.cover_ts or 0),
+        volume_str, state.playing and "true" or "false", cover_flag,
+        cover_ts_str,
         json_escape(state.snam), json_escape(state.clip),
         json_escape(state.soundcard)
     ))
