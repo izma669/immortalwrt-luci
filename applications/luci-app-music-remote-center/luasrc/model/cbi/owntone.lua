@@ -22,6 +22,62 @@ s:tab("advanced", translate("高级设置"))
 s:tab("logs",     translate("日志查看"))
 
 -- ==================== 播放控制选项 ====================
+-- 运行状态 + OwnTone 3689 入口
+local owntone_port = require("luci.model.uci").cursor():get("owntone", "owntone", "port") or "3689"
+local owntone_state = s:taboption("playback", DummyValue, "_owntone_state", translate("运行状态"))
+owntone_state.rawhtml = true
+local state_html = [[
+<div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:2px 0;">
+    <span id="owntone-state-dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#bbb;"></span>
+    <span id="owntone-state-text" style="font-weight:600;">读取中...</span>
+    <span id="owntone-state-now" style="color:#666;font-size:13px;"></span>
+    <a id="owntone-open-btn" class="cbi-button cbi-button-apply" target="_blank" rel="noopener" style="margin-left:auto;">打开 OwnTone 3689</a>
+</div>
+<script type="text/javascript">
+(function() {
+    var port = '__PORT__';
+    var btn = document.getElementById('owntone-open-btn');
+    if (btn) btn.href = 'http://' + location.hostname + ':' + port + '/';
+    var dot = document.getElementById('owntone-state-dot');
+    var text = document.getElementById('owntone-state-text');
+    var now = document.getElementById('owntone-state-now');
+    var names = { play: '播放中', pause: '已暂停', stop: '已停止' };
+    function paint(d) {
+        if (!dot || !text) return;
+        if (d && d.running) {
+            dot.style.background = '#2fb344';
+            text.style.color = '#2fb344';
+            text.textContent = '运行中 · ' + (names[d.state] || d.state || '未知');
+        } else {
+            dot.style.background = '#d9534f';
+            text.style.color = '#d9534f';
+            text.textContent = '已停止';
+        }
+        if (now) {
+            if (d && d.title) {
+                now.textContent = d.title + (d.artist ? ' - ' + d.artist : '') + (d.album ? ' · ' + d.album : '');
+            } else {
+                now.textContent = '';
+            }
+        }
+    }
+    function refresh() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/cgi-bin/luci/admin/nas/owntone/status', true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try { paint(JSON.parse(xhr.responseText)); } catch (e) {}
+            }
+        };
+        xhr.send();
+    }
+    refresh();
+    setInterval(refresh, 5000);
+})();
+</script>
+]];
+owntone_state.default = state_html:gsub('__PORT__', tostring(owntone_port))
+
 local snd_vol = s:taboption("playback", DummyValue, "_snd_vol", translate("物理声卡音量控制"))
 snd_vol.rawhtml = true
 snd_vol.default = [[

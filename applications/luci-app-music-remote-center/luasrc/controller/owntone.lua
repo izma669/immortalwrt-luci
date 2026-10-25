@@ -22,32 +22,20 @@ function act_status()
     e.running = luci.sys.call("pgrep owntone >/dev/null") == 0
 
     if e.running then
-        local uci = require "luci.model.uci".cursor()
-        local port = uci:get("owntone", "owntone", "port") or "3689"
-        local player_json = luci.sys.exec(string.format(
-            "curl -s --connect-timeout 2 http://127.0.0.1:%s/api/player 2>/dev/null", port))
-
-        if player_json and #player_json > 0 then
-            local st = player_json:match('"state"%s*:%s*"([^"]+)"')
-            if st then e.state = st end
-            local item_id = player_json:match('"item_id"%s*:%s*(%d+)')
-
-            if (e.state == "play" or e.state == "pause") and item_id then
-                local q_json = luci.sys.exec(string.format(
-                    "curl -s --connect-timeout 2 \"http://127.0.0.1:%s/api/queue?id=now_playing\" 2>/dev/null", port))
-                if q_json and #q_json > 0 then
-                    e.title  = q_json:match('"title"%s*:%s*"([^"]*)"')  or ""
-                    e.artist = q_json:match('"artist"%s*:%s*"([^"]*)"') or ""
-                    e.album  = q_json:match('"album"%s*:%s*"([^"]*)"')  or ""
-                end
-            end
+        local uci = require("luci.model.uci").cursor()
+        local port = uci:get_first("owntone", "owntone", "mpd_port") or "6600"
+        local out = luci.sys.exec("printf 'status\\ncurrentsong\\nclose\\n' | nc 127.0.0.1 " .. port .. " 2>/dev/null")
+        if out and #out > 0 then
+            e.state = out:match("state:%s*(%w+)") or "unknown"
+            e.title = out:match("Title:%s*([^\r\n]+)") or ""
+            e.artist = out:match("Artist:%s*([^\r\n]+)") or ""
+            e.album = out:match("Album:%s*([^\r\n]+)") or ""
         end
     end
 
     luci.http.prepare_content("application/json")
     luci.http.write_json(e)
 end
-
 local function parse_asound_card()
     local fs = require "nixio.fs"
     if not fs.access("/etc/asound.conf") then return nil end
@@ -260,8 +248,8 @@ function action_apply_schedule()
                             tonumber(mm), tonumber(hh), card_num, control_name, v, i))
                     else
                         table.insert(new_lines, string.format(
-                            "%d %d * * * curl -s -X PUT 'http://127.0.0.1:3689/api/player/volume?volume=%s' >/dev/null 2>&1 # owntone-vol-%d",
-                            tonumber(mm), tonumber(hh), v, i))
+                            "%d %d * * * echo 'setvol %s' | nc 127.0.0.1 %s >/dev/null 2>&1 # owntone-vol-%d",
+                            tonumber(mm), tonumber(hh), v, tonumber(uci:get_first("owntone", "owntone", "mpd_port") or "6600"), i))
                     end
                 end
             end
@@ -331,8 +319,6 @@ function player_control()
     local action = luci.http.formvalue("action")
     if not action then
         luci.http.status(400, "Bad Request")
-        luci.http.prepare_content("application/json")
-        luci.http.write_json({ success = false, error = "缺少 action 参数" })
         return
     end
 
@@ -340,38 +326,30 @@ function player_control()
     if not running then
         luci.http.status(500, "Not Running")
         luci.http.prepare_content("application/json")
-        luci.http.write_json({ success = false, error = "OwnTone 服务未运行，请等待服务启动或手动重启服务！" })
+        luci.http.write_json({ success = false, error = "OwnTone 服务未运行" })
+        return
+    end
+
+    local cmd = ""
+    if action == "next" then cmd = "next"
+    elseif action == "previous" then cmd = "previous"
+    elseif action == "toggle" then cmd = "pause"
+    else
+        luci.http.status(400, "Invalid action")
         return
     end
 
     local uci = require("luci.model.uci").cursor()
-    local port = uci:get("owntone", "owntone", "port") or "3689"
+    local port = uci:get_first("owntone", "owntone", "mpd_port") or "6600"
+    local out = luci.sys.exec("printf '" .. cmd .. "\\nclose\\n' | nc 127.0.0.1 " .. port .. " 2>/dev/null")
 
-    local api_path = ""
-    if action == "next" then api_path = "next"
-    elseif action == "previous" then api_path = "previous"
-    elseif action == "toggle" then api_path = "toggle"
-    else
-        luci.http.status(400, "Invalid action")
-        luci.http.prepare_content("application/json")
-        luci.http.write_json({ success = false, error = "无效的 action: " .. action })
-        return
-    end
-
-    local cmd = string.format("curl -s -o /dev/null -w '%%{http_code}' -X PUT http://127.0.0.1:%s/api/player/%s", port, api_path)
-    local http_code = luci.sys.exec(cmd)
-    http_code = http_code:gsub("%s+", "")
-
-    if http_code == "200" or http_code == "204" then
-        luci.http.prepare_content("application/json")
+    luci.http.prepare_content("application/json")
+    if out and out:find("OK", 1, true) then
         luci.http.write_json({ success = true })
     else
-        luci.http.status(500, "API Error")
-        luci.http.prepare_content("application/json")
-        luci.http.write_json({ success = false, error = "OwnTone API 返回状态码: " .. (http_code or "空") })
+        luci.http.write_json({ success = false, error = "MPD 命令失败" })
     end
 end
-
 -- ==================== 目录浏览（供"选择目录"弹窗使用） ====================
 function action_browse_dir()
     local sys = require "luci.sys"
