@@ -9,4 +9,10 @@ chmod +x /usr/bin/nginx-manager.lua 2>/dev/null
 chmod +x /etc/init.d/music-center 2>/dev/null
 chmod +x /etc/uci-defaults/99-music-center 2>/dev/null
 [ -x /etc/init.d/music-center ] && /etc/init.d/music-center enable
+
+# 把网页监听码率写入 OwnTone 配置
+RATE=$(uci -q get owntone.owntone.stream_bitrate)
+if [ -n "$RATE" ] && [ -f /etc/owntone.conf ]; then
+    sed -i "s/^[[:space:]]*bitrate[[:space:]]*=.*/\tbitrate = $RATE/" /etc/owntone.conf
+fi
 exit 0
