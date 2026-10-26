@@ -5,7 +5,9 @@ function index()
         return
     end
 
-    entry({"admin", "nas", "nginx-owntone"}, cbi("nginx-owntone"), _("OwnTone 音乐中心")).dependent = true
+    -- 不传标题：从 LuCI 菜单隐藏，但保留页面路由（仍可直接访问下面这个地址进行设置）
+    -- /cgi-bin/luci/admin/nas/nginx-owntone
+    entry({"admin", "nas", "nginx-owntone"}, cbi("nginx-owntone")).dependent = true
     entry({"admin", "nas", "nginx-owntone", "status"}, call("act_status")).leaf = true
     entry({"admin", "nas", "nginx-owntone", "set_volume"}, call("action_set_volume")).leaf = true
     entry({"admin", "nas", "nginx-owntone", "get_soundcard_info"}, call("action_get_soundcard_info")).leaf = true
