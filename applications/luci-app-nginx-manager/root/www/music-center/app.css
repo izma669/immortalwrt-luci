@@ -5312,3 +5312,29 @@ body {
 .stream-panel {
     overflow: visible !important;
 }
+
+/* 右上角音量百分比：增加金色闪，降低白色闪 */
+.volume-footer .knob-value {
+    position: absolute;
+    top: 4px;
+    right: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffd166;
+    text-shadow: 0 0 6px rgba(255, 209, 102, 0.5);
+    pointer-events: none;
+    z-index: 3;
+}
+.volume-footer .knob-value.is-up {
+    color: #ffd166 !important;
+    animation: vol-blink 0.7s ease-in-out infinite;
+}
+.volume-footer .knob-value.is-down {
+    color: #ffffff !important;
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+    animation: vol-blink 0.7s ease-in-out infinite;
+}
+@keyframes vol-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+}

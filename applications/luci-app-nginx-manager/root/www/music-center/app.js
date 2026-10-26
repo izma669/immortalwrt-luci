@@ -1226,6 +1226,18 @@
         input.addEventListener('input', function () {
             var value = clamp(Math.round(Number(input.value) || 0), 0, 100);
             renderVolValue(output, value);
+            if (input === el.owntoneVolume && el.owntoneVolValue) {
+                var prev = Number(el.owntoneVolValue.dataset.lastVol || value);
+                if (value !== prev) {
+                    el.owntoneVolValue.classList.toggle('is-up', value > prev);
+                    el.owntoneVolValue.classList.toggle('is-down', value < prev);
+                    clearTimeout(window.__volDirTimer);
+                    window.__volDirTimer = setTimeout(function () {
+                        el.owntoneVolValue.classList.remove('is-up', 'is-down');
+                    }, 1200);
+                }
+                el.owntoneVolValue.dataset.lastVol = String(value);
+            }
             setRangeFill(input, value, 100);
             if (input === el.owntoneVolume) {
                 setKnobVisual(value, input.disabled);
@@ -1266,11 +1278,20 @@
             }
         }
 
+        var lastAngle = null;
+        var knobAcc = 0;
+        function angleOf(x, y) {
+            var r = knob.getBoundingClientRect();
+            var cx = r.left + r.width / 2;
+            var cy = r.top + r.height / 2;
+            return Math.atan2(x - cx, cy - y) * 180 / Math.PI;
+        }
         function down(ev) {
             if (input.disabled) return;
             dragging = true;
             try { knob.setPointerCapture(ev.pointerId); } catch (e) {}
-            apply(valueFromEvent(ev));
+            knobAcc = Number(input.value) || 0;
+            lastAngle = angleOf(ev.clientX, ev.clientY);
             ev.preventDefault();
         }
         var rafId = null;
@@ -1293,7 +1314,15 @@
             if (rafId) return;
             rafId = requestAnimationFrame(function () {
                 rafId = null;
-                apply(valueFromPoint(x, y));
+                var a = angleOf(x, y);
+                if (lastAngle === null) { lastAngle = a; return; }
+                var d = a - lastAngle;
+                if (d > 180) d -= 360;
+                if (d < -180) d += 360;
+                lastAngle = a;
+                var speed = d > 0 ? 0.45 : 1.25;
+                knobAcc = clamp(knobAcc + d / 270 * 100 * speed, 0, 100);
+                apply(Math.round(knobAcc));
             });
         }
         function up(ev) {
