@@ -605,6 +605,31 @@ mpd_port = s:taboption("basic", Value, "mpd_port", translate("MPD 端口"))
 mpd_port.default = "6600"
 mpd_port.datatype = "port"
 mpd_port.rmempty = true
+
+stream_bitrate = s:taboption("basic", Value, "stream_bitrate", translate("推流编码码率 (kbps)"))
+stream_bitrate.default = "128"
+stream_bitrate.datatype = "range(64,320)"
+stream_bitrate.rmempty = false
+stream_bitrate.description = translate("网页监听 /stream.mp3 的 MP3 编码码率，默认 128kbps。码率越高音质越好，路由器 CPU 占用也越高；手机/平板监听建议 128。")
+
+-- 保存后把码率写入 /etc/owntone.conf 并重启 OwnTone
+m.on_after_commit = function(self)
+    local rate = tostring(self.uci:get("owntone", "owntone", "stream_bitrate") or "128")
+    if not rate:match("^%d+$") then rate = "128" end
+    local f = io.open("/etc/owntone.conf", "r")
+    if not f then return end
+    local body = f:read("*a")
+    f:close()
+    local new_body, n = body:gsub("([%s]*bitrate%s*=%s*)%d+", "%1" .. rate)
+    if n > 0 then
+        local o = io.open("/etc/owntone.conf", "w")
+        if o then
+            o:write(new_body)
+            o:close()
+        end
+    end
+    sys.call("/etc/init.d/owntone restart >/dev/null 2>&1")
+end
 mpd_port.description = translate("默认 6600。如果你用 MPD 客户端（如 MPDlux）遥控，可以把它暴露出来，方便修改。设为 0 可禁用 MPD。")
 
 readme = s:taboption("basic", DummyValue, "readme", translate("Readme"))
