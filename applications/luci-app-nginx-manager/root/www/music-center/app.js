@@ -631,7 +631,11 @@
         else if (o.state === 'stop') stateLabel = '已停止';
         else stateLabel = '正在缓冲';
         var indicatorState = (!installed || !running) ? 'off' : (playing ? 'playing' : (paused ? 'paused' : 'idle'));
-        el.owntonePlayIndicator.className = 'led-play is-' + indicatorState;
+        var keepVol = el.owntonePlayIndicator.classList.contains('is-vol');
+        var keepMute = el.owntonePlayIndicator.classList.contains('is-muted-blink');
+        el.owntonePlayIndicator.className = 'led-play is-' + indicatorState
+            + (keepVol ? ' is-vol' : '')
+            + (keepMute ? ' is-muted-blink' : '');
         el.owntonePlayIndicator.title = stateLabel;
         el.owntonePlayIndicator.setAttribute('aria-label', stateLabel);
         el.owntoneLed.classList.toggle('is-playing', playing);
@@ -1140,6 +1144,10 @@
         knob.dataset.knobDisabled = String(dis);
         knob.style.setProperty('--knob-angle', (-135 + v * 2.7) + 'deg');
         knob.style.setProperty('--knob-fill', (v * 2.7) + 'deg');
+        var leftPct = Math.max(0, Math.min(100, v * 2));
+        var rightPct = Math.max(0, Math.min(100, (v - 50) * 2));
+        knob.style.setProperty('--knob-pct-left', leftPct + '%');
+        knob.style.setProperty('--knob-pct-right', rightPct + '%');
         knob.setAttribute('aria-valuenow', v);
         updateKnobSnaps(v);
         knob.classList.toggle('is-disabled', dis);
@@ -1150,8 +1158,30 @@
         el.owntoneMute.classList.toggle('is-muted', !!muted);
         el.owntoneMute.setAttribute('aria-pressed', muted ? 'true' : 'false');
         el.owntoneMute.title = muted ? '取消静音' : '静音';
+        if (el.owntoneKnob) el.owntoneKnob.classList.toggle('is-muted', !!muted);
+        var led = el.owntonePlayIndicator;
+        if (led) {
+            led.classList.toggle('is-muted-blink', !!muted);
+            led.classList.remove('is-vol');
+            led.innerHTML = '<svg class="icon led-note"><use href="#' + (muted ? 'i-mute' : 'i-note') + '"></use></svg>';
+        }
+        var vol = Number(el.owntoneVolume && el.owntoneVolume.value) || 0;
+        renderVolValue(el.owntoneVolValue, muted ? 0 : vol);
         var wrap = el.owntoneMute.closest('.mute-wrap');
         if (wrap) wrap.classList.toggle('is-muted', !!muted);
+    }
+
+    var ledVolTimer = null;
+    function flashLedVolume(v) {
+        var led = el.owntonePlayIndicator;
+        if (!led || led.classList.contains('is-muted-blink')) return;
+        led.classList.add('is-vol');
+        led.innerHTML = '<span class="led-vol">' + clamp(Math.round(Number(v) || 0), 0, 100) + '%</span>';
+        clearTimeout(ledVolTimer);
+        ledVolTimer = setTimeout(function () {
+            led.classList.remove('is-vol');
+            led.innerHTML = '<svg class="icon led-note"><use href="#i-note"></use></svg>';
+        }, 2000);
     }
 
     function initMuteState() {
@@ -1175,11 +1205,15 @@
         if (!isFresh(target) && document.activeElement !== input) {
             state.overrides[target] = null;
             var v = clamp(Math.round(Number(value) || 0), 0, 100);
+            if (target === 'owntone' && state.localMute) {
+                v = clamp(Math.round(Number(state.localMuteVolume) || 0), 0, 100);
+            }
             if (String(input.value) !== String(v)) {
                 input.value = v;
                 setRangeFill(input, v, 100);
             }
-            renderVolValue(output, v);
+            var mutedNow = (input === el.owntoneVolume && el.owntoneMute && el.owntoneMute.classList.contains('is-muted'));
+            renderVolValue(output, mutedNow ? 0 : v);
         }
         input.disabled = !enabled;
         if (input === el.owntoneVolume) setKnobVisual(input.value, !enabled);
@@ -1192,7 +1226,15 @@
             var value = clamp(Math.round(Number(input.value) || 0), 0, 100);
             renderVolValue(output, value);
             setRangeFill(input, value, 100);
-            if (input === el.owntoneVolume) setKnobVisual(value, input.disabled);
+            if (input === el.owntoneVolume) {
+                setKnobVisual(value, input.disabled);
+                flashLedVolume(value);
+            }
+            if (input === el.owntoneVolume && state.localMute) {
+                state.localMuteVolume = value;
+                try { localStorage.setItem('music-center-owntone-mute-volume', String(value)); } catch (e) {}
+                return;
+            }
             state.overrides[target] = { value: value, at: performance.now() };
             clearTimeout(timer);
             timer = setTimeout(function () {

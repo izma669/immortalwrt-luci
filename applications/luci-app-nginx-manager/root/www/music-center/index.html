@@ -11,7 +11,7 @@
     <title>音乐中心</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <script src="perf-lite.js?v=274"></script>
-    <link rel="stylesheet" href="app.css?v=278">
+    <link rel="stylesheet" href="app.css?v=304">
 </head>
 <body>
     <svg class="led-clip-defs" width="0" height="0" aria-hidden="true" focusable="false">
@@ -70,6 +70,10 @@
         <symbol id="i-mute" viewBox="0 0 24 24" fill="currentColor">
             <path d="M4 9.2v5.6c0 .55.45 1 1 1h3.1l4.6 3.7c.65.52 1.6.06 1.6-.77V5.27c0-.83-.95-1.3-1.6-.77L8.1 8.2H5c-.55 0-1 .45-1 1z"/>
             <path d="M16.2 9.4l5.3 5.3M21.5 9.4l-5.3 5.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </symbol>
+        <symbol id="i-speaker-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 5 6 9H2v6h4l5 4V5z"/>
+            <path d="M22 9l-6 6M16 9l6 6"/>
         </symbol>
         <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
             <circle cx="12" cy="12" r="4"/>
@@ -309,14 +313,17 @@
                                     <span class="knob-tick knob-tick--66" data-snap="66">66</span>
                                     <span class="knob-tick knob-tick--0" data-snap="0">0</span>
                                     <span class="knob-tick knob-tick--100" data-snap="100">100</span>
+                                    <span class="knob-ticks-lit" aria-hidden="true"></span>
                                     <div class="knob-dial"><span class="knob-pointer"></span></div>
                                 </div>
                                 <div class="volume-footer">
                                 <div class="mute-wrap">
-                                    <output id="owntone-vol-value" class="knob-value">--%</output>
                                     <button type="button" class="mute-btn mute-bar" id="owntone-mute" title="静音" aria-pressed="false" aria-label="静音" disabled>
                                         <span class="mute-led" aria-hidden="true"></span>
-                                        <span class="mute-label"><svg class="icon"><use href="#i-mute"></use></svg><span>静音</span></span>
+                                        <svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M11 5 6 9H2v6h4l5 4V5z"/>
+                                            <path d="M22 9l-6 6M16 9l6 6"/>
+                                        </svg>
                                     </button>
                                 </div>
                                 </div>
@@ -507,6 +514,6 @@
         <span id="toast-text"></span>
     </div>
 
-    <script src="app.js?v=278"></script>
+    <script src="app.js?v=304"></script>
 </body>
 </html>

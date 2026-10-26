@@ -4832,3 +4832,335 @@ html.perf-lite .receiver .vinyl img { clip-path: none !important; }
     .stream-panel { height: 240px; }
     .player-info { min-height: 0; }
 }
+
+/* 静音按钮再往下一点，避开旋钮的 100 刻度 */
+.volume-footer .mute-wrap .mute-btn {
+    bottom: -1px !important;
+}
+
+/* 窄屏隐藏顶栏的长友链，避免和时钟/按钮重叠 */
+@media (max-width: 980px) {
+    .topbar-link { display: none !important; }
+}
+
+/* 窄窗口不再挤压重叠：低于 900px 出现横向滚动 */
+body {
+    overflow-x: auto;
+}
+.page {
+    min-width: 900px;
+}
+
+/* 静音按钮内显示音量百分比，静音时只留喇叭 X 和红灯 */
+.volume-footer .mute-wrap .mute-btn .knob-value {
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 14px !important;
+    color: inherit !important;
+    text-shadow: none !important;
+    background: none !important;
+    border: 0 !important;
+    line-height: 1;
+}
+.volume-footer .mute-wrap .mute-btn.is-muted .knob-value {
+    display: none !important;
+}
+.volume-footer .mute-wrap .mute-btn:not(.is-muted) .mute-led {
+    background: #ffffff !important;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.75) !important;
+}
+.volume-footer .mute-wrap .mute-btn.is-muted .mute-led {
+    background: #ff3b52 !important;
+    box-shadow: 0 0 8px #ff3b52, 0 0 14px rgba(255, 59, 82, 0.6) !important;
+}
+
+/* 监听状态文字放大一倍 */
+.stream-state {
+    font-size: 22px !important;
+}
+
+/* 静音时旋钮外环红色闪烁，非静音时白色常亮 */
+@keyframes knob-muted-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.30; }
+}
+.knob.is-muted .knob-dial::before {
+    background: conic-gradient(from -135deg,
+        #ff3b52 0deg,
+        #ff7280 var(--knob-fill),
+        rgba(255, 59, 82, 0.12) var(--knob-fill) 360deg) !important;
+    filter: drop-shadow(0 0 8px rgba(255, 59, 82, 0.85)) !important;
+    animation: knob-muted-blink 1s ease-in-out infinite;
+}
+.knob:not(.is-muted) .knob-dial::before {
+    background: conic-gradient(from -135deg,
+        #ffffff 0deg,
+        #e8edf6 var(--knob-fill),
+        rgba(255, 255, 255, 0.12) var(--knob-fill) 360deg) !important;
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.55)) !important;
+}
+
+/* 静音按钮只保留百分比和指示灯 */
+.volume-footer .mute-wrap .mute-btn .mute-label {
+    display: none !important;
+}
+.volume-footer .mute-wrap .mute-btn.is-muted .knob-value {
+    display: inline !important;
+    color: #ff5a6e !important;
+}
+.volume-footer .mute-wrap .mute-btn:not(.is-muted) .knob-value {
+    color: #ffffff !important;
+}
+
+/* 监听状态文字缩小一半 */
+.stream-state {
+    font-size: 11px !important;
+}
+
+/* 静音按钮用喇叭 X 图标替代指示灯 */
+.volume-footer .mute-wrap .mute-btn .icon {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    color: inherit;
+}
+.volume-footer .mute-wrap .mute-btn.is-muted .icon {
+    color: #ff5a6e !important;
+}
+.volume-footer .mute-wrap .mute-btn:not(.is-muted) .icon {
+    color: #ffffff !important;
+}
+
+/* 静音按钮上移 1px */
+.volume-footer .mute-wrap .mute-btn {
+    bottom: 0px !important;
+}
+
+/* LED 中间符号：音量百分比 / 静音闪烁 */
+.led-play.is-vol .led-vol {
+    font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+    font-size: 17px;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    line-height: 1;
+}
+@keyframes led-mute-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+}
+.led-play.is-muted-blink {
+    animation: led-mute-blink 0.8s ease-in-out infinite;
+}
+.led-play.is-muted-blink .icon {
+    color: #ff3b52 !important;
+    filter: drop-shadow(0 0 6px rgba(255, 59, 82, 0.8));
+}
+
+/* 音量刻度随音量逐格点亮：左列自下而上、右列自上而下 */
+.knob-ticks-lit {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+}
+.knob-ticks-lit::before,
+.knob-ticks-lit::after {
+    content: "";
+    position: absolute;
+    top: calc(15% - 5px);
+    bottom: calc(15% - 11px);
+    width: 36px;
+    background: repeating-linear-gradient(180deg,
+        rgba(255, 236, 200, 0.95) 0 1px,
+        transparent 1px 9px);
+    filter: drop-shadow(0 0 3px rgba(255, 200, 120, 0.55));
+}
+.knob-ticks-lit::before {
+    left: -47px;
+    -webkit-mask-image: linear-gradient(0deg, #000 0 var(--knob-pct-left, 0%), transparent var(--knob-pct-left, 0%) 100%);
+    mask-image: linear-gradient(0deg, #000 0 var(--knob-pct-left, 0%), transparent var(--knob-pct-left, 0%) 100%);
+}
+.knob-ticks-lit::after {
+    right: -47px;
+    -webkit-mask-image: linear-gradient(180deg, #000 0 var(--knob-pct-right, 0%), transparent var(--knob-pct-right, 0%) 100%);
+    mask-image: linear-gradient(180deg, #000 0 var(--knob-pct-right, 0%), transparent var(--knob-pct-right, 0%) 100%);
+}
+
+/* 静音按钮指示灯回到喇叭 X 前面 */
+.volume-footer .mute-wrap .mute-btn .mute-led {
+    display: inline-block !important;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    background: rgba(255, 255, 255, 0.25);
+    box-shadow: none;
+}
+.volume-footer .mute-wrap .mute-btn.is-muted .mute-led {
+    background: #ff3b52 !important;
+    box-shadow: 0 0 7px #ff3b52, 0 0 14px rgba(255, 59, 82, 0.6) !important;
+}
+.volume-footer .mute-wrap .mute-btn:not(.is-muted) .mute-led {
+    background: rgba(255, 255, 255, 0.18) !important;
+    box-shadow: none !important;
+}
+
+/* 显示音量百分比时去掉绿色圆圈 */
+.led-play.is-vol {
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* 静音时 LED 中间的静音符号放大并去掉绿色圆圈 */
+.led-play.is-muted-blink {
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+.led-play.is-muted-blink .icon {
+    width: 26px !important;
+    height: 26px !important;
+    color: #ff3b52 !important;
+    filter: drop-shadow(0 0 8px rgba(255, 59, 82, 0.85));
+}
+
+/* 非静音时喇叭改为空心描边，不填充白色 */
+.volume-footer .mute-wrap .mute-btn:not(.is-muted) .icon {
+    fill: none !important;
+    stroke: #ffffff !important;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    color: #ffffff !important;
+}
+
+/* 非静音时喇叭空心：同时作用于 svg 和 use */
+.volume-footer .mute-wrap .mute-btn:not(.is-muted) .icon,
+.volume-footer .mute-wrap .mute-btn:not(.is-muted) .icon use {
+    fill: none !important;
+    stroke: #ffffff !important;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    color: #ffffff !important;
+}
+
+/* 非静音喇叭：填色透明 + 白色描边 */
+.volume-footer .mute-wrap .mute-btn:not(.is-muted) .icon,
+.volume-footer .mute-wrap .mute-btn:not(.is-muted) .icon use {
+    color: transparent !important;
+    fill: transparent !important;
+    stroke: #ffffff !important;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* 静音键：两种状态都用红色描边的喇叭 X */
+.volume-footer .mute-wrap .mute-btn .icon,
+.volume-footer .mute-wrap .mute-btn .icon use,
+.volume-footer .mute-wrap .mute-btn.is-muted .icon,
+.volume-footer .mute-wrap .mute-btn.is-muted .icon use,
+.volume-footer .mute-wrap .mute-btn:not(.is-muted) .icon,
+.volume-footer .mute-wrap .mute-btn:not(.is-muted) .icon use {
+    color: transparent !important;
+    fill: transparent !important;
+    stroke: #ff3b52 !important;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* 喇叭 X：body 用红色描边，X 的 currentColor 也要是红色 */
+.volume-footer .mute-wrap .mute-btn .icon,
+.volume-footer .mute-wrap .mute-btn .icon use {
+    color: #ff3b52 !important;
+    fill: transparent !important;
+    stroke: #ff3b52 !important;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* 新的喇叭 X 图标：红色描边 */
+.volume-footer .mute-wrap .mute-btn .icon,
+.volume-footer .mute-wrap .mute-btn .icon use {
+    color: #ff3b52 !important;
+    fill: none !important;
+    stroke: currentColor !important;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* 静音按钮图标强制显示 */
+.volume-footer .mute-wrap .mute-btn .icon {
+    display: inline-block !important;
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    min-height: 18px !important;
+    flex: 0 0 18px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+.volume-footer .mute-wrap .mute-btn .icon use {
+    display: inline !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* 喇叭 X 用实色保证可见 */
+.volume-footer .mute-wrap .mute-btn .icon,
+.volume-footer .mute-wrap .mute-btn .icon use {
+    display: inline-block !important;
+    color: #ff3b52 !important;
+    fill: currentColor !important;
+    stroke: currentColor !important;
+    stroke-width: 1.8;
+    opacity: 1 !important;
+    visibility: visible !important;
+    width: 18px !important;
+    height: 18px !important;
+}
+
+/* 指示灯与喇叭 X 间距 1px */
+.volume-footer .mute-wrap .mute-btn {
+    gap: 1px !important;
+}
+
+/* 指示灯与喇叭 X 拉开一点距离 */
+.volume-footer .mute-wrap .mute-btn {
+    gap: 6px !important;
+}
+
+/* 指示灯与喇叭 X 再分开一点 */
+.volume-footer .mute-wrap .mute-btn {
+    gap: 10px !important;
+}
+
+/* 静音按钮再窄一点 */
+.volume-footer .mute-wrap .mute-btn {
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+    padding: 0 4px !important;
+}
+
+/* 静音按钮加宽 2px */
+.volume-footer .mute-wrap .mute-btn {
+    width: 50px !important;
+    min-width: 50px !important;
+    max-width: 50px !important;
+}
+
+/* 静音按钮加宽避免拥挤 */
+.volume-footer .mute-wrap .mute-btn {
+    width: 66px !important;
+    min-width: 66px !important;
+    max-width: 66px !important;
+    padding: 0 8px !important;
+}
