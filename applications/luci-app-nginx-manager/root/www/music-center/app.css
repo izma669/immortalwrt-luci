@@ -5164,3 +5164,151 @@ body {
     max-width: 66px !important;
     padding: 0 8px !important;
 }
+
+/* 监听状态文字右移，避免压住推子 */
+.stream-state {
+    margin-left: 0 !important;
+    padding-left: 4px !important;
+}
+
+/* 监听推子右侧独立缓冲柱：底部红、顶部绿，带秒数刻度 */
+.stream-buffer {
+    position: absolute;
+    right: 0;
+    top: 6px;
+    bottom: 18px;
+    width: 26px;
+    pointer-events: none;
+}
+.stream-buffer::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.08);
+}
+.stream-buffer-fill {
+    position: absolute;
+    left: 4px;
+    bottom: 0;
+    width: 4px;
+    height: var(--buffer, 0%);
+    border-radius: 2px;
+    background: linear-gradient(180deg, #4fd1c5 0%, #ffd166 55%, #ff3b52 100%);
+    box-shadow: 0 0 6px rgba(79, 209, 197, 0.45);
+}
+.stream-buffer-tick {
+    position: absolute;
+    left: 12px;
+    transform: translateY(50%);
+    font-size: 7px;
+    line-height: 1;
+    color: #7f8da1;
+    white-space: nowrap;
+}
+
+/* 缓冲柱可拖动，拖动点显示当前播放位置 */
+.stream-buffer {
+    pointer-events: auto !important;
+    cursor: pointer;
+    touch-action: none;
+}
+.stream-buffer-thumb {
+    position: absolute;
+    left: 1px;
+    bottom: var(--play, 0%);
+    width: 10px;
+    height: 10px;
+    margin-bottom: -5px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+    pointer-events: none;
+}
+
+/* 监听推子左移 5px，和缓冲柱拉开距离 */
+.stream-fader-track {
+    margin-left: -5px !important;
+}
+
+/* 推子回退一半，缓冲柱下移 3px，刻度下移 1px */
+.stream-fader-track {
+    margin-left: -2.5px !important;
+}
+.stream-buffer {
+    top: 9px !important;
+    bottom: 15px !important;
+}
+.stream-buffer-tick {
+    transform: translateY(calc(50% + 1px)) !important;
+}
+
+/* 监听推子右移 5px */
+.stream-fader-track {
+    margin-left: 5px !important;
+}
+
+/* 推子轨道右移让开刻度线；缓冲柱与音量刻度上下限对齐 */
+.stream-fader-track {
+    margin-left: 18px !important;
+}
+.stream-buffer {
+    top: 10px !important;
+    bottom: 20px !important;
+}
+
+/* 缓冲柱再下移 3px */
+.stream-buffer {
+    top: 13px !important;
+    bottom: 17px !important;
+}
+
+/* 缓冲柱下移 1px；手型光标只出现在手柄上 */
+.stream-buffer {
+    top: 14px !important;
+    bottom: 16px !important;
+}
+.stream-fader {
+    cursor: default !important;
+}
+.stream-fader:active {
+    cursor: default !important;
+}
+.stream-fader-handle {
+    cursor: grab !important;
+}
+.stream-fader-handle:active {
+    cursor: grabbing !important;
+}
+
+/* 缓冲柱下移 1px；手型只在竖条本体上 */
+.stream-buffer {
+    top: 15px !important;
+    bottom: 15px !important;
+    cursor: default !important;
+}
+.stream-buffer::before {
+    cursor: pointer !important;
+}
+.stream-buffer-fill {
+    cursor: pointer !important;
+}
+
+/* 缓冲柱再下移 1px */
+.stream-buffer {
+    top: 16px !important;
+    bottom: 14px !important;
+}
+
+/* 缓冲柱上下留出空间，避免 3s / 0 被裁掉 */
+.stream-buffer {
+    top: 24px !important;
+    bottom: 20px !important;
+}
+.stream-fader,
+.stream-panel {
+    overflow: visible !important;
+}

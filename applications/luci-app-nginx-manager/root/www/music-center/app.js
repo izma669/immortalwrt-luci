@@ -700,8 +700,9 @@
             var monPath = String(o.path || '');
             if (monPath && el.streamAudio.getAttribute('data-path') !== monPath) {
                 el.streamAudio.setAttribute('data-path', monPath);
-                el.streamAudio.removeAttribute('data-fallback');
-                el.streamAudio.src = '/cgi-bin/luci/music/monitor?path=' + encodeURIComponent(monPath);
+                el.streamAudio.setAttribute('data-fallback', 'stream');
+                var monPort = (state.data && state.data.owntone && state.data.owntone.port) || 3689;
+                el.streamAudio.src = 'http://' + location.hostname + ':' + monPort + '/stream.mp3';
                 el.streamAudio.muted = false;
                 el.streamAudio.load();
                 if (el.streamState) {
@@ -1821,19 +1822,91 @@
                 el.streamState.classList.toggle('is-bad', !!bad);
             }
             function fallbackMonitor() {
-                if (!el.streamAudio.getAttribute('data-path')) return;
-                if (el.streamAudio.getAttribute('data-fallback') === '1') {
-                    setStreamState('无可用监听源', true);
-                    return;
-                }
-                var port = (state.data && state.data.owntone && state.data.owntone.port) || 3689;
-                el.streamAudio.setAttribute('data-fallback', '1');
-                el.streamAudio.src = 'http://' + location.hostname + ':' + port + '/stream.mp3';
-                setStreamState('回退 HTTP 流', true);
-                el.streamAudio.play().catch(function () {
-                    setStreamState('点击开启', true);
-                });
+                setStreamState('监听流不可用', true);
             }
+            var bufMax = 0;
+            var bufScale = 5;
+            function updateBufTicks(max) {
+                var ticks = document.querySelectorAll('.stream-buffer-tick');
+                if (ticks.length < 4) return;
+                var vals = [0, max / 3, max * 2 / 3, max];
+                for (var i = 0; i < ticks.length && i < 4; i++) {
+                    ticks[i].style.bottom = (i * 33.333) + '%';
+                    ticks[i].textContent = i === 0 ? '0' : (Math.round(vals[i] * 10) / 10) + 's';
+                }
+            }
+            function updateStreamBuffer() {
+                if (!el.streamAudio) return;
+                var b;
+                try { b = el.streamAudio.buffered; } catch (e) { return; }
+                if (!b || !b.length) return;
+                var ahead = Math.max(0, b.end(b.length - 1) - (el.streamAudio.currentTime || 0));
+                if (ahead > bufMax) {
+                    bufMax = ahead;
+                    var want = 3;
+                    if (bufMax > 10) want = 15;
+                    else if (bufMax > 6) want = 10;
+                    else if (bufMax > 3) want = 5;
+                    if (want !== bufScale) {
+                        bufScale = want;
+                        updateBufTicks(bufScale);
+                    }
+                }
+                var b2 = el.streamAudio.buffered;
+                if (el.streamFader && b2 && b2.length) {
+                    var s = b2.start(0), e = b2.end(b2.length - 1);
+                    el.streamFader.style.setProperty('--buffer', Math.min(100, (e - s) / bufScale * 100) + '%');
+                    var frac = (el.streamAudio.currentTime - s) / Math.max(0.001, e - s);
+                    el.streamFader.style.setProperty('--play', Math.max(0, Math.min(100, frac * 100)) + '%');
+                }
+                if (ahead > 0 && el.streamState && el.streamAudio.readyState < 3) {
+                    setStreamState('缓冲中 ' + ahead.toFixed(1) + 's');
+                }
+            }
+            function bindBufferSeek() {
+                var bufEl = document.querySelector('.stream-buffer');
+                if (!bufEl || !el.streamAudio) return;
+                var dragging = false;
+                function seekAt(ev) {
+                    var r = bufEl.getBoundingClientRect();
+                    var frac = 1 - (ev.clientY - r.top) / r.height;
+                    frac = Math.max(0, Math.min(1, frac));
+                    var b = el.streamAudio.buffered;
+                    if (!b || !b.length) return;
+                    var start = b.start(0), end = b.end(b.length - 1);
+                    try {
+                        el.streamAudio.currentTime = start + frac * (end - start);
+                        el.streamAudio.play().catch(function () {});
+                    } catch (e) {}
+                }
+                bufEl.addEventListener('pointerdown', function (ev) {
+                    dragging = true;
+                    if (bufEl.setPointerCapture) bufEl.setPointerCapture(ev.pointerId);
+                    seekAt(ev);
+                    ev.preventDefault();
+                });
+                bufEl.addEventListener('pointermove', function (ev) {
+                    if (dragging) { seekAt(ev); ev.preventDefault(); }
+                });
+                bufEl.addEventListener('pointerup', function () { dragging = false; });
+                bufEl.addEventListener('pointercancel', function () { dragging = false; });
+            }
+            bindBufferSeek();
+            el.streamAudio.addEventListener('progress', updateStreamBuffer);
+            el.streamAudio.addEventListener('waiting', updateStreamBuffer);
+            el.streamAudio.addEventListener('timeupdate', updateStreamBuffer);
+            el.streamAudio.addEventListener('emptied', function () {
+                if (el.streamFader) {
+                    el.streamFader.style.setProperty('--buffer', '0%');
+                    el.streamFader.style.setProperty('--play', '0%');
+                }
+            });
+            el.streamAudio.addEventListener('loadstart', function () {
+                if (el.streamFader) {
+                    el.streamFader.style.setProperty('--buffer', '0%');
+                    el.streamFader.style.setProperty('--play', '0%');
+                }
+            });
             el.streamAudio.addEventListener('loadstart', function () {
                 if (!el.streamAudio.getAttribute('data-fallback')) setStreamState('加载中');
             });
@@ -1850,6 +1923,7 @@
                 paint((r.bottom - ev.clientY) / r.height * 100);
             }
             el.streamFader.addEventListener('pointerdown', function (ev) {
+                if (!handle || (ev.target !== handle && !handle.contains(ev.target))) return;
                 drag = true;
                 updateFromPointer(ev);
                 if (el.streamFader.setPointerCapture) el.streamFader.setPointerCapture(ev.pointerId);

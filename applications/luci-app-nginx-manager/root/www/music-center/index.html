@@ -11,7 +11,7 @@
     <title>音乐中心</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <script src="perf-lite.js?v=274"></script>
-    <link rel="stylesheet" href="app.css?v=304">
+    <link rel="stylesheet" href="app.css?v=323">
 </head>
 <body>
     <svg class="led-clip-defs" width="0" height="0" aria-hidden="true" focusable="false">
@@ -302,10 +302,18 @@
                                         <div class="stream-fader-fill"></div>
                                         <div class="stream-fader-handle"></div>
                                     </div>
+                                    <div class="stream-buffer" aria-hidden="true">
+                                        <span class="stream-buffer-fill"></span>
+                                        <span class="stream-buffer-thumb"></span>
+                                        <span class="stream-buffer-tick" style="bottom:100%">15s</span>
+                                        <span class="stream-buffer-tick" style="bottom:66.6%">10s</span>
+                                        <span class="stream-buffer-tick" style="bottom:33.3%">5s</span>
+                                        <span class="stream-buffer-tick" style="bottom:0">0</span>
+                                    </div>
                                     <output id="stream-volume-value" class="stream-fader-value">--%</output>
                                 </div>
                             </div>
-                            <audio id="stream-audio" preload="none"></audio>
+                            <audio id="stream-audio" preload="auto" playsinline></audio>
 
                             <div class="volume-row volume-row--knob">
                                 <div class="knob" id="owntone-knob" role="slider" tabindex="0" aria-label="OwnTone 音量" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -514,6 +522,6 @@
         <span id="toast-text"></span>
     </div>
 
-    <script src="app.js?v=304"></script>
+    <script src="app.js?v=323"></script>
 </body>
 </html>
