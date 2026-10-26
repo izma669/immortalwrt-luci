@@ -10,7 +10,8 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; img-src 'self' data: http: https:; media-src 'self' http: https: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http: https:; font-src 'self'">
     <title>音乐中心</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="app.css?v=272">
+    <script src="perf-lite.js?v=274"></script>
+    <link rel="stylesheet" href="app.css?v=278">
 </head>
 <body>
     <svg class="led-clip-defs" width="0" height="0" aria-hidden="true" focusable="false">
@@ -182,7 +183,7 @@
                     <div class="cover cover--hero" id="owntone-cover-wrap">
                         <span class="cover-note" id="cover-note" hidden>已将获取到的封面写入到文件</span>
                         <div class="vinyl vinyl--square" id="owntone-vinyl">
-                            <img id="owntone-cover" alt="OwnTone 专辑封面">
+                            <img id="owntone-cover" alt="OwnTone 专辑封面" decoding="async">
                             <span class="cover-empty">
                                 <span class="tt-deck" aria-hidden="true">
                                     <span class="tt-platter">
@@ -337,7 +338,7 @@
 
                 <div class="cover cover--receiver">
                     <div class="vinyl" id="gmr-vinyl">
-                        <img id="gmr-cover" alt="GMediaRender 专辑封面">
+                        <img id="gmr-cover" alt="GMediaRender 专辑封面" decoding="async" loading="lazy">
                         <span class="cover-empty"><svg class="icon"><use href="#i-note"></use></svg>等待推送</span>
                     </div>
                 </div>
@@ -399,7 +400,7 @@
 
                 <div class="cover cover--receiver">
                     <div class="vinyl" id="air-vinyl">
-                        <img id="air-cover" alt="AirPlay 专辑封面">
+                        <img id="air-cover" alt="AirPlay 专辑封面" decoding="async" loading="lazy">
                         <span class="cover-empty"><svg class="icon"><use href="#i-note"></use></svg>等待推送</span>
                     </div>
                 </div>
@@ -506,6 +507,6 @@
         <span id="toast-text"></span>
     </div>
 
-    <script src="app.js?v=272"></script>
+    <script src="app.js?v=278"></script>
 </body>
 </html>

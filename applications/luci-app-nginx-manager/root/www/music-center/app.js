@@ -241,6 +241,14 @@
         return '';
     }
 
+    // OwnTone 的 /artwork 支持 maxwidth/maxheight，手机上别解码原尺寸大图
+    function ownToneArtUrl(url) {
+        var s = String(url || '');
+        if (!s || s.indexOf('/artwork/') === -1) return s;
+        if (/[?&](maxwidth|maxheight)=/i.test(s)) return s;
+        return s + (s.indexOf('?') === -1 ? '?' : '&') + 'maxwidth=800&maxheight=800';
+    }
+
     function isFresh(target) {
         var o = state.overrides[target];
         return !!(o && (performance.now() - o.at) < 2600);
@@ -331,7 +339,9 @@
             (d.gmediarender && d.gmediarender.playing) ||
             (d.shairport && d.shairport.playing)
         ));
-        state.timer = setTimeout(function () { poll(false); }, playing ? 2200 : 4500);
+        var perfLite = document.documentElement.classList.contains('perf-lite');
+        var delay = playing ? (perfLite ? 3200 : 2200) : (perfLite ? 6500 : 4500);
+        state.timer = setTimeout(function () { poll(false); }, delay);
     }
 
     function pollLater(delays) {
@@ -656,12 +666,13 @@
         }
         setText(el.coverEmptyTitle, empty ? '暂无播放' : (COVER_STAGE_TEXT[coverStage] || '正在接收 OwnTone 封面…'));
         setText(el.coverEmptySub, empty ? '' : [o.artist, o.album].filter(Boolean).join(' · '));
-        setCover(el.owntoneCover, el.owntoneVinyl, o.art);
+        var art = ownToneArtUrl(o.art);
+        setCover(el.owntoneCover, el.owntoneVinyl, art);
         setTimeout(function () {
             if (!el.owntoneVinyl.classList.contains('has-art')) maybeFetchCover(o);
         }, 800);
         setVinylPlaying(el.owntoneVinyl, playing);
-        setPlayerBg(o.art);
+        setPlayerBg(art);
 
         if (!state.directOwntone) updateProgressSource('owntone', o, running);
         setIcon(el.owntonePlayIcon, playing ? 'i-pause' : 'i-play');
@@ -747,6 +758,8 @@
     function renderModes(shuffle, repeat) {
         var sh = !!shuffle;
         var rep = String(repeat || 'off').toLowerCase();
+        // 每秒轮询都会调用，状态没变时不要再写一遍 class/aria/title
+        if (state.modes.shuffle === sh && state.modes.repeat === rep) return;
         state.modes.shuffle = sh;
         state.modes.repeat = rep;
 
@@ -1120,11 +1133,16 @@
         var knob = el.owntoneKnob;
         if (!knob) return;
         var v = clamp(Math.round(Number(value) || 0), 0, 100);
+        var dis = !!disabled;
+        // 轮询时音量没变就跳过，避免反复写 4 个刻度标签和旋钮变量
+        if (knob.dataset.knobValue === String(v) && knob.dataset.knobDisabled === String(dis)) return;
+        knob.dataset.knobValue = String(v);
+        knob.dataset.knobDisabled = String(dis);
         knob.style.setProperty('--knob-angle', (-135 + v * 2.7) + 'deg');
         knob.style.setProperty('--knob-fill', (v * 2.7) + 'deg');
         knob.setAttribute('aria-valuenow', v);
         updateKnobSnaps(v);
-        knob.classList.toggle('is-disabled', !!disabled);
+        knob.classList.toggle('is-disabled', dis);
     }
 
     function setMuteUI(muted) {
@@ -1148,6 +1166,7 @@
 
     function renderVolValue(output, v) {
         if (!output) return;
+        if (output.textContent === String(v) + '%') return;
         output.innerHTML = String(v) + '<small>%</small>';
     }
 
@@ -1156,9 +1175,11 @@
         if (!isFresh(target) && document.activeElement !== input) {
             state.overrides[target] = null;
             var v = clamp(Math.round(Number(value) || 0), 0, 100);
-            input.value = v;
+            if (String(input.value) !== String(v)) {
+                input.value = v;
+                setRangeFill(input, v, 100);
+            }
             renderVolValue(output, v);
-            setRangeFill(input, v, 100);
         }
         input.disabled = !enabled;
         if (input === el.owntoneVolume) setKnobVisual(input.value, !enabled);
@@ -1915,7 +1936,12 @@
         });
 
         var resizeTimer = null;
+        var lastMarqueeWidth = window.innerWidth;
         window.addEventListener('resize', function () {
+            // iOS Safari 地址栏/工具栏收缩只改变高度，也会触发 resize；
+            // 跑马灯宽度没变就不要重启动画，否则第二行会左右抽搐。
+            if (window.innerWidth === lastMarqueeWidth) return;
+            lastMarqueeWidth = window.innerWidth;
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(refreshMarquee, 160);
         });
@@ -1991,8 +2017,9 @@
         if (state.localMute) setMuteUI(true);
         tickClock();
         setInterval(tickClock, 1000);
-        setInterval(tickProgress, 500);
-        setInterval(pollDirectProgress, 1000);
+        var perfLite = document.documentElement.classList.contains('perf-lite');
+        setInterval(tickProgress, perfLite ? 1000 : 500);
+        setInterval(pollDirectProgress, perfLite ? 1500 : 1000);
         bindEvents();
         updateLedFrame();
         setTimeout(updateLedFrame, 80);

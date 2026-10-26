@@ -4711,3 +4711,124 @@ html[data-theme="light"] .banner { color: #9f1239; }
     background: rgba(255, 207, 134, 0.14);
     border-color: rgba(255, 207, 134, 0.50);
 }
+
+
+/* ==========================================================================
+   iPhone / iPod 性能模式
+   perf-lite.js 会在 CSS 解析前给 html 加 .perf-lite（?perf=full 可关闭）。
+   只停掉持续重绘的装饰效果，布局、配色和功能保持不变。
+   ========================================================================== */
+html.perf-lite *,
+html.perf-lite *::before,
+html.perf-lite *::after {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+html.perf-lite .bg { display: none !important; }
+html.perf-lite .topbar {
+    background: rgba(7, 10, 16, 0.96) !important;
+}
+html.perf-lite[data-theme="light"] .topbar {
+    background: rgba(238, 242, 248, 0.97) !important;
+}
+/* 封面模糊背景改成静态渐变，省掉 64px 大范围模糊 */
+html.perf-lite .player-bg {
+    filter: none !important;
+    transform: none !important;
+    opacity: 0.55 !important;
+    background:
+        radial-gradient(60% 80% at 20% 20%, rgba(66, 99, 255, 0.42), transparent 70%),
+        radial-gradient(60% 80% at 85% 30%, rgba(188, 88, 255, 0.3), transparent 70%),
+        linear-gradient(135deg, #101729, #1b1330) !important;
+}
+html.perf-lite .receiver::before { display: none !important; }
+/* 进度条：保留静态橙金条纹，停止逐帧滚动 / 模糊 / 混合模式 */
+html.perf-lite .led-bar .range--progress { animation: none !important; }
+html.perf-lite .led-bar::before { display: none !important; }
+html.perf-lite .led-bar::after {
+    animation: none !important;
+    transition: none !important;
+    mix-blend-mode: normal !important;
+    background-size: 100% 100% !important;
+    background-position: 50% 50% !important;
+    opacity: 0.55 !important;
+}
+/* 闪音符：只做透明度闪烁，避免反复重绘 drop-shadow */
+html.perf-lite .led-play.is-playing .led-note {
+    color: #79ff9f !important;
+    filter: drop-shadow(0 0 5px rgba(80, 255, 120, 0.8)) !important;
+    animation: led-note-lite 1.2s steps(2, end) infinite !important;
+}
+@keyframes led-note-lite {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+/* 唱片：保留整体旋转，去掉内层重复旋转和 clip-path 遮罩 */
+html.perf-lite .vinyl::before { mix-blend-mode: normal !important; }
+html.perf-lite .receiver .vinyl::before { animation: none !important; }
+html.perf-lite .receiver .vinyl img { clip-path: none !important; }
+
+
+/* 去掉右下角两个音量面板之间的黑色立体竖线 */
+.volume-row--knob::before {
+    content: none !important;
+    display: none !important;
+}
+/* 同时去掉监听面板右侧残留的 1px 分隔边 */
+.deck-right .stream-panel {
+    border-right: 0 !important;
+}
+
+
+/* ==========================================================================
+   窄窗口布局修复
+   1) 1001–1200px：恢复 200px 封面，避免封面压住 LED / 控制键
+   2) <=1000px：封面回到文档流，LED、控制键、音量面板纵向排列，不再绝对定位重叠
+   ========================================================================== */
+@media (min-width: 1001px) and (max-width: 1200px) {
+    .cover--hero {
+        left: 20px;
+        top: 24px;
+        width: 200px;
+        height: 200px;
+    }
+    .cover--hero .vinyl { width: 100%; }
+    .cover-path { display: none !important; }
+}
+@media (max-width: 1000px) {
+    .player-main { padding: 14px; }
+    .cover--hero {
+        position: relative;
+        left: auto;
+        top: auto;
+        width: min(240px, 58vw);
+        height: min(240px, 58vw);
+        margin: 0 auto 14px;
+    }
+    .cover--hero .vinyl { inset: 0; width: 100% !important; }
+    .cover-path { display: none !important; }
+    .led-screen {
+        min-height: 0;
+        width: 100%;
+        padding-left: 16px;
+    }
+    .led-lower { width: auto; max-width: 100%; }
+    .led-screen .control-cluster { width: auto; margin-left: 0; }
+    .control-deck { padding-left: 0 !important; margin-left: 0 !important; }
+    .deck-right {
+        position: relative;
+        left: auto !important;
+        right: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        margin: 12px auto 0;
+    }
+    .volume-row--knob {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+    }
+    .stream-panel { height: 240px; }
+    .player-info { min-height: 0; }
+}
