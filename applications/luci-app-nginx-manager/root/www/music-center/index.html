@@ -11,7 +11,7 @@
     <title>音乐中心</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <script src="perf-lite.js?v=274"></script>
-    <link rel="stylesheet" href="app.css?v=325">
+    <link rel="stylesheet" href="app.css?v=338">
 </head>
 <body>
     <svg class="led-clip-defs" width="0" height="0" aria-hidden="true" focusable="false">
@@ -234,6 +234,8 @@
                                         <span class="time" id="owntone-pos">0:00</span>
                                         <span class="led-play is-idle" id="owntone-play-indicator" role="img" title="正在播放" aria-label="正在播放">
                                             <svg class="icon led-note"><use href="#i-note"></use></svg>
+                                            <span class="led-vol"></span>
+                                            <svg class="icon led-mute"><use href="#i-speaker-x"></use></svg>
                                         </span>
                                         <span class="time" id="owntone-dur">0:00</span>
                                     </div>
@@ -292,7 +294,7 @@
 <div class="stream-panel" id="stream-panel">
                                 <span class="stream-state" id="stream-state">等待歌曲</span>
                                 <button type="button" class="stream-mute-crystal" id="stream-mute" aria-pressed="false" title="开启声音">
-                                    <span class="stream-mute-on">ON</span>
+                                    <span class="stream-mute-on">监听</span>
                                 </button>
                                 <div class="stream-fader" id="stream-fader" role="slider" tabindex="0" aria-label="监听音量" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                                     <div class="stream-fader-scale" aria-hidden="true">
@@ -523,6 +525,6 @@
         <span id="toast-text"></span>
     </div>
 
-    <script src="app.js?v=325"></script>
+    <script src="app.js?v=338"></script>
 </body>
 </html>

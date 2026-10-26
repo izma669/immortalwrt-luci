@@ -5338,3 +5338,92 @@ body {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.25; }
 }
+
+/* iPad 上拖动旋钮时禁止页面滚动 */
+.knob,
+.knob * {
+    touch-action: none !important;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.player-shell,
+.player-main,
+.page {
+    overscroll-behavior: contain;
+}
+
+/* LED 中间符号改用静态子元素切换，避免 innerHTML 抖动 */
+.led-play .led-vol,
+.led-play .led-mute {
+    display: none;
+}
+.led-play.is-vol .led-note,
+.led-play.is-muted-blink .led-note {
+    display: none;
+}
+.led-play.is-vol .led-vol {
+    display: inline-block;
+}
+.led-play.is-muted-blink .led-mute {
+    display: inline-block;
+}
+.led-play.is-muted-blink .led-mute .icon,
+.led-play.is-muted-blink .led-mute {
+    color: #ff3b52;
+}
+
+/* 让 Safari 把自定义属性按类型插值，减少重绘抖动 */
+@property --knob-fill {
+    syntax: "<angle>";
+    inherits: true;
+    initial-value: 0deg;
+}
+@property --knob-angle {
+    syntax: "<angle>";
+    inherits: true;
+    initial-value: -135deg;
+}
+@property --knob-pct-left {
+    syntax: "<percentage>";
+    inherits: true;
+    initial-value: 0%;
+}
+@property --knob-pct-right {
+    syntax: "<percentage>";
+    inherits: true;
+    initial-value: 0%;
+}
+.knob-dial::before {
+    will-change: filter;
+}
+.knob-ticks-lit::before,
+.knob-ticks-lit::after {
+    will-change: mask-image;
+}
+
+/* 右上角音量百分比固定宽度，按 100% 预留 */
+.volume-footer .knob-value {
+    width: 52px !important;
+    min-width: 52px !important;
+    text-align: right !important;
+    display: inline-block !important;
+    white-space: nowrap;
+}
+
+/* 监听按钮加宽，装下“监听”两个字 */
+.stream-mute-crystal {
+    width: 58px !important;
+    height: 38px !important;
+}
+.stream-mute-on {
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+/* 音量百分比宽度与下方静音按钮一致 */
+.volume-footer .knob-value {
+    width: 66px !important;
+    min-width: 66px !important;
+    text-align: center !important;
+}

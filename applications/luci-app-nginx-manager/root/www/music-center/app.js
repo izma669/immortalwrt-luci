@@ -150,6 +150,7 @@
         localMute: false,
         localMuteVolume: 0,
         seeking: {},
+        streamMuted: true,
         progress: {},
         lyric: { key: '', lines: [] },
         led: {
@@ -1120,7 +1121,9 @@
     /* -----------------------------------------------------------------------
        音量 UI
        -------------------------------------------------------------------- */
-    function updateKnobSnaps(v) {
+    var snapsRaf = null;
+    var snapsPending = 0;
+    function paintKnobSnaps(v) {
         var knob = el.owntoneKnob;
         if (!knob) return;
         var labels = knob.querySelectorAll('.knob-tick');
@@ -1132,6 +1135,14 @@
             labels[i].classList.toggle('is-lit', t > 0.001);
             labels[i].style.opacity = (0.5 + t * 0.5).toFixed(3);
         }
+    }
+    function updateKnobSnaps(v) {
+        snapsPending = v;
+        if (snapsRaf) return;
+        snapsRaf = requestAnimationFrame(function () {
+            snapsRaf = null;
+            paintKnobSnaps(snapsPending);
+        });
     }
 
     function setKnobVisual(value, disabled) {
@@ -1160,11 +1171,16 @@
         el.owntoneMute.setAttribute('aria-pressed', muted ? 'true' : 'false');
         el.owntoneMute.title = muted ? '取消静音' : '静音';
         if (el.owntoneKnob) el.owntoneKnob.classList.toggle('is-muted', !!muted);
+        if (!muted && el.owntoneVolume && Number(state.localMuteVolume) > 0) {
+            var restore = clamp(Math.round(Number(state.localMuteVolume)), 0, 100);
+            el.owntoneVolume.value = restore;
+            setRangeFill(el.owntoneVolume, restore, 100);
+            setKnobVisual(restore, false);
+        }
         var led = el.owntonePlayIndicator;
         if (led) {
             led.classList.toggle('is-muted-blink', !!muted);
             led.classList.remove('is-vol');
-            led.innerHTML = '<svg class="icon led-note"><use href="#' + (muted ? 'i-mute' : 'i-note') + '"></use></svg>';
         }
         var vol = Number(el.owntoneVolume && el.owntoneVolume.value) || 0;
         renderVolValue(el.owntoneVolValue, muted ? 0 : vol);
@@ -1176,12 +1192,12 @@
     function flashLedVolume(v) {
         var led = el.owntonePlayIndicator;
         if (!led || led.classList.contains('is-muted-blink')) return;
+        var span = led.querySelector('.led-vol');
+        if (span) span.textContent = clamp(Math.round(Number(v) || 0), 0, 100) + '%';
         led.classList.add('is-vol');
-        led.innerHTML = '<span class="led-vol">' + clamp(Math.round(Number(v) || 0), 0, 100) + '%</span>';
         clearTimeout(ledVolTimer);
         ledVolTimer = setTimeout(function () {
             led.classList.remove('is-vol');
-            led.innerHTML = '<svg class="icon led-note"><use href="#i-note"></use></svg>';
         }, 2000);
     }
 
@@ -1217,7 +1233,13 @@
             renderVolValue(output, mutedNow ? 0 : v);
         }
         input.disabled = !enabled;
-        if (input === el.owntoneVolume) setKnobVisual(input.value, !enabled);
+        if (input === el.owntoneVolume) {
+            setKnobVisual(input.value, !enabled);
+            if (el.streamAudio) {
+                el.streamAudio.muted = state.streamMuted !== false;
+                if (state.streamMuted !== false) el.streamAudio.volume = 0;
+            }
+        }
     }
 
     function bindVolume(input, output, target) {
@@ -1286,6 +1308,14 @@
             var cy = r.top + r.height / 2;
             return Math.atan2(x - cx, cy - y) * 180 / Math.PI;
         }
+        knob.addEventListener('touchstart', function (ev) {
+            if (input.disabled) return;
+            ev.preventDefault();
+        }, { passive: false });
+        knob.addEventListener('touchmove', function (ev) {
+            if (dragging) ev.preventDefault();
+        }, { passive: false });
+
         function down(ev) {
             if (input.disabled) return;
             dragging = true;
@@ -1320,7 +1350,7 @@
                 if (d > 180) d -= 360;
                 if (d < -180) d += 360;
                 lastAngle = a;
-                var speed = d > 0 ? 0.45 : 1.25;
+                var speed = 1;
                 knobAcc = clamp(knobAcc + d / 270 * 100 * speed, 0, 100);
                 apply(Math.round(knobAcc));
             });
@@ -1830,6 +1860,7 @@
             }
             function setMuted(muted) {
                 streamMuted = muted;
+                state.streamMuted = muted;
                 el.streamAudio.muted = muted;
                 el.streamMute.classList.toggle('is-muted', muted);
                 el.streamMute.setAttribute('aria-pressed', muted ? 'true' : 'false');
@@ -1839,8 +1870,15 @@
                     if (streamVolume > 0) lastStreamVolume = streamVolume;
                     paint(0);
                     el.streamAudio.pause();
+                    try { el.streamAudio.currentTime = 0; } catch (e) {}
+                    el.streamAudio.removeAttribute('src');
+                    try { el.streamAudio.load(); } catch (e) {}
+                    setStreamState('监听已关闭');
                 } else {
                     var restore = streamVolume > 0 ? streamVolume : (lastStreamVolume > 0 ? lastStreamVolume : 100);
+                    var monPort = (state.data && state.data.owntone && state.data.owntone.port) || 3689;
+                    el.streamAudio.src = 'http://' + location.hostname + ':' + monPort + '/stream.mp3';
+                    try { el.streamAudio.load(); } catch (e) {}
                     paint(restore);
                     el.streamAudio.play().catch(function () {});
                 }
