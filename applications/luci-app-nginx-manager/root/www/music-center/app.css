@@ -5427,3 +5427,930 @@ body {
     min-width: 66px !important;
     text-align: center !important;
 }
+
+
+/* ==========================================================================
+   v339：监听面板放大并吃掉与主音量之间的空隙；LED 右侧跑马灯放大
+   - 监听面板填满原本 136px 的网格列（102px 面板 + 34px 空白）
+   - 监听刻度/状态/按钮文字放大
+   - 第二排右向跑马灯（演唱者/专辑）字号放大
+   ========================================================================== */
+.deck-right .stream-panel {
+    width: 100% !important;
+}
+.stream-fader-scale span {
+    font-size: 10px !important;
+}
+.stream-state {
+    font-size: 12.5px !important;
+}
+.stream-mute-on {
+    font-size: 13px !important;
+}
+.led-text--meta {
+    font-size: clamp(17px, 1.65vw, 22px) !important;
+    letter-spacing: 0.04em;
+}
+
+/* 主音量刻度数字同步放大 */
+.knob-tick { font-size: 13px !important; }
+
+
+/* ==========================================================================
+   v340：1560 设计宽度下，把整块 OwnTone 面板按 1.10 等比放大
+   - 外框总宽不变（仍与下方两张接收器卡片整行等宽）
+   - 左/中区域向右扩，监听与主音量之间的空隙收到 0
+   - 主音量面板收窄，右侧旋钮本体放大 10%
+   - 面板高度同步放大 10%
+   ========================================================================== */
+@media (min-width: 1201px) {
+    .player-main { height: 475px !important; padding: 18px !important; }
+    .player-info { padding: 0 !important; }
+
+    .cover--hero {
+        left: 33px !important;
+        top: 31px !important;
+        width: 330px !important;
+        height: 330px !important;
+    }
+
+    .led-screen {
+        height: 440px !important;
+        min-height: 440px !important;
+        padding-left: 403px !important;
+    }
+    .led-text--title { font-size: 33px !important; }
+    .led-text--meta { font-size: 24px !important; }
+    .led-row--meta { margin-top: 10px !important; }
+
+    /* 时间和控制键整体 1.1 倍，随布局一起放大 */
+    .led-lower { zoom: 1.1; width: 320px !important; }
+    .led-screen .control-cluster {
+        zoom: 1.1;
+        width: 320px !important;
+        max-width: 320px !important;
+    }
+
+    /* 监听 112 + 主音量 496，中间空隙 0；主音量面板比原来窄 */
+    .deck-right {
+        left: 796px !important;
+        height: 297px !important;
+        grid-template-columns: 112px 496px !important;
+    }
+    .deck-right .stream-panel { width: 100% !important; }
+    .volume-row--knob { width: 100% !important; max-width: 100% !important; }
+
+    .stream-fader-scale span { font-size: 11px !important; }
+    .stream-state { font-size: 13.75px !important; }
+    .stream-mute-on { font-size: 14.3px !important; }
+    .stream-buffer { width: 29px !important; }
+
+    /* 主音量旋钮 200 -> 220，刻度和指针同步 */
+    .volume-row--knob .knob {
+        width: 220px !important;
+        height: 220px !important;
+        margin-top: 24px !important;
+    }
+    .knob-pointer {
+        top: 26px !important;
+        height: 44px !important;
+        margin-left: -2.75px !important;
+        transform-origin: 50% 84px !important;
+    }
+    .knob-dial::after { inset: 33px !important; }
+    .knob-tick { font-size: 14px !important; }
+    .knob-tick--0 { left: -68px !important; bottom: 4px !important; }
+    .knob-tick--33 { left: -68px !important; top: 4px !important; }
+    .knob-tick--66 { right: -68px !important; top: 4px !important; }
+    .knob-tick--100 { right: -77px !important; bottom: 4px !important; }
+    .volume-footer .mute-wrap .knob-value { font-size: 22px !important; }
+}
+
+
+/* ==========================================================================
+   v341：在 v340 基础上继续放大到 1.15
+   - 监听/主音量之间保留 12px，作为“刚好”的呼吸缝
+   - 主音量面板 496 -> 442，旋钮 220 -> 230
+   - 外框宽度仍不变
+   ========================================================================== */
+@media (min-width: 1201px) {
+    .player-main { height: 497px !important; padding: 18px !important; }
+    .player-info { padding: 0 !important; }
+
+    .cover--hero {
+        left: 35px !important;
+        top: 32px !important;
+        width: 345px !important;
+        height: 345px !important;
+    }
+    .led-screen {
+        height: 460px !important;
+        min-height: 460px !important;
+        padding-left: 421px !important;
+    }
+    .led-text--title { font-size: 34.5px !important; }
+    .led-text--meta { font-size: 25.3px !important; }
+    .led-row--meta { margin-top: 10px !important; }
+
+    .led-lower { zoom: 1.15; width: 320px !important; }
+    .led-screen .control-cluster {
+        zoom: 1.15;
+        width: 320px !important;
+        max-width: 320px !important;
+    }
+
+    /* 监听 117 + 12px 呼吸缝 + 主音量 442 */
+    .deck-right {
+        left: 833px !important;
+        height: 310px !important;
+        grid-template-columns: 117px 442px !important;
+        column-gap: 12px !important;
+    }
+    .deck-right .stream-panel { width: 100% !important; }
+    .volume-row--knob { width: 100% !important; max-width: 100% !important; }
+
+    .stream-fader-scale span { font-size: 11.5px !important; }
+    .stream-state { font-size: 14.4px !important; }
+    .stream-mute-on { font-size: 15px !important; }
+    .stream-buffer { width: 30px !important; }
+
+    .volume-row--knob .knob {
+        width: 230px !important;
+        height: 230px !important;
+        margin-top: 27px !important;
+    }
+    .knob-pointer {
+        top: 28px !important;
+        height: 46px !important;
+        margin-left: -2.9px !important;
+        transform-origin: 50% 88px !important;
+    }
+    .knob-dial::after { inset: 34.5px !important; }
+    .knob-tick { font-size: 15px !important; }
+    .knob-tick--0 { left: -71px !important; bottom: 4px !important; }
+    .knob-tick--33 { left: -71px !important; top: 4px !important; }
+    .knob-tick--66 { right: -71px !important; top: 4px !important; }
+    .knob-tick--100 { right: -80px !important; bottom: 4px !important; }
+    .volume-footer .mute-wrap .knob-value { font-size: 23px !important; }
+}
+
+
+/* ==========================================================================
+   v342：细节微调
+   - 左下角地址条下移 20px（372 -> 392）
+   - LED 小屏向左扩 10px（左边缘 -10、宽度 +10），7 键随小屏一起左移 10
+   - 主音量面板位置不动：deck 的 left 同步 +10 抵消
+   ========================================================================== */
+@media (min-width: 1201px) {
+    .cover-path { top: 392px !important; }
+    .led-screen {
+        margin-left: -10px !important;
+        width: calc(100% + 10px) !important;
+    }
+    .deck-right { left: 843px !important; }
+}
+
+
+/* ==========================================================================
+   v343：小屏改为“整体左移 10px”，不再向左扩宽
+   - LED 小屏：left 61、width 仍 1418、右缘 1479
+   - 7 键随小屏左移 10
+   - 主音量位置不动：主音量 442 -> 432，让出右侧 10px
+   - 监听 117、间距 12 不变
+   - 地址条保持 v342 的 top 392（页面 650 -> 670）
+   ========================================================================== */
+@media (min-width: 1201px) {
+    .led-screen { width: 100% !important; }
+    .deck-right { grid-template-columns: 117px 432px !important; }
+}
+
+
+/* v346：把 1560 设计宽度固定下来，由 JS 按卡片实际宽度 zoom 适配 */
+@media (min-width: 1201px) {
+    .player-main { width: 1454px !important; }
+}
+
+
+/* ==========================================================================
+   v347：顶部跑马灯玻璃条
+   - 左边缘向右缩 10px（366 -> 376）
+   - 底边向下扩 10px（height 96 -> 106，top 不变）
+   - 右缘/顶部不变
+   ========================================================================== */
+@media (min-width: 1201px) {
+    .led-glass {
+        left: 376px !important;
+        height: 106px !important;
+    }
+}
+
+
+/* ==========================================================================
+   v348：三处闪烁改为常亮（保留红色/金色状态，只去掉闪）
+   1) 主音量静音：旋钮四周红色环常亮
+   2) LED 小屏时间中间：红色喇叭常亮
+   3) 调主音量：右上角百分比常亮
+   ========================================================================== */
+.knob.is-muted .knob-dial::before {
+    animation: none !important;
+}
+.led-play.is-muted-blink {
+    animation: none !important;
+}
+.volume-footer .knob-value.is-up,
+.volume-footer .knob-value.is-down {
+    animation: none !important;
+}
+
+
+/* ==========================================================================
+   v349：50px 大值测试
+   - 地址条 top 392 -> 442（页面 670 -> 720）
+   - LED 小屏 margin-left -10 -> -60（左缘 61 -> 11，整块左移 50）
+   - 玻璃条 left 376 -> 476（页面左缘 437 -> 487，左侧缩 50）
+   ========================================================================== */
+@media (min-width: 1201px) {
+    .cover-path { top: 442px !important; }
+    .led-screen {
+        margin-left: -60px !important;
+        width: 100% !important;
+    }
+    .led-glass {
+        left: 476px !important;
+        height: 106px !important;
+    }
+}
+
+
+/* ==========================================================================
+   v350：修正 v348/v349
+   - 恢复三处闪烁（LED 静音喇叭、主音量红圈、调音量右上百分比）
+   - LED 金线/音量面板回到原位，不再整体左移
+   - 只把 LED 小屏（时间/音频块）和 7 个按钮向左移 50px
+   ========================================================================== */
+.knob.is-muted .knob-dial::before {
+    animation: knob-muted-blink 1s ease-in-out infinite !important;
+}
+.led-play.is-muted-blink {
+    animation: led-mute-blink 0.8s ease-in-out infinite !important;
+}
+.volume-footer .knob-value.is-up {
+    animation: vol-blink 0.7s ease-in-out infinite !important;
+}
+.volume-footer .knob-value.is-down {
+    animation: vol-blink 0.7s ease-in-out infinite !important;
+}
+
+@media (min-width: 1201px) {
+    /* 整块 LED 回到 v348 的位置：左侧 61，金线/音量不动 */
+    .led-screen {
+        margin-left: -10px !important;
+        width: 100% !important;
+    }
+    /* 只移动小屏（时间/音频）和 7 键 */
+    .led-lower {
+        margin-left: -50px !important;
+    }
+    .led-screen .control-cluster {
+        margin-left: -50px !important;
+    }
+}
+
+
+/* 玻璃条保持页面左缘 +50（LED 回到原位后用 426 抵消） */
+@media (min-width: 1201px) {
+    .led-glass { left: 426px !important; }
+}
+
+
+/* ==========================================================================
+   v351：退回 v348 的布局，撤销 v349/v350 的 50px 位移
+   - 地址条回 392（页面 670）
+   - LED 金线/黑屏回 61；小屏/7 键回原位（不再左移 50）
+   - 玻璃条回 376（页面 437）
+   - 音量面板回 432，间距 12
+   - 三处闪烁保留（v350 已恢复）
+   ========================================================================== */
+@media (min-width: 1201px) {
+    .cover-path { top: 392px !important; }
+
+    .led-screen {
+        margin-left: -10px !important;
+        width: 100% !important;
+    }
+    .led-lower { margin-left: 0 !important; }
+    .led-screen .control-cluster { margin-left: 0 !important; }
+
+    .led-glass {
+        left: 376px !important;
+        height: 106px !important;
+    }
+
+    .deck-right {
+        grid-template-columns: 117px 432px !important;
+    }
+}
+
+
+/* ==========================================================================
+   v352：只改两处
+   1) 左下角地址条再下移 50px（392 -> 442，页面 670 -> 720）
+   2) 静音时主音量红圈、LED 时间中间红喇叭保持闪烁
+   ========================================================================== */
+@media (min-width: 1201px) {
+    .cover-path { top: 442px !important; }
+}
+
+.knob.is-muted .knob-dial::before {
+    animation: knob-muted-blink 1s ease-in-out infinite !important;
+}
+.led-play.is-muted-blink {
+    animation: led-mute-blink 0.8s ease-in-out infinite !important;
+}
+
+
+/* ==========================================================================
+   v353：声卡设置弹窗（从 OwnTone 页面移入音乐中心）
+   ========================================================================== */
+.sc-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.58);
+    backdrop-filter: blur(2px);
+}
+.sc-overlay[hidden] { display: none; }
+
+.sc-panel {
+    width: 100%;
+    max-width: 440px;
+    padding: 18px 18px 16px;
+    color: var(--text);
+    background: var(--panel-solid);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow);
+}
+
+.sc-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+.sc-title { font-size: 16px; font-weight: 700; letter-spacing: .01em; }
+.sc-close {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    border-radius: 9px;
+}
+.sc-close:hover { color: var(--text); background: var(--panel-3); }
+
+.sc-current {
+    margin: 0 0 14px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.sc-field {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 12px;
+    color: var(--muted);
+    font-size: 12px;
+}
+.sc-field select {
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 10px;
+    color: var(--text);
+    font: inherit;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    outline: none;
+}
+.sc-field select:focus { border-color: var(--accent); }
+
+.sc-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+}
+.sc-actions .btn { min-width: 96px; }
+.sc-actions .btn[disabled] { opacity: .55; cursor: default; }
+
+.sc-hint {
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+    .sc-panel { padding: 16px 14px 14px; }
+    .sc-actions { flex-direction: column-reverse; }
+    .sc-actions .btn { width: 100%; }
+}
+
+/* 声卡设置按钮与静音按钮同排 */
+.master { grid-template-columns: auto minmax(150px, max-content) 1fr auto auto auto; }
+@media (max-width: 760px) {
+    .master { grid-template-columns: auto minmax(0, 1fr) auto auto auto; }
+}
+
+
+/* v360：回退 v355-v359 的所有线条/位移改动，恢复完整金框 */
+
+
+/* v370：恢复完整金框/金线，撤销 v361-v369 的线条、7键宽度和玻璃条实验 */
+
+
+/* v371：恢复 v364 的鼠标光标修复（v370 清理时一并被移除） */
+html, body { cursor: default; }
+body {
+    -webkit-user-select: none;
+    user-select: none;
+    caret-color: transparent;
+}
+body * { cursor: default; }
+a, button, [role="button"], input, select, textarea, .range, .knob, .stream-fader,
+.switch, .sbtn, .mode-btn, .mute-btn, .icon-btn, .sc-close, .master-slider {
+    cursor: pointer;
+}
+.knob, .stream-fader { cursor: grab; }
+.knob:active, .stream-fader:active { cursor: grabbing; }
+input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+    caret-color: auto;
+    cursor: auto;
+}
+.cover-path {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    cursor: default !important;
+}
+
+/* 跑马灯金线左边与 LED 小屏 / 7 个按钮左边对齐；外框本身不动 */
+.led-frame {
+    left: 14px !important;
+    width: calc(100% - 14.8px) !important;
+}
+
+/* 调音面板底边银线被 player-main 的 overflow 裁掉，向上提 1px 露出边框 */
+.deck-right {
+    bottom: 1px !important;
+}
+
+/* 小屏时间行：三列布局，让音符图标落在小屏水平中心 */
+.led-time-flow {
+    display: grid !important;
+    grid-template-columns: 1fr auto 1fr !important;
+    justify-content: initial !important;
+}
+.led-time-flow .time:first-child {
+    text-align: right !important;
+}
+.led-time-flow .time:last-child {
+    text-align: left !important;
+}
+
+/* 小屏时间行左右内边距一致，音符才真正居中 */
+.led-time-flow {
+    padding: 0 12px !important;
+}
+
+/* 小屏宽度跟随内容，避免总时间被裁掉最后一位 */
+.led-lower {
+    width: auto !important;
+}
+
+/* ===== 大屏 L 形黑底 + 金线：只用于宽屏桌面布局 ===== */
+.player-frame { display: none; }
+
+@media (min-width: 1201px) {
+    /* L 形黑底，挖掉右下音频面板 */
+    .player-main::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background: #000;
+        clip-path: polygon(
+            1.5422% 5.6535%,
+            1.5865% 4.7459%,
+            1.7193% 4.0975%,
+            1.9408% 3.7085%,
+            2.2509% 3.5788%,
+            97.4344% 3.5788%,
+            97.7445% 3.7085%,
+            97.9660% 4.0975%,
+            98.0989% 4.7459%,
+            98.1432% 5.6535%,
+            98.1432% 28.8589%,
+            98.0989% 29.7666%,
+            97.9660% 30.4149%,
+            97.7445% 30.8039%,
+            97.4344% 30.9336%,
+            57.7605% 30.9336%,
+            57.4504% 31.0633%,
+            57.2289% 31.4523%,
+            57.0960% 32.1006%,
+            57.0517% 33.0083%,
+            57.0517% 93.9523%,
+            57.0074% 94.8600%,
+            56.8746% 95.5083%,
+            56.6531% 95.8973%,
+            56.3430% 96.0270%,
+            2.2509% 96.0270%,
+            1.9408% 95.8973%,
+            1.7193% 95.5083%,
+            1.5865% 94.8600%,
+            1.5422% 93.9523%
+        );
+        pointer-events: none;
+    }
+
+    /* 四个屏提到黑底之上 */
+    .cover--hero,
+    .led-screen,
+    .led-lower,
+    .cover-path { z-index: 1; }
+
+    .deck-right { z-index: 9; }
+
+    /* 旧的长条屏描边停用，改用大屏金线 */
+    .led-frame { display: none !important; }
+
+    /* 旧内黑底停用，黑底由 ::before 提供 */
+    .led-black { display: none !important; }
+
+    /* 大屏 L 形金线 */
+    .player-frame {
+        display: block;
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        pointer-events: none;
+    }
+    .player-frame path {
+        fill: none;
+        stroke: rgba(226, 183, 93, 0.9);
+        stroke-width: 1.2;
+        vector-effect: non-scaling-stroke;
+    }
+
+    /* 时间小屏宽度：右端与下方按钮齐平 */
+    .led-lower { width: 729px !important; }
+
+    /* 跑马灯文字左边与时间小屏左边对齐 */
+    .led-viewport { margin-left: -1.94px !important; }
+
+    /* 长条屏玻璃盒左边与小屏左边对齐，底边下扩 3px */
+    .led-glass {
+        left: 421px !important;
+        height: 109px !important;
+    }
+
+    /* 封面向右、向下扩到 371 */
+    .cover--hero {
+        width: 371px !important;
+        height: 371px !important;
+    }
+
+    /* 地址条：左=封面左，右=时间小屏右 */
+    .cover-path {
+        left: 35px !important;
+        right: calc(100% - 791.25px) !important;
+    }
+}
+
+/* 全宽度：封面与黑胶底透明，避免黑块 */
+.cover--hero { background: transparent !important; }
+.vinyl--square { background: transparent !important; }
+
+/* ================= 窄屏三段式布局 ================= */
+@media (max-width: 1200px) {
+    .player-main {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+        grid-template-areas:
+            "mt mt"
+            "mm mm"
+            "mb mb"
+            "cv sm"
+            "cv bt"
+            "dk dk"
+            "cp cp" !important;
+        gap: 0 14px;
+        height: auto !important;
+        padding: 14px !important;
+    }
+
+    /* 拆掉中间容器，让子元素直接参与网格 */
+    .player-info,
+    .led-screen,
+    .led-progress {
+        display: contents !important;
+    }
+
+    /* 窄屏不需要这些覆盖层/描边 */
+    .led-black,
+    .led-glass,
+    .led-notch,
+    .led-frame,
+    .player-frame {
+        display: none !important;
+    }
+    .control-deck { display: none !important; }
+
+    .led-row--title { grid-area: mt; }
+    .led-row--meta  { grid-area: mm; }
+    .led-bar        { grid-area: mb; }
+
+    .cover--hero {
+        grid-area: cv;
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+        width: 100% !important;
+        height: auto !important;
+        aspect-ratio: 1;
+        margin: 0 !important;
+        align-self: start;
+    }
+
+    .led-lower {
+        grid-area: sm;
+        width: auto !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+    }
+
+    .control-cluster {
+        grid-area: bt;
+        width: auto !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+    }
+
+    .deck-right {
+        grid-area: dk;
+        position: static !important;
+        left: auto !important;
+        right: auto !important;
+        top: auto !important;
+        bottom: auto !important;
+        width: auto !important;
+        height: auto !important;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+        margin-top: 14px;
+    }
+
+    .cover-path {
+        grid-area: cp;
+        position: static !important;
+        left: auto !important;
+        right: auto !important;
+        width: auto !important;
+        margin-top: 10px;
+    }
+
+    /* 跑马灯三段拼成一个框 */
+    .led-row--title {
+        background: #000 !important;
+        border: 1px solid rgba(226, 183, 93, 0.55) !important;
+        border-bottom: 0 !important;
+        border-radius: 12px 12px 0 0 !important;
+        padding: 10px 12px 2px !important;
+    }
+    .led-row--meta {
+        background: #000 !important;
+        border-left: 1px solid rgba(226, 183, 93, 0.55) !important;
+        border-right: 1px solid rgba(226, 183, 93, 0.55) !important;
+        border-top: 0 !important;
+        border-bottom: 0 !important;
+        padding: 0 12px 6px !important;
+    }
+    .led-bar {
+        background: #000 !important;
+        border: 1px solid rgba(226, 183, 93, 0.55) !important;
+        border-top: 0 !important;
+        border-radius: 0 0 12px 12px !important;
+        padding: 0 12px 10px !important;
+    }
+}
+
+/* 窄屏细节修正：小屏居中、按钮拉伸、音量面板拉满 */
+@media (max-width: 1200px) {
+    .led-lower {
+        align-self: center !important;
+        justify-content: center !important;
+    }
+
+    .control-cluster {
+        align-self: center !important;
+        justify-content: center !important;
+    }
+    .control-cluster .transport,
+    .control-cluster .mode-row {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+    .control-cluster .tbtn {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+    }
+    .control-cluster .mode-btn--inline {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+    }
+
+    .deck-right {
+        width: 100% !important;
+        max-width: none !important;
+        justify-self: stretch !important;
+    }
+}
+
+/* 窄屏：地址条放到 7 个按钮下面，并允许折成两行 */
+@media (max-width: 1200px) {
+    .player-main {
+        grid-template-areas:
+            "mt mt"
+            "mm mm"
+            "mb mb"
+            "cv sm"
+            "cv bt"
+            "cp cp"
+            "dk dk" !important;
+    }
+
+    .cover-path {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        height: auto !important;
+        min-height: 0 !important;
+        word-break: break-all;
+        line-height: 1.35 !important;
+        padding: 4px 8px !important;
+        margin: 8px 0 0 !important;
+    }
+}
+
+/* 窄屏第三轮：地址条恢复、旋钮左移、监听列定宽 */
+@media (max-width: 1200px) {
+    /* 1. 地址条恢复显示 */
+    .cover-path {
+        display: block !important;
+    }
+
+    /* 2. 旋钮与刻度整体左移 20px，避开右下静音键 */
+    .volume-row--knob .knob {
+        margin-left: -20px !important;
+    }
+
+    /* 3. 监听列定宽，缓冲柱回到推子右侧 */
+    .deck-right {
+        grid-template-columns: 160px minmax(0, 1fr) !important;
+    }
+}
+
+/* 窄屏：地址条移到音量面板下方，整行拉满 */
+@media (max-width: 1200px) {
+    .player-main {
+        grid-template-areas:
+            "mt mt"
+            "mm mm"
+            "mb mb"
+            "cv sm"
+            "cv bt"
+            "dk dk"
+            "cp cp" !important;
+    }
+
+    .cover-path {
+        grid-area: cp;
+        justify-self: stretch !important;
+        align-self: stretch !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 10px 0 0 !important;
+        padding: 6px 10px !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        height: auto !important;
+        word-break: break-all;
+        line-height: 1.35 !important;
+    }
+}
+
+/* 窄屏：7 个按钮始终水平拉伸 */
+@media (max-width: 1200px) {
+    .control-cluster,
+    .control-cluster .transport,
+    .control-cluster .mode-row {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .control-cluster .transport,
+    .control-cluster .mode-row {
+        display: flex !important;
+        gap: 6px !important;
+    }
+
+    .control-cluster .tbtn {
+        width: auto !important;
+        height: 52px !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+    }
+
+    .control-cluster .mode-btn--inline {
+        width: auto !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+    }
+}
+
+/* 窄屏：7 个按钮水平拉伸（选择器与固定宽度规则同等优先级） */
+@media (max-width: 1200px) {
+    .led-screen .control-cluster,
+    .led-screen .control-cluster .transport,
+    .led-screen .control-cluster .mode-row {
+        width: 100% !important;
+        max-width: 100% !important;
+        justify-self: stretch !important;
+    }
+
+    .led-screen .control-cluster .transport,
+    .led-screen .control-cluster .mode-row {
+        display: flex !important;
+        gap: 6px !important;
+    }
+
+    .led-screen .control-cluster .tbtn {
+        width: auto !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+    }
+
+    .led-screen .control-cluster .mode-btn--inline {
+        width: auto !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+    }
+}
+
+/* 窄屏：进度条整行拉满 */
+@media (max-width: 1200px) {
+    .led-progress {
+        display: contents !important;
+    }
+    .led-bar {
+        width: 100% !important;
+        min-width: 0 !important;
+        justify-self: stretch !important;
+    }
+    .led-bar .range,
+    .led-bar .range--progress,
+    #owntone-progress {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+}
+
+/* 封面左上角提示文字放大 0.5 倍（11px -> 16.5px） */
+.cover-note {
+    font-size: 16.5px !important;
+    padding: 6px 13px !important;
+    border-radius: 6px !important;
+}
+
+/* 封面左上角提示文字再放大一点点（16.5px -> 18px） */
+.cover-note {
+    font-size: 18px !important;
+    padding: 7px 14px !important;
+}

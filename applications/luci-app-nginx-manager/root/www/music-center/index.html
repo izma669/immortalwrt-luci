@@ -2,7 +2,7 @@
 <html lang="zh-CN" data-theme="dark">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=1560, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#070a10">
     <meta name="color-scheme" content="dark light">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,7 +11,7 @@
     <title>音乐中心</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <script src="perf-lite.js?v=274"></script>
-    <link rel="stylesheet" href="app.css?v=338">
+    <link rel="stylesheet" href="app.css?v=409">
 </head>
 <body>
     <svg class="led-clip-defs" width="0" height="0" aria-hidden="true" focusable="false">
@@ -84,6 +84,12 @@
         </symbol>
         <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M20 11a8 8 0 1 0 .4 4.2M20 4v7h-7"/>
+        </symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+            <path d="M4 6h16M4 12h16M4 18h16"/>
+            <circle cx="9" cy="6" r="2.1" fill="var(--panel-solid)" stroke="currentColor"/>
+            <circle cx="15" cy="12" r="2.1" fill="var(--panel-solid)" stroke="currentColor"/>
+            <circle cx="8" cy="18" r="2.1" fill="var(--panel-solid)" stroke="currentColor"/>
         </symbol>
         <symbol id="i-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/>
@@ -161,6 +167,9 @@
             <button type="button" class="icon-btn mute-btn" id="master-mute" title="静音" aria-label="静音">
                 <svg class="icon"><use id="master-mute-icon" href="#i-volume"></use></svg>
             </button>
+            <button type="button" class="icon-btn" id="master-config" title="声卡设置" aria-label="声卡设置">
+                <svg class="icon icon--stroke"><use href="#i-settings"></use></svg>
+            </button>
         </section>
 
         <section class="player card" id="owntone-card">
@@ -184,6 +193,9 @@
                 </header>
 
                 <div class="player-main">
+                <svg class="player-frame" viewBox="0 0 1411 482" preserveAspectRatio="none" aria-hidden="true">
+                    <path d="M21.76 27.25 Q21.76 17.25 31.76 17.25 L1374.80 17.25 Q1384.80 17.25 1384.80 27.25 L1384.80 139.10 Q1384.80 149.10 1374.80 149.10 L815.00 149.10 Q805.00 149.10 805.00 159.10 L805.00 452.85 Q805.00 462.85 795.00 462.85 L31.76 462.85 Q21.76 462.85 21.76 452.85 L21.76 27.25 Z"></path>
+                </svg>
                     <div class="cover cover--hero" id="owntone-cover-wrap">
                         <span class="cover-note" id="cover-note" hidden>已将获取到的封面写入到文件</span>
                         <div class="vinyl vinyl--square" id="owntone-vinyl">
@@ -521,10 +533,33 @@
         </footer>
     </main>
 
+    <div id="soundcard-modal" class="sc-overlay" hidden>
+        <div class="sc-panel" role="dialog" aria-modal="true" aria-labelledby="sc-title">
+            <header class="sc-head">
+                <span class="sc-title" id="sc-title">声卡设置</span>
+                <button type="button" class="sc-close" id="sc-close" title="关闭" aria-label="关闭">✕</button>
+            </header>
+            <p class="sc-current" id="sc-current">正在读取声卡…</p>
+            <label class="sc-field">
+                <span>输出声卡</span>
+                <select id="sc-card"></select>
+            </label>
+            <label class="sc-field">
+                <span>混音控制</span>
+                <select id="sc-control"></select>
+            </label>
+            <div class="sc-actions">
+                <button type="button" class="btn btn--ghost btn--small" id="sc-refresh">刷新</button>
+                <button type="button" class="btn btn--primary btn--small" id="sc-apply">应用并重启</button>
+            </div>
+            <p class="sc-hint">应用后会重写 /etc/asound.conf，并重启 OwnTone / AirPlay / DLNA。</p>
+        </div>
+    </div>
+
     <div id="toast" class="toast" role="status" aria-live="polite">
         <span id="toast-text"></span>
     </div>
 
-    <script src="app.js?v=338"></script>
+    <script src="app.js?v=409"></script>
 </body>
 </html>

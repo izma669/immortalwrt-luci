@@ -30,6 +30,14 @@
         masterDevice: $('master-device'),
         masterMute: $('master-mute'),
         masterMuteIcon: $('master-mute-icon'),
+        masterConfig: $('master-config'),
+        scModal: $('soundcard-modal'),
+        scClose: $('sc-close'),
+        scCard: $('sc-card'),
+        scControl: $('sc-control'),
+        scCurrent: $('sc-current'),
+        scRefresh: $('sc-refresh'),
+        scApply: $('sc-apply'),
 
         owntoneCard: $('owntone-card'),
         owntoneName: $('owntone-name'),
@@ -2193,6 +2201,112 @@
         if (window.console && console.info) console.info('[音乐中心] 页面版本 v' + v);
     }
 
+    /* -----------------------------------------------------------------------
+       声卡设置（从 OwnTone 页面移入音乐中心）
+       -------------------------------------------------------------------- */
+    var scCards = [];
+    var scCurrentControl = '';
+
+    function scFillControls() {
+        var card = null;
+        for (var i = 0; i < scCards.length; i++) {
+            if (String(scCards[i].num) === String(el.scCard.value)) { card = scCards[i]; break; }
+        }
+        var list = (card && card.controls && card.controls.length) ? card.controls : ['Master'];
+        el.scControl.innerHTML = '';
+        for (var j = 0; j < list.length; j++) {
+            var opt = document.createElement('option');
+            opt.value = list[j];
+            opt.textContent = list[j];
+            el.scControl.appendChild(opt);
+        }
+        if (scCurrentControl) {
+            for (var k = 0; k < el.scControl.options.length; k++) {
+                if (el.scControl.options[k].value === scCurrentControl) {
+                    el.scControl.selectedIndex = k;
+                    return;
+                }
+            }
+        }
+        if (el.scControl.options.length) el.scControl.selectedIndex = 0;
+    }
+
+    function openSoundcard() {
+        post('/control', { service: 'soundcard', action: 'list' }).then(function (data) {
+            scCards = data.cards || [];
+            el.scCard.innerHTML = '';
+            for (var i = 0; i < scCards.length; i++) {
+                var opt = document.createElement('option');
+                opt.value = String(scCards[i].num);
+                opt.textContent = scCards[i].num + ' · ' + (scCards[i].name || '声卡');
+                el.scCard.appendChild(opt);
+            }
+            var cur = data.current || {};
+            var found = false;
+            for (var j = 0; j < scCards.length; j++) {
+                if (String(scCards[j].num) === String(cur.card)) {
+                    el.scCard.value = String(scCards[j].num);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found && scCards.length) el.scCard.value = String(scCards[0].num);
+            scCurrentControl = cur.control || '';
+            scFillControls();
+            if (scCurrentControl) {
+                for (var k = 0; k < el.scControl.options.length; k++) {
+                    if (el.scControl.options[k].value === scCurrentControl) {
+                        el.scControl.selectedIndex = k;
+                        break;
+                    }
+                }
+            }
+            setText(el.scCurrent, cur.available
+                ? ('当前：' + (cur.name || '声卡') + ' · hw:' + (cur.card || '0') + ' · ' + (cur.control || 'Master') + ' · ' + (cur.volume || 0) + '%')
+                : '当前未检测到可用声卡');
+            el.scApply.disabled = false;
+            el.scModal.hidden = false;
+        }).catch(function (err) {
+            toast('读取声卡失败：' + (err && err.message ? err.message : err), true);
+        });
+    }
+
+    function applySoundcard() {
+        if (!el.scCard.value) { toast('没有可用声卡', true); return; }
+        el.scApply.disabled = true;
+        toast('正在应用声卡配置…');
+        post('/control', { service: 'soundcard', action: 'apply', card: el.scCard.value, control: el.scControl.value })
+            .then(function () {
+                el.scModal.hidden = true;
+                toast('声卡已应用，服务正在重启');
+                poll(true);
+            })
+            .catch(function (err) {
+                toast('声卡应用失败：' + (err && err.message ? err.message : err), true);
+            })
+            .then(function () {
+                el.scApply.disabled = false;
+            });
+    }
+
+    function bindSoundcard() {
+        if (!el.masterConfig || !el.scModal) return;
+        el.masterConfig.addEventListener('click', openSoundcard);
+        el.scClose.addEventListener('click', function () { el.scModal.hidden = true; });
+        el.scModal.addEventListener('click', function (e) {
+            if (e.target === el.scModal) el.scModal.hidden = true;
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !el.scModal.hidden) el.scModal.hidden = true;
+        });
+        el.scCard.addEventListener('change', function () {
+            scCurrentControl = '';
+            scFillControls();
+        });
+        el.scRefresh.addEventListener('click', openSoundcard);
+        el.scApply.addEventListener('click', applySoundcard);
+    }
+
     function init() {
         initVersion();
         initTheme();
@@ -2204,6 +2318,7 @@
         setInterval(tickProgress, perfLite ? 1000 : 500);
         setInterval(pollDirectProgress, perfLite ? 1500 : 1000);
         bindEvents();
+        bindSoundcard();
         updateLedFrame();
         setTimeout(updateLedFrame, 80);
         window.addEventListener('resize', updateLedFrame);
@@ -2230,5 +2345,32 @@
         var host = location.hostname;
         if (host.indexOf(':') !== -1 && host.charAt(0) !== '[') host = '[' + host + ']';
         a.href = location.protocol + '//' + host + ':880/player.html';
+    }
+})();
+
+
+/* v346：1201-1560 的窄桌面按 1454 设计宽自动 zoom，避免 1560 媒体查询不命中 */
+(function () {
+    function fitPlayer() {
+        var main = document.querySelector('.player-main');
+        if (!main) return;
+        if (window.innerWidth < 1201) {
+            main.style.width = '';
+            main.style.zoom = '';
+            return;
+        }
+        var parent = main.parentElement;
+        var avail = parent ? parent.clientWidth : 0;
+        var design = 1454;
+        var s = avail > 0 ? Math.min(1, avail / design) : 1;
+        main.style.width = design + 'px';
+        main.style.zoom = s;
+    }
+    window.addEventListener('resize', fitPlayer);
+    window.addEventListener('load', fitPlayer);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fitPlayer);
+    } else {
+        fitPlayer();
     }
 })();
