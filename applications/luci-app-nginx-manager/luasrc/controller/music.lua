@@ -423,6 +423,66 @@ local function resolve_soundcard()
     }
 end
 
+
+-- 声卡设置：列出 /proc/asound/cards 与 amixer 控制项
+local function list_soundcards()
+    local cards = {}
+    local raw = fs.readfile("/proc/asound/cards") or ""
+    for num, cname in raw:gmatch("(%d+)%s+%[([^%]]+)%]") do
+        local controls = {}
+        local out = sys.exec("amixer -c " .. num .. " scontrols 2>/dev/null") or ""
+        for c in out:gmatch("'([^']+)'") do
+            if c ~= "" then controls[#controls + 1] = c end
+        end
+        if #controls == 0 then controls[1] = "Master" end
+        cards[#cards + 1] = { num = num, name = trim(cname), controls = controls }
+    end
+    return cards
+end
+
+-- 声卡设置：把选中声卡写回 asound.conf，并更新音量控制缓存
+local function apply_soundcard(card, control)
+    card = tostring(card or "")
+    control = tostring(control or "")
+    if not card:match("^%d+$") then return false, "声卡编号无效" end
+
+    local card_name, controls = "", {}
+    for _, c in ipairs(list_soundcards()) do
+        if tostring(c.num) == card then
+            card_name, controls = c.name, c.controls
+            break
+        end
+    end
+    if card_name == "" then return false, "找不到声卡 " .. card end
+
+    local control_ok = false
+    for _, c in ipairs(controls) do
+        if c == control then control_ok = true break end
+    end
+    if not control_ok then control = controls[1] or "Master" end
+
+    local asound = fs.readfile("/etc/asound.conf") or ""
+    if asound ~= "" then
+        asound = asound:gsub("hw:%d+,0", "hw:" .. card .. ",0")
+        asound = asound:gsub("card %d+", "card " .. card)
+        local f = io.open("/etc/asound.conf", "w")
+        if not f then return false, "无法写入 /etc/asound.conf" end
+        f:write(asound)
+        f:close()
+    else
+        local f = io.open("/etc/asound.conf", "w")
+        if not f then return false, "无法写入 /etc/asound.conf" end
+        f:write("pcm.!default {\n    type hw\n    card " .. card .. "\n}\nctl.!default {\n    type hw\n    card " .. card .. "\n}\n")
+        f:close()
+    end
+
+    write_snd_cache(card, card_name, control)
+    sys.exec("/etc/init.d/owntone restart >/dev/null 2>&1 &")
+    sys.exec("/etc/init.d/shairport-sync restart >/dev/null 2>&1 &")
+    sys.exec("/etc/init.d/gmediarender restart >/dev/null 2>&1 &")
+    return true
+end
+
 local function set_physical_volume(action, value)
     local info = resolve_soundcard()
     if not info.available then return false, "没有找到可用的声卡混音控制" end
@@ -1166,6 +1226,20 @@ function action_control()
         ok, err = owntone_control(action, value)
     elseif service == "gmediarender" then
         ok, err = gmr_control(action, value)
+    elseif service == "soundcard" then
+        if action == "list" then
+            http.prepare_content("application/json")
+            http.write(jsonc.stringify({
+                ok = true,
+                cards = list_soundcards(),
+                current = resolve_soundcard(),
+            }))
+            return
+        elseif action == "apply" then
+            ok, err = apply_soundcard(http.formvalue("card"), http.formvalue("control"))
+        else
+            ok, err = false, "未知声卡操作"
+        end
     else
         ok, err = false, "未知服务: " .. tostring(service)
     end
