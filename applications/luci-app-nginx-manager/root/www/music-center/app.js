@@ -2374,3 +2374,33 @@
         fitPlayer();
     }
 })();
+
+
+/* v423：窄屏/竖屏顶栏闲置 5 秒自动隐藏；触摸/点击/滚动/按键时重新显示 */
+(function () {
+    var bar = document.querySelector('.topbar');
+    if (!bar) return;
+    var mq = window.matchMedia('(max-width: 1200px)');
+    var timer = null;
+    var DELAY = 5000;
+
+    function show() {
+        bar.classList.remove('is-autohide-hidden');
+        if (timer) { clearTimeout(timer); timer = null; }
+        if (!mq.matches) return;
+        timer = setTimeout(function () {
+            bar.classList.add('is-autohide-hidden');
+        }, DELAY);
+    }
+
+    function onActivity() { show(); }
+
+    ['scroll', 'pointerdown', 'touchstart', 'mousemove', 'keydown', 'click'].forEach(function (ev) {
+        window.addEventListener(ev, onActivity, { passive: true });
+    });
+
+    if (mq.addEventListener) mq.addEventListener('change', show);
+    else if (mq.addListener) mq.addListener(show);
+
+    show();
+})();

@@ -6525,3 +6525,17 @@ input, textarea, [contenteditable="true"] {
         z-index: 4;
     }
 }
+
+
+/* v423：窄屏/竖屏顶栏 5 秒无操作自动隐藏，避免一直挡住标题栏 */
+@media (max-width: 1200px) {
+    .topbar {
+        transition: transform .24s ease, opacity .24s ease;
+        will-change: transform, opacity;
+    }
+    .topbar.is-autohide-hidden {
+        transform: translateY(-110%);
+        opacity: 0;
+        pointer-events: none;
+    }
+}
