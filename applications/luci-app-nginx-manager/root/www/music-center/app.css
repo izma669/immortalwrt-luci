@@ -6354,3 +6354,174 @@ input, textarea, [contenteditable="true"] {
     font-size: 18px !important;
     padding: 7px 14px !important;
 }
+
+
+/* v410：手机竖屏/窄屏：跑马灯三段放到封面右侧，时间小屏上方 */
+@media (max-width: 1200px) {
+    .player-main {
+        grid-template-columns: minmax(0, 42%) minmax(0, 1fr) !important;
+        grid-template-areas:
+            "cv mt"
+            "cv mm"
+            "cv mb"
+            "cv sm"
+            "cv bt"
+            "dk dk"
+            "cp cp" !important;
+    }
+}
+
+
+/* v411：让跑马灯三行在右列内拉伸，不再按文字最大宽度撑出封面 */
+@media (max-width: 1200px) {
+    .player-main {
+        justify-items: stretch !important;
+    }
+    .led-row--title,
+    .led-row--meta,
+    .led-bar {
+        min-width: 0 !important;
+        width: auto !important;
+        justify-self: stretch !important;
+    }
+}
+
+
+/* v412：窄屏跑马灯下方金线变细、拉满；曲名与演唱者/专辑贴合 */
+@media (max-width: 1200px) {
+    .led-bar {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        padding-bottom: 3px !important;
+        box-shadow: none !important;
+    }
+    .led-bar .range--progress,
+    .led-bar .range--progress::-webkit-slider-runnable-track,
+    .led-bar .range--progress::-moz-range-track {
+        height: 2px !important;
+    }
+    .led-bar::before,
+    .led-bar::after {
+        height: 2px !important;
+    }
+    .led-row--title {
+        padding-bottom: 0 !important;
+    }
+    .led-row--meta {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+}
+
+
+/* v413：窄屏监听音量/缓冲整体右移 20px，收掉音量面板中间空隙 */
+@media (max-width: 1200px) {
+    .deck-right .stream-panel {
+        transform: translateX(20px);
+    }
+}
+
+
+/* v414：窄屏监听音量/缓冲再右移 30px（累计 50px） */
+@media (max-width: 1200px) {
+    .deck-right .stream-panel {
+        transform: translateX(50px);
+    }
+}
+
+
+/* v415：监听/缓冲内容右移 50px，但黑底面板复位；缓冲条保持完整 */
+@media (max-width: 1200px) {
+    .deck-right .stream-panel {
+        transform: none !important;
+        padding-left: 55px !important;
+    }
+}
+
+
+/* v416：窄屏下“网页控制台”与“音乐播放器 My Music on OpenWrt”保持同一水平线 */
+@media (max-width: 560px) {
+    .section-head {
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+    .section-title {
+        flex: 1 1 auto;
+        min-width: 0;
+        gap: 8px;
+        overflow: hidden;
+    }
+    .section-title .player-name {
+        max-width: 130px;
+    }
+    .section-title .service-running,
+    .section-title .ot-health {
+        display: none !important;
+    }
+    .section-actions {
+        width: auto !important;
+        margin-left: auto;
+        flex-shrink: 0;
+        justify-content: flex-end;
+    }
+}
+
+
+/* v418：还原 v417 的页面宽度改动，只保留按钮拉丝/高光覆盖去除 */
+@media (max-width: 1200px) {
+    .control-cluster .tbtn::before {
+        display: none !important;
+    }
+    .control-cluster .tbtn--play.tbtn--labeled {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+}
+
+
+/* v419：按钮上的水平金线来自大屏 player-frame，窄屏隐藏它，保留跑马灯自身金框 */
+@media (max-width: 1200px) {
+    .player-frame {
+        display: none !important;
+    }
+}
+
+
+/* v420：按钮上的效果来自 LED 屏 led-black 的扫描线/玻璃层和大屏 player-frame；
+   把按钮/时间小屏抬到玻璃层上方，并去掉大屏金线覆盖 */
+.control-cluster,
+.led-lower {
+    position: relative;
+    z-index: 4;
+}
+.player-frame {
+    display: none !important;
+}
+
+
+/* v421：底板金属拉丝透过 LED 屏缺口和半透明时间框盖到按钮上；
+   把 LED 黑屏铺满、时间框和按钮组改成实底，金属只留在金线外 */
+.led-black {
+    clip-path: none !important;
+}
+.led-lower {
+    background: #0d1117 !important;
+}
+.control-cluster {
+    background: #0d1117 !important;
+}
+
+
+/* v422：横屏/宽屏恢复环绕金线；金线在按钮下面，不盖按钮 */
+@media (min-width: 1201px) {
+    .player-frame {
+        display: block !important;
+        z-index: 2;
+    }
+    .control-cluster,
+    .led-lower {
+        position: relative;
+        z-index: 4;
+    }
+}
