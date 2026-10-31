@@ -1,7 +1,182 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+
 <meta charset="UTF-8">
+<script>
+/* ===== 旧浏览器兼容层：Promise / fetch / TextDecoder / endsWith ===== */
+(function (w) {
+  if (!w.Promise) {
+    function P(exec) {
+      var self = this;
+      self._s = 0; self._v = undefined; self._c = [];
+      function settle(s, v) {
+        if (self._s) return;
+        self._s = s; self._v = v;
+        setTimeout(function () {
+          var q = self._c; self._c = [];
+          for (var i = 0; i < q.length; i++) q[i]();
+        }, 0);
+      }
+      function resolve(v) {
+        if (v && typeof v.then === 'function') { v.then(resolve, reject); return; }
+        settle(1, v);
+      }
+      function reject(e) { settle(2, e); }
+      try { exec(resolve, reject); } catch (e) { reject(e); }
+    }
+    P.prototype.then = function (onF, onR) {
+      var self = this;
+      return new P(function (res, rej) {
+        function run() {
+          try {
+            var h = self._s === 1 ? onF : onR;
+            if (typeof h !== 'function') { (self._s === 1 ? res : rej)(self._v); return; }
+            var r = h(self._v);
+            if (r && typeof r.then === 'function') r.then(res, rej); else res(r);
+          } catch (e) { rej(e); }
+        }
+        if (!self._s) self._c.push(run); else setTimeout(run, 0);
+      });
+    };
+    P.prototype['catch'] = function (f) { return this.then(null, f); };
+    P.resolve = function (v) { return new P(function (r) { r(v); }); };
+    P.reject = function (e) { return new P(function (_, j) { j(e); }); };
+    P.all = function (arr) {
+      return new P(function (res, rej) {
+        var out = [], n = 0;
+        if (!arr || !arr.length) return res([]);
+        for (var i = 0; i < arr.length; i++) {
+          (function (i) {
+            P.resolve(arr[i]).then(function (v) { out[i] = v; if (++n === arr.length) res(out); }, rej);
+          })(i);
+        }
+      });
+    };
+    w.Promise = P;
+  }
+
+  function decodeUtf8(buf) {
+    if (w.TextDecoder) { try { return new w.TextDecoder('utf-8').decode(new Uint8Array(buf)); } catch (e) {} }
+    var bytes = new Uint8Array(buf), out = '', i = 0, n = bytes.length;
+    while (i < n) {
+      var c = bytes[i++];
+      if (c < 128) { out += String.fromCharCode(c); }
+      else if (c > 191 && c < 224) { out += String.fromCharCode(((c & 31) << 6) | (bytes[i++] & 63)); }
+      else if (c > 223 && c < 240) {
+        out += String.fromCharCode(((c & 15) << 12) | ((bytes[i++] & 63) << 6) | (bytes[i++] & 63));
+      } else {
+        var cp = ((c & 7) << 18) | ((bytes[i++] & 63) << 12) | ((bytes[i++] & 63) << 6) | (bytes[i++] & 63);
+        cp -= 0x10000;
+        out += String.fromCharCode(0xD800 + (cp >> 10), 0xDC00 + (cp & 1023));
+      }
+    }
+    return out;
+  }
+  w.__decodeUtf8 = decodeUtf8;
+
+  if (!w.fetch) {
+    w.fetch = function (url, opts) {
+      opts = opts || {};
+      return new w.Promise(function (resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        xhr.open((opts.method || 'GET').toUpperCase(), url, true);
+        try { xhr.responseType = 'arraybuffer'; } catch (e) {}
+        if (opts.headers) { for (var k in opts.headers) { if (opts.headers.hasOwnProperty(k)) xhr.setRequestHeader(k, opts.headers[k]); } }
+        if (opts.credentials === 'include') xhr.withCredentials = true;
+
+        function toText() {
+          var buf = xhr.response;
+          if (!buf) return w.Promise.resolve('');
+          return w.Promise.resolve(decodeUtf8(buf));
+        }
+
+        xhr.onload = function () {
+          var buf = xhr.response;
+          var res = {
+            ok: xhr.status >= 200 && xhr.status < 300,
+            status: xhr.status,
+            statusText: xhr.statusText,
+            url: url,
+            headers: { get: function (n) { return xhr.getResponseHeader(n); } },
+            text: toText,
+            json: function () { return toText().then(function (t) { return JSON.parse(t); }); },
+            arrayBuffer: function () { return w.Promise.resolve(buf || new ArrayBuffer(0)); },
+            blob: function () { return w.Promise.resolve(new Blob([buf || new ArrayBuffer(0)])); }
+          };
+          resolve(res);
+        };
+        xhr.onerror = function () { reject(new TypeError('Network request failed')); };
+        xhr.ontimeout = function () { reject(new TypeError('Network request timed out')); };
+        try { xhr.send(opts.body || null); } catch (e) { reject(e); }
+      });
+    };
+  }
+
+  if (!String.prototype.endsWith) {
+    String.prototype.endsWith = function (s, n) {
+      var str = String(this);
+      var pos = n === undefined ? str.length : n;
+      return str.substring(pos - s.length, pos) === s;
+    };
+  }
+  if (!Array.prototype.find) {
+    Array.prototype.find = function (fn, thisArg) {
+      for (var i = 0; i < this.length; i++) { if (fn.call(thisArg, this[i], i, this)) return this[i]; }
+      return undefined;
+    };
+  }
+
+  if (!w.AbortController) {
+    function AbortSignal() { this.aborted = false; this.onabort = null; }
+    AbortSignal.prototype.addEventListener = function (t, f) { if (t === 'abort') this.onabort = f; };
+    AbortSignal.prototype.removeEventListener = function () {};
+    function AbortController() { this.signal = new AbortSignal(); }
+    AbortController.prototype.abort = function () {
+      var s = this.signal;
+      if (!s || s.aborted) return;
+      s.aborted = true;
+      if (typeof s.onabort === 'function') { try { s.onabort({ type: 'abort', target: s }); } catch (e) {} }
+    };
+    w.AbortController = AbortController;
+  }
+
+  /* 兜底：用 XHR 取 JSON，不依赖 fetch */
+  w.__xhrJson = function (url) {
+    return new w.Promise(function (resolve, reject) {
+      var x = new XMLHttpRequest();
+      x.open('GET', url, true);
+      x.onload = function () {
+        if (x.status >= 200 && x.status < 300) {
+          try { resolve(JSON.parse(x.responseText)); }
+          catch (e) { reject(new Error('JSON 解析失败')); }
+        } else {
+          reject(new Error('HTTP ' + x.status));
+        }
+      };
+      x.onerror = function () { reject(new Error('网络错误')); };
+      try { x.send(); } catch (e) { reject(e); }
+    });
+  };
+
+  /* 页面脚本出错时直接把错误显示出来，便于排查旧浏览器 */
+  w.addEventListener('error', function (e) {
+    try {
+      var box = document.getElementById('__jsErr');
+      if (!box) {
+        box = document.createElement('div');
+        box.id = '__jsErr';
+        box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;' +
+          'background:#7f1d1d;color:#fff;font:12px/1.45 monospace;padding:6px 10px;' +
+          'white-space:pre-wrap;max-height:40%;overflow:auto';
+        document.body.appendChild(box);
+      }
+      box.textContent = 'JS 错误：' + (e.message || e) +
+        '  @ ' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || '');
+    } catch (x) {}
+  }, false);
+})(window);
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>媒体播放器</title>
 <script src="/mpegts.min.js"></script>
@@ -33,7 +208,10 @@ body.sidebar-hidden #sidebar-toggle{display:flex;align-items:center;justify-cont
 #playlist li.image{color:#c99cff}
 #playlist li.doc{color:#f28b82}
 #playlist li.text{color:#8ecae6}
-#playlist li.other{color:#888}
+#playlist li.other{color:#9aa7b8}
+#playlist li.other a.name{color:#cfe3ff;text-decoration:none}
+#playlist li.other a.name:visited{color:#cfe3ff}
+#playlist li.other a.name:hover{color:#ffffff;text-decoration:underline}
 #playlist li .idx{color:#666;min-width:22px;text-align:center;font-size:12px}
 #playlist li.active .idx{color:#4a9eff}
 #playlist li .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2390,7 +2568,11 @@ function fetchDirViaLua(){
 function loadDirEntries(){
   return fetchDirAutoindex().catch(function(err){
     console.warn('autoindex 目录接口失败，改用 Lua 备用接口：',err.message);
-    return fetchDirViaLua();
+    return fetchDirViaLua().catch(function(e2){
+      console.warn('Lua 备用接口也失败，改用 XHR 直取：', e2 && e2.message);
+      if (typeof window.__xhrJson === 'function') return window.__xhrJson('/api/dir' + dirPath);
+      throw e2;
+    });
   });
 }
 loadDirEntries().then(function(items){
@@ -3513,7 +3695,7 @@ videoEl.addEventListener('playing', function() {
         window.audioCheckTimeout = setTimeout(function() {
             if (listItems[currentIndex] !== it) return;
 
-            let hasAudio = true;
+            var hasAudio = true;
             if (typeof videoEl.webkitAudioDecodedByteCount !== 'undefined') {
                 hasAudio = videoEl.webkitAudioDecodedByteCount > 0;
             } 
