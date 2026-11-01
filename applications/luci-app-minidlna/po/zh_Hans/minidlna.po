@@ -229,3 +229,9 @@ msgstr "miniDLNA 状态"
 #: applications/luci-app-minidlna/htdocs/luci-static/resources/view/minidlna.js:112
 msgid "miniSSDP socket"
 msgstr "miniSSDP 套接字"
+
+msgid "Expose CUE files"
+msgstr 暴露 CUE 文件"
+
+msgid "Publish .cue files as DLNA music items. The file is served as text/plain and its contents are not parsed."
+msgstr "将 .cue 文件作为 DLNA 音乐项目发布。该文件以 text/plain 格式提供，其内容不被解析。"
