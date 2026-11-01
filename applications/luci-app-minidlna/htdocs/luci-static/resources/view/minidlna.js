@@ -89,6 +89,9 @@ return view.extend({
 
 		o = s.taboption('advanced', form.Flag, 'inotify', _('Enable inotify'), _('Set this to enable inotify monitoring to automatically discover new files.'));
 
+		o = s.taboption('advanced', form.Flag, 'expose_cue', _('Expose CUE files'), _('Publish .cue files as DLNA music items. The file is served as text/plain and its contents are not parsed.'));
+		o.default = '0';
+
 		o = s.taboption('advanced', form.Flag, 'enable_tivo', _('Enable TIVO'), _('Set this to enable support for streaming .jpg and .mp3 files to a TiVo supporting HMO.'));
 
 		o = s.taboption('advanced', form.Flag, 'wide_links', _('Allow wide links'), _('Set this to allow serving content outside the media root (via symlinks).'));
