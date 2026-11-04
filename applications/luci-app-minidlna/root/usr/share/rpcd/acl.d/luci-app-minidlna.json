@@ -4,7 +4,9 @@
 		"read": {
 			"cgi-io": [ "exec" ],
 			"file": {
-				"/usr/bin/wget -q http://127.0.0.1:[0-9]*/ -O -": [ "exec" ]
+				"/usr/bin/wget -q http://127.0.0.1:[0-9]*/ -O -": [ "exec" ],
+				"/etc/init.d/minidlna": [ "exec" ],
+				"/etc/init.d/minidlna rebuild": [ "exec" ]
 			},
 			"uci": [
 				"minidlna"

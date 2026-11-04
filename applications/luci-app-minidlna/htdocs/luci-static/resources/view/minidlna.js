@@ -1,6 +1,7 @@
 'use strict';
 'require view';
 'require fs';
+'require ui';
 'require uci';
 'require form';
 'require tools.widgets as widgets';
@@ -26,6 +27,21 @@ var CBIMiniDLNAStatus = form.DummyValue.extend({
 						.format(audio ? +audio[1] : 0, video ? +video[1] : 0, image ? +image[1] : 0);
 				}
 			}, this));
+	}
+});
+
+var CBIReBuildButton = form.DummyValue.extend({
+	renderWidget: function() {
+		return E('button', {
+			'class': 'cbi-button cbi-button-action',
+			'click': function() {
+				return fs.exec_direct('/etc/init.d/minidlna', [ 'rebuild' ]).then(function() {
+					ui.addNotification(null, E('p', {}, [ _('miniDLNA database rebuild started.') ]));
+				}).catch(function(err) {
+					ui.addNotification(null, E('p', {}, [ _('Rebuild failed: %s').format(err) ]), 'error');
+				});
+			}
+		}, [ _('Rebuild now') ]);
 	}
 });
 
@@ -89,6 +105,12 @@ return view.extend({
 
 		o = s.taboption('advanced', form.Flag, 'inotify', _('Enable inotify'), _('Set this to enable inotify monitoring to discover new files automatically.'));
 
+		o = s.taboption('advanced', form.Flag, 'expose_cue', _('Expose CUE files'), _('Publish .cue files as DLNA items. They are served as text/plain; their contents are not parsed.'));
+		o.default = '0';
+
+		o = s.taboption('advanced', form.Flag, 'expose_lrc', _('Expose LRC lyrics'), _('Publish .lrc lyric files as DLNA items. They are served as text/plain.'));
+		o.default = '0';
+
 		o = s.taboption('advanced', form.Flag, 'enable_tivo', _('Enable TIVO'), _('Set this to enable support for streaming .jpg and .mp3 files to a TiVo supporting HMO.'));
 
 		o = s.taboption('advanced', form.Flag, 'wide_links', _('Allow wide links'), _('Set this to allow serving content outside the media root (via symlinks).'));
@@ -110,6 +132,8 @@ return view.extend({
 		o.placeholder = '1';
 
 		o = s.taboption('advanced', form.Value, 'minissdpsocket', _('miniSSDP socket'), _('Specify the path to the MiniSSDPd socket.'));
+
+		o = s.taboption('advanced', CBIReBuildButton, '_rebuild', _('Rebuild database'), _('Delete the miniDLNA database and album art cache, then restart the service to rescan all media directories.'));
 
 		return m.render();
 	}
