@@ -33,10 +33,13 @@ define Build/Compile
 endef
 
 ifeq ($(ARCH),x86_64)
-	EXE_FILE:=vhusbdx86
+	EXE_FILE:=vhusbdx86_64
 endif
 ifeq ($(ARCH),i386)
 	EXE_FILE:=vhusbdi386
+endif
+ifeq ($(ARCH),mips)   
+	EXE_FILE:=vhusbdmips
 endif
 ifeq ($(ARCH),mipsel)
 	EXE_FILE:=vhusbdmipsel
