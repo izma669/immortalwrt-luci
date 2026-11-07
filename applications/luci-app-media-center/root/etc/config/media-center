@@ -5,3 +5,4 @@ config media 'media'
 
 config music 'music'
 	option port '888'
+	option enabled '1'
