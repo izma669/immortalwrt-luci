@@ -46,6 +46,14 @@ ensure_uhttpd() {
     /etc/init.d/uhttpd restart >>"$DAEMON_LOG" 2>&1
 }
 
+ensure_owntone() {
+    [ "$(uci -q get owntone.@owntone[0].enabled 2>/dev/null)" = "0" ] && return 0
+    pidof owntone >/dev/null 2>&1 && return 0
+    [ -x /etc/init.d/owntone ] || return 0
+    log "owntone 未运行，尝试启动"
+    /etc/init.d/owntone start >>"$DAEMON_LOG" 2>&1
+}
+
 start_reader() {
     [ -x "$READER" ] || return 0
     [ -n "$READER_PID" ] && kill -0 "$READER_PID" 2>/dev/null && return 0
@@ -90,12 +98,14 @@ cleanup() {
 trap cleanup TERM INT
 
 ensure_uhttpd
+ensure_owntone
 start_reader
 start_dlna
 start_cover
 
 while true; do
     ensure_uhttpd
+    ensure_owntone
     start_reader
     start_dlna
     now=$(date +%s)
