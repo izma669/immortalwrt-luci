@@ -30,6 +30,10 @@ if [ -z "$(uci -q get media-center.music)" ]; then
     uci -q commit media-center
 fi
 
+# 888 站点需要 /cgi-bin/luci，软链到系统 cgi-bin（/www 是 tmpfs，每次开机重建）
+mkdir -p /www/music-center
+ln -sfn /www/cgi-bin /www/music-center/cgi-bin
+
 PORT=$(uci -q get media-center.media.port); PORT=${PORT:-880}
 ROOT=$(uci -q get media-center.media.root); ROOT=${ROOT:-/mnt}
 ENABLED=$(uci -q get media-center.media.enabled); ENABLED=${ENABLED:-1}
