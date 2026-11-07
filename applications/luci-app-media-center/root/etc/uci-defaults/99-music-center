@@ -7,6 +7,12 @@ chmod +x /usr/bin/music-center-restart 2>/dev/null
 chmod +x /usr/bin/music-cover-fetch 2>/dev/null
 chmod +x /usr/bin/media-center.lua 2>/dev/null
 chmod +x /etc/init.d/music-center 2>/dev/null
+# 传输过程常丢执行位，这里统一补上（含依赖的 gmediarender / owntone）
+for f in /etc/init.d/music-center /etc/init.d/gmediarender /etc/init.d/owntone \
+         /usr/bin/music-center-daemon /usr/bin/gmediarender /usr/bin/owntone; do
+    [ -f "$f" ] && chmod +x "$f" 2>/dev/null
+done
+
 chmod +x /etc/uci-defaults/99-music-center 2>/dev/null
 [ -x /etc/init.d/music-center ] && /etc/init.d/music-center enable
 
@@ -48,4 +54,9 @@ if [ "$ENABLED" != "0" ] && [ -z "$(uci -q get uhttpd.files)" ]; then
     /etc/init.d/uhttpd restart >/dev/null 2>&1
 fi
 
+# 让 OwnTone 使用 softvol 软件声卡，音量独立于主声卡
+if [ -f /etc/init.d/owntone ] && ! grep -q 'card = "softvol"' /etc/init.d/owntone 2>/dev/null; then
+    sed -i 's|^\ttype = "alsa"$|\ttype = "alsa"\n\tcard = "softvol"\n\tmixer = "Softvol"\n\tmixer_device = "hw:0"|' /etc/init.d/owntone
+    /etc/init.d/owntone restart >/dev/null 2>&1
+fi
 exit 0

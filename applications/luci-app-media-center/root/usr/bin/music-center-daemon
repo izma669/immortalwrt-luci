@@ -46,6 +46,69 @@ ensure_uhttpd() {
     /etc/init.d/uhttpd restart >>"$DAEMON_LOG" 2>&1
 }
 
+ensure_softvol() {
+    # 1) /etc/asound.conf 里必须存在 pcm.softvol，没有就补
+    if [ ! -f /etc/asound.conf ]; then
+        cat > /etc/asound.conf <<'EOF'
+defaults.pcm.dmix.rate 44100
+defaults.pcm.dmix.format S16_LE
+
+pcm.!default {
+    type plug
+    slave.pcm "dmixer"
+}
+
+pcm.dmixer {
+    type dmix
+    ipc_key 1024
+    ipc_perm 0666
+    slave {
+        pcm "hw:0,0"
+        period_time 0
+        period_size 1024
+        buffer_size 8192
+        rate 44100
+        format S16_LE
+    }
+    bindings { 0 0 1 1 }
+}
+ctl.dmixer {
+    type hw
+    card 0
+}
+
+pcm.softvol {
+    type softvol
+    slave.pcm "plug:dmixer"
+    control {
+        name "Softvol"
+        card 0
+    }
+}
+EOF
+        log "created /etc/asound.conf with pcm.softvol"
+    elif ! grep -q 'pcm\.softvol' /etc/asound.conf 2>/dev/null; then
+        cat >> /etc/asound.conf <<'EOF'
+
+pcm.softvol {
+    type softvol
+    slave.pcm "plug:dmixer"
+    control {
+        name "Softvol"
+        card 0
+    }
+}
+EOF
+        log "appended pcm.softvol to /etc/asound.conf"
+    fi
+
+    # 2) Owntone 启动脚本必须绑定 softvol，没有就补（幂等）
+    if [ -f /etc/init.d/owntone ] && ! grep -q 'card = "softvol"' /etc/init.d/owntone 2>/dev/null; then
+        sed -i 's|^\ttype = "alsa"$|\ttype = "alsa"\n\tcard = "softvol"\n\tmixer = "Softvol"\n\tmixer_device = "hw:0"|' /etc/init.d/owntone
+        log "patched owntone init: bind softvol"
+        /etc/init.d/owntone restart >>"$DAEMON_LOG" 2>&1
+    fi
+}
 ensure_owntone() {
     [ "$(uci -q get owntone.@owntone[0].enabled 2>/dev/null)" = "0" ] && return 0
     pidof owntone >/dev/null 2>&1 && return 0
@@ -98,6 +161,7 @@ cleanup() {
 trap cleanup TERM INT
 
 ensure_uhttpd
+ensure_softvol
 ensure_owntone
 start_reader
 start_dlna
@@ -105,6 +169,7 @@ start_cover
 
 while true; do
     ensure_uhttpd
+    ensure_softvol
     ensure_owntone
     start_reader
     start_dlna

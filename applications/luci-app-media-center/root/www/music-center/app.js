@@ -448,6 +448,9 @@
     function setVinylPlaying(vinyl, playing) {
         if (!vinyl) return;
         vinyl.classList.toggle('is-playing', !!playing);
+        // 给所在卡片也打个标记，歌名据此播放光带动画
+        var card = vinyl.closest ? vinyl.closest('.receiver') : null;
+        if (card) card.classList.toggle('is-playing', !!playing);
     }
 
     function setPlayerBg(url) {
@@ -891,15 +894,17 @@
         var stream = (g.streamurl || '').trim();
         setText(el.gmrUrl, stream || '-');
         el.gmrUrl.title = stream || '';
-        el.gmrCopyUrl.disabled = !stream;
-        if (stream && /^https?:\/\//i.test(stream)) {
-            el.gmrOpenUrl.href = stream;
-            el.gmrOpenUrl.classList.remove('is-disabled');
-        } else {
-            el.gmrOpenUrl.href = '#';
-            el.gmrOpenUrl.classList.add('is-disabled');
+        if (el.gmrCopyUrl) el.gmrCopyUrl.disabled = !stream;
+        if (el.gmrOpenUrl) {
+            if (stream && /^https?:\/\//i.test(stream)) {
+                el.gmrOpenUrl.href = stream;
+                el.gmrOpenUrl.classList.remove('is-disabled');
+            } else {
+                el.gmrOpenUrl.href = '#';
+                el.gmrOpenUrl.classList.add('is-disabled');
+            }
         }
-        el.gmrDownload.disabled = !running || !stream || state.downloading;
+        if (el.gmrDownload) el.gmrDownload.disabled = !running || !stream || state.downloading;
         if (!state.downloading) setText(el.gmrDownload, '下载到设备');
 
         // 后端在“播放时自动下载”触发时只会在这一次状态里返回 true
@@ -910,7 +915,7 @@
                 state.downloadName = g.auto_download_file || g.title || '歌曲';
                 state.downloading = true;
                 setText(el.gmrDownload, '下载中...');
-                el.gmrDownload.disabled = true;
+                if (el.gmrDownload) el.gmrDownload.disabled = true;
                 setDownloadStatus('检测到新歌曲，已开始自动下载'
                     + (g.auto_download_file ? '：' + g.auto_download_file : ''), 'info');
                 toast('检测到新歌曲，已开始自动下载');
@@ -951,21 +956,27 @@
                 if (!line) return;
                 if (state.lyric.lines[state.lyric.lines.length - 1] === line) return;
                 state.lyric.lines.push(line);
-                if (state.lyric.lines.length > 3) state.lyric.lines.shift();
+                if (state.lyric.lines.length > 5) state.lyric.lines.shift();
             });
         }
 
-        var lines = state.lyric.lines.slice(-3);
-        var pad = 3 - lines.length;
-        for (var i = 0; i < AIR_LYRIC_SPANS.length; i++) {
+        var spans = AIR_LYRIC_SPANS;
+        var total = spans.length;
+        var lines = state.lyric.lines.slice(-total);
+        var pad = total - lines.length;
+        var lastFilled = -1;
+        for (var i = 0; i < total; i++) {
             var text = i < pad ? '' : lines[i - pad];
-            var span = AIR_LYRIC_SPANS[i];
+            var span = spans[i];
             span.textContent = text || '';
-            span.classList.toggle('is-active', i === 2 && !!text);
+            if (text) lastFilled = i;
+        }
+        for (var k = 0; k < total; k++) {
+            spans[k].classList.toggle('is-active', k === lastFilled);
         }
         if (!lines.length && AIR_LYRIC_SPANS.length) {
             var last = AIR_LYRIC_SPANS[AIR_LYRIC_SPANS.length - 1];
-            last.textContent = a.playing ? '正在播放…' : '歌词会在这里滚动显示';
+            last.textContent = '发送端未发送歌词';
             last.classList.remove('is-active');
         }
     }
@@ -1221,8 +1232,12 @@
 
     function renderVolValue(output, v) {
         if (!output) return;
-        if (output.textContent === String(v) + '%') return;
-        output.innerHTML = String(v) + '<small>%</small>';
+        var txt = String(v) + '%';
+        if (output.dataset.lastTxt === txt) return;
+        output.dataset.lastTxt = txt;
+        var prefix = output.getAttribute('data-softvol')
+            ? '<span class="vol-softvol">SOFTVOL</span> ' : '';
+        output.innerHTML = prefix + txt.replace('%', '<small>%</small>');
     }
 
     function setVolumeUI(input, output, target, value, enabled) {
@@ -1471,25 +1486,74 @@
                 .then(function (res) {
                     var log = (res.log || '').trim();
                     var lines = log.split(/\r?\n/).filter(Boolean);
-                    var tail = lines.slice(-3).join('\n');
-                    var done = /100%|saved|已保存|complete/i.test(log);
-                    var failed = /failed|失败|错误|ERROR|No space|No such file|磁盘空间已满/i.test(log);
+
+                    function humanSize(n) {
+                        n = Number(n) || 0;
+                        var u = ['B', 'KB', 'MB', 'GB', 'TB'], k = 0;
+                        while (n >= 1024 && k < 4) { n = n / 1024; k++; }
+                        return (k === 0 ? n : n.toFixed(1)) + u[k];
+                    }
+
+                    var name = '', loc = '', hasCover = false, sizeBytes = 0;
+                    for (var i = 0; i < lines.length; i++) {
+                        var l = lines[i];
+                        var mn = l.match(/^文件[:：]\s*(.+)$/);
+                        if (mn && !name) name = mn[1];
+                        var ml = l.match(/^位置[:：]\s*(.+)$/);
+                        if (ml && !loc) loc = ml[1];
+                        var ms = l.match(/^大小[:：]\s*(\d+)/);
+                        if (ms) sizeBytes = parseInt(ms[1], 10) || 0;
+                        if (/^已带封面[:：]\s*是/.test(l)) hasCover = true;
+                    }
+                    if (name) state.downloadName = name;
+
+                    var pct = -1, psize = 0;
+                    var pr = (res.progress || '').trim();
+                    if (pr) {
+                        var pp = pr.split('|');
+                        pct = parseInt(pp[0], 10);
+                        psize = parseInt(pp[1], 10) || 0;
+                    }
+
+                    var done = /状态[:：]\s*(完成|已跳过)/.test(log);
+                    var skipped = /状态[:：]\s*已跳过/.test(log);
+                    var failed = /状态[:：]\s*失败/.test(log);
+
+                    var title = name || state.downloadName || '歌曲';
+                    var savedPath = (loc ? loc.replace(/\/+$/, '') : '') + (name ? '/' + name : '');
+                    var text;
+                    if (done) {
+                        var finalSize = sizeBytes || psize;
+                        if (skipped) {
+                            text = '文件属性相同已跳过 大小:' + humanSize(finalSize)
+                                + (savedPath ? ' ' + savedPath : '');
+                        } else {
+                            text = '下载完成 大小:' + humanSize(finalSize)
+                                + (hasCover ? ' 已嵌入封面' : '')
+                                + (savedPath ? ' 已保存至 ' + savedPath : '');
+                        }
+                    } else if (failed) {
+                        text = '下载失败 ' + title;
+                    } else {
+                        var cur = psize;
+                        var totalTxt = (cur > 0 && pct > 0) ? humanSize(Math.round(cur * 100 / pct)) : '';
+                        text = title + '   正在下载.... '
+                            + (cur > 0 ? humanSize(cur) : '0 B')
+                            + (totalTxt ? '/' + totalTxt : '');
+                    }
+
+                    setDownloadStatus(text, done ? 'ok' : (failed ? 'error' : 'info'));
 
                     if (done) {
-                        setDownloadStatus('下载完成' + (tail ? '\n' + tail : ''), 'ok');
-                        toast((state.downloadName || '歌曲') + ' 下载完成');
+                        toast(title + (skipped ? ' 已跳过（文件相同）' : ' 下载完成'));
                         finishDownload();
                     } else if (failed) {
-                        setDownloadStatus('下载失败' + (tail ? '\n' + tail : ''), 'error');
-                        toast((state.downloadName || '歌曲') + ' 下载失败', true);
+                        toast(title + ' 下载失败', true);
                         finishDownload();
+                    } else if (attempts < 200) {
+                        state.downloadTimer = setTimeout(tick, 1500);
                     } else {
-                        setDownloadStatus('正在下载...' + (tail ? '\n' + tail : ''), 'info');
-                        if (attempts < 200) {
-                            state.downloadTimer = setTimeout(tick, 1500);
-                        } else {
-                            finishDownload();
-                        }
+                        finishDownload();
                     }
                 })
                 .catch(function () {
@@ -1515,7 +1579,7 @@
 
         state.downloading = true;
         state.downloadName = g.title || '歌曲';
-        el.gmrDownload.disabled = true;
+        if (el.gmrDownload) el.gmrDownload.disabled = true;
         setText(el.gmrDownload, '请求中...');
         setDownloadStatus('正在发送下载请求...', 'info');
 
@@ -2080,18 +2144,18 @@
         el.gmrNext.addEventListener('click', function () { control('gmediarender', 'next'); });
         el.gmrStop.addEventListener('click', function () { control('gmediarender', 'stop'); });
 
-        el.gmrCopyUrl.addEventListener('click', function () {
+        if (el.gmrCopyUrl) el.gmrCopyUrl.addEventListener('click', function () {
             copyText(state.data && state.data.gmediarender && state.data.gmediarender.streamurl,
                 '音频源地址');
         });
-        el.gmrOpenUrl.addEventListener('click', function (e) {
+        if (el.gmrOpenUrl) el.gmrOpenUrl.addEventListener('click', function (e) {
             var g = state.data && state.data.gmediarender;
             if (!g || !g.streamurl) {
                 e.preventDefault();
                 toast('当前没有可打开的音频源', true);
             }
         });
-        el.gmrDownload.addEventListener('click', downloadGmr);
+        if (el.gmrDownload) el.gmrDownload.addEventListener('click', downloadGmr);
 
         $$('.service-buttons button[data-svc]').forEach(function (btn) {
             btn.addEventListener('click', function () {

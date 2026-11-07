@@ -2394,11 +2394,20 @@ body.monitor-on .monitor-speaker {
     text-align: left;
 }
 .source-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
     margin-bottom: 6px;
     color: var(--faint);
     font-size: 10px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+}
+.source-copy {
+    flex: 0 0 auto;
+    text-transform: none;
+    letter-spacing: 0;
 }
 .source-line { display: flex; flex-direction: column; gap: 7px; }
 .source-url {
@@ -6538,4 +6547,498 @@ input, textarea, [contenteditable="true"] {
         opacity: 0;
         pointer-events: none;
     }
+}
+
+/* 播放控制与音量合并为一行：控制在左，音量在右 */
+.receiver-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    width: 100%;
+    margin-top: 14px;
+}
+.receiver-row .receiver-controls {
+    margin-top: 0;
+    flex: 0 0 auto;
+    justify-content: flex-start;
+}
+.receiver-row .receiver-volume {
+    margin-top: 0;
+    flex: 1 1 auto;
+    min-width: 120px;
+}
+@media (max-width: 560px) {
+    .receiver-row {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .receiver-row .receiver-volume {
+        flex: 1 1 100%;
+    }
+}
+
+/* 接收器卡片：文字全部靠左，封面放大 */
+.receiver {
+    align-items: stretch;
+    text-align: left;
+}
+.receiver .cover--receiver {
+    justify-content: flex-start;
+}
+.receiver .cover--receiver .vinyl {
+    width: min(100%, 260px);
+    margin: 10px 0 6px;
+}
+.receiver-title,
+.receiver-artist,
+.receiver-album,
+.receiver-submeta,
+.receiver-meta {
+    text-align: left;
+}
+
+/* 接收器卡片：封面靠左、文字靠右（左右两栏） */
+.receiver-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    width: 100%;
+    margin-top: 10px;
+}
+.receiver-main .cover--receiver {
+    flex: 0 0 128px;
+    width: 128px;
+    justify-content: flex-start;
+}
+.receiver-main .cover--receiver .vinyl {
+    width: 128px;
+    margin: 0;
+}
+.receiver-info {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: right;
+}
+.receiver-info > :first-child { margin-top: 0; }
+.receiver-info .receiver-title,
+.receiver-info .receiver-artist,
+.receiver-info .receiver-album,
+.receiver-info .receiver-submeta {
+    text-align: right;
+}
+@media (max-width: 560px) {
+    .receiver-main { gap: 10px; }
+    .receiver-main .cover--receiver,
+    .receiver-main .cover--receiver .vinyl {
+        flex-basis: 104px;
+        width: 104px;
+    }
+}
+
+/* 卡片顶部：DLNA / AirPlay 2 标签靠右，排在状态文字前面 */
+.receiver-head {
+    justify-content: flex-end;
+}
+/* 标签让出左侧空间后，封面放大 */
+.receiver-main .cover--receiver {
+    flex: 0 0 150px;
+    width: 150px;
+}
+.receiver-main .cover--receiver .vinyl {
+    width: 150px;
+}
+@media (max-width: 560px) {
+    .receiver-main .cover--receiver,
+    .receiver-main .cover--receiver .vinyl {
+        flex-basis: 118px;
+        width: 118px;
+    }
+}
+
+/* 封面再放大一档，并收紧卡片顶部留白 */
+.receiver {
+    padding-top: 14px;
+}
+.receiver-main {
+    margin-top: 4px;
+}
+.receiver-main .cover--receiver {
+    flex: 0 0 260px;
+    width: 260px;
+}
+.receiver-main .cover--receiver .vinyl {
+    width: 260px;
+}
+@media (max-width: 900px) {
+    .receiver-main .cover--receiver,
+    .receiver-main .cover--receiver .vinyl {
+        flex-basis: 190px;
+        width: 190px;
+    }
+}
+@media (max-width: 560px) {
+    .receiver-main .cover--receiver,
+    .receiver-main .cover--receiver .vinyl {
+        flex-basis: 132px;
+        width: 132px;
+    }
+}
+
+/* 控制按钮与音量放进右侧文字栏（广播名称下方） */
+.receiver-info .receiver-row {
+    margin-top: 12px;
+    gap: 12px;
+}
+.receiver-info .receiver-controls {
+    justify-content: flex-end;
+    gap: 9px;
+}
+.receiver-info .receiver-volume {
+    flex: 1 1 auto;
+    min-width: 90px;
+}
+@media (max-width: 560px) {
+    .receiver-info .receiver-row {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .receiver-info .receiver-controls {
+        justify-content: flex-end;
+        margin-left: auto;
+    }
+    .receiver-info .receiver-volume {
+        flex: 1 1 100%;
+    }
+}
+
+/* 进度条也在右侧文字栏内 */
+.receiver-info .mini-progress {
+    margin-top: 10px;
+    grid-template-columns: 32px minmax(0, 1fr) 32px;
+    gap: 8px;
+}
+
+/* 标题行中间的广播名称 */
+.receiver-broadcast-head {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 46%;
+    margin: 0 2px;
+    color: #22c55e;
+    font-size: 10.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 右栏：基本信息在上，进度条与控制在底部，与封面底边齐平 */
+.receiver-main {
+    align-items: stretch;
+}
+.receiver-info {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    align-self: stretch;
+}
+.receiver-basic {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+.receiver-actions {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+}
+
+/* 输出声卡在分隔线下方，与控制区同组 */
+.receiver-soundcard {
+    margin: 0 0 4px;
+    text-align: right;
+}
+
+/* 保底间距：基本信息与输出声卡之间至少留出空隙 */
+.receiver-basic {
+    margin-bottom: 14px;
+}
+
+.receiver-actions {
+    margin-top: auto;
+}
+
+/* 修正：右栏必须跟随封面高度拉伸，才能在中部留出空隙 */
+.receiver-info {
+    height: auto !important;
+    align-self: stretch;
+}
+
+/* 封面再大一档，右栏相应获得更多可分配高度 */
+.receiver-main .cover--receiver {
+    flex: 0 0 300px;
+    width: 300px;
+}
+.receiver-main .cover--receiver .vinyl {
+    width: 300px;
+}
+@media (max-width: 900px) {
+    .receiver-main .cover--receiver,
+    .receiver-main .cover--receiver .vinyl {
+        flex-basis: 220px;
+        width: 220px;
+    }
+}
+
+/* 播放中：歌名上一道光带扫过 */
+@keyframes receiver-title-run {
+    0%, 100% {
+        color: inherit;
+        text-shadow: 0 0 0 rgba(74, 158, 255, 0);
+    }
+    50% {
+        color: #4a9eff;
+        text-shadow: 0 0 12px rgba(74, 158, 255, 0.45);
+    }
+}
+.receiver.is-playing .receiver-title {
+    animation: receiver-title-run 2.4s ease-in-out infinite;
+    will-change: color, text-shadow;
+}
+
+/* AirPlay 歌词移入右栏后缩窄、变矮 */
+.receiver-info .lyric {
+    width: 100%;
+    height: auto;
+    min-height: 84px;
+    max-height: 118px;
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    align-items: flex-end;
+    justify-content: center;
+    text-align: right;
+}
+.receiver-info .lyric span {
+    text-align: right;
+    width: 100%;
+}
+
+/* AirPlay 卡片的歌名与顶部拉开距离（与 DLNA 卡片一致） */
+.receiver-info > .receiver-title {
+    margin-top: 10px;
+}
+
+/* AirPlay 歌名再往下一点；软件声卡按钮不换行 */
+.receiver-info > .receiver-title {
+    margin-top: 16px;
+}
+.section-actions #master-config {
+    white-space: nowrap;
+}
+
+/* AirPlay 歌词增加到 5 行 */
+.receiver-info .lyric {
+    min-height: 104px;
+    max-height: 150px;
+}
+
+/* 软件声卡弹窗里的只读输入框 */
+.sc-field input[readonly] {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel-2);
+    color: var(--muted);
+    font-size: 13px;
+}
+
+/* 主音量旋钮上的 softvol 标识 */
+.knob-softvol-tag {
+    flex: 0 0 auto;
+    align-self: center;
+    padding: 2px 8px;
+    border: 1px solid rgba(226, 183, 93, 0.45);
+    border-radius: 7px;
+    background: rgba(226, 183, 93, 0.10);
+    color: rgba(240, 205, 135, 0.92);
+    font-size: 10.5px;
+    line-height: 1.5;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* 音量栏：softvol 标签与数值同一行，静音条另起一行 */
+.volume-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+}
+.volume-footer .mute-wrap {
+    flex: 1 1 100%;
+}
+
+/* 音量百分比前的 softvol 前缀：绝对定位在数字左侧，不挤占固定宽度的数值 */
+.vol-softvol {
+    position: absolute;
+    right: calc(100% + 6px);
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 1px 6px;
+    border: 1px solid rgba(226, 183, 93, 0.45);
+    border-radius: 6px;
+    background: rgba(226, 183, 93, 0.10);
+    color: rgba(240, 205, 135, 0.92);
+    font-size: 10px;
+    line-height: 1.5;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* 数值容器允许前缀溢出到左侧 */
+.volume-footer .knob-value[data-softvol] {
+    overflow: visible !important;
+}
+
+/* softvol 与百分比合并进同一个框，字号一致 */
+.volume-footer .knob-value[data-softvol] {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 2px 12px !important;
+    border: 1px solid rgba(226, 183, 93, 0.45);
+    border-radius: 9px;
+    background: rgba(226, 183, 93, 0.10);
+    display: inline-flex !important;
+    align-items: baseline;
+    gap: 7px;
+    overflow: visible !important;
+    white-space: nowrap;
+}
+.volume-footer .knob-value[data-softvol] .vol-softvol {
+    position: static;
+    right: auto;
+    top: auto;
+    transform: none;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    font-size: inherit;
+    line-height: inherit;
+    letter-spacing: 0.02em;
+    color: #ffffff;
+    margin: 0;
+}
+
+/* 服务管理并入物理声卡条：同一张卡片内的第二行 */
+.master {
+    grid-template-rows: auto auto;
+}
+.master .services {
+    grid-column: 1 / -1;
+    margin: 4px 0 0;
+    padding: 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+}
+.master .services > summary {
+    padding: 10px 0 0;
+}
+.master .services .service-list {
+    margin-top: 8px;
+}
+
+/* 封面空态提示文字换行不溢出 */
+.cover-empty {
+    padding: 0 12px;
+    max-width: 100%;
+    text-align: center;
+    line-height: 1.35;
+    white-space: normal;
+}
+
+/* 接收器封面上「未发送」提示放大 */
+.receiver .cover-empty {
+    font-size: 15px;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+    padding: 0 18px;
+}
+.receiver .cover-empty .icon {
+    width: 34px;
+    height: 34px;
+}
+
+/* 歌词 6 行 */
+.receiver-info .lyric {
+    min-height: 128px;
+    max-height: 178px;
+}
+
+/* 封面提示文字不跟随唱片旋转 */
+@keyframes cover-empty-counter-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(-360deg); }
+}
+.receiver .vinyl .cover-empty {
+    animation: cover-empty-counter-spin 24s linear infinite;
+    animation-play-state: paused;
+}
+.receiver .vinyl.is-playing .cover-empty {
+    animation-play-state: running;
+}
+
+/* 歌词 6 行：缩小字号与行高，保证整行完整显示 */
+.receiver-info .lyric {
+    min-height: 0;
+    max-height: 200px;
+    padding: 8px 12px;
+    gap: 2px;
+}
+.receiver-info .lyric span {
+    font-size: 15px;
+    line-height: 1.5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.receiver-info .lyric span.is-active {
+    font-size: 16px;
+}
+
+/* 歌词字号再放大一档（6 行仍完整） */
+.receiver-info .lyric {
+    max-height: 220px;
+    padding: 10px 14px;
+}
+.receiver-info .lyric span {
+    font-size: 18px;
+    line-height: 1.45;
+}
+.receiver-info .lyric span.is-active {
+    font-size: 19px;
+}
+
+/* 歌词 5 行，字号与歌名一致（20px） */
+.receiver-info .lyric {
+    max-height: 210px;
+    padding: 10px 14px;
+}
+.receiver-info .lyric span {
+    font-size: 20px;
+    line-height: 1.4;
+}
+.receiver-info .lyric span.is-active {
+    font-size: 20px;
+    font-weight: 700;
 }

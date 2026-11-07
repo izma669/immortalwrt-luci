@@ -11,7 +11,7 @@
     <title>音乐中心</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <script src="perf-lite.js?v=274"></script>
-    <link rel="stylesheet" href="app.css?v=423">
+    <link rel="stylesheet" href="app.css?v=469">
 </head>
 <body>
     <svg class="led-clip-defs" width="0" height="0" aria-hidden="true" focusable="false">
@@ -153,24 +153,6 @@
             <span id="error-text">暂时无法连接音乐中心服务，正在重试…</span>
             <button type="button" id="retry-btn" class="banner-btn">重试</button>
         </div>
-
-        <section class="master card">
-            <span class="master-icon"><svg class="icon"><use href="#i-volume"></use></svg></span>
-            <div class="master-copy">
-                <span class="master-label">物理声卡音量</span>
-                <span class="master-device" id="master-device">正在读取声卡…</span>
-            </div>
-            <div class="master-range">
-                <input id="master-slider" class="range range--master" type="range" min="0" max="100" step="1" value="0" aria-label="物理声卡音量">
-            </div>
-            <output id="master-value" class="master-value">--%</output>
-            <button type="button" class="icon-btn mute-btn" id="master-mute" title="静音" aria-label="静音">
-                <svg class="icon"><use id="master-mute-icon" href="#i-volume"></use></svg>
-            </button>
-            <button type="button" class="icon-btn" id="master-config" title="声卡设置" aria-label="声卡设置">
-                <svg class="icon icon--stroke"><use href="#i-settings"></use></svg>
-            </button>
-        </section>
 
         <section class="player card" id="owntone-card">
             <div class="player-bg" id="owntone-bg"></div>
@@ -336,10 +318,10 @@
                                     <span class="knob-tick knob-tick--0" data-snap="0">0</span>
                                     <span class="knob-tick knob-tick--100" data-snap="100">100</span>
                                     <span class="knob-ticks-lit" aria-hidden="true"></span>
-                                    <div class="knob-dial"><span class="knob-pointer"></span></div>
+                                <div class="knob-dial"><span class="knob-pointer"></span></div>
                                 </div>
                                 <div class="volume-footer">
-                                <output id="owntone-vol-value" class="knob-value">--%</output>
+                                <output id="owntone-vol-value" class="knob-value" data-softvol="1">--%</output>
                                 <div class="mute-wrap">
                                     <button type="button" class="mute-btn mute-bar" id="owntone-mute" title="静音" aria-pressed="false" aria-label="静音" disabled>
                                         <span class="mute-led" aria-hidden="true"></span>
@@ -354,6 +336,7 @@
                             </div>
                             </div>
                         </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -363,58 +346,66 @@
             <article class="receiver card" id="gmr-card" style="--svc: var(--dlna);">
                 <header class="receiver-head">
                     <span class="receiver-kind"><svg class="icon"><use href="#i-dlna"></use></svg> DLNA</span>
+                    <span class="receiver-broadcast-head">广播名称：<span id="gmr-broadcast">-</span></span>
                     <span class="chip chip--dlna" id="gmr-state"><i></i><span>连接中</span></span>
                 </header>
 
-                <div class="cover cover--receiver">
-                    <div class="vinyl" id="gmr-vinyl">
-                        <img id="gmr-cover" alt="GMediaRender 专辑封面" decoding="async" loading="lazy">
-                        <span class="cover-empty"><svg class="icon"><use href="#i-note"></use></svg>等待推送</span>
+                <div class="receiver-main">
+                    <div class="cover cover--receiver">
+                        <div class="vinyl" id="gmr-vinyl">
+                            <img id="gmr-cover" alt="GMediaRender 专辑封面" decoding="async" loading="lazy">
+                            <span class="cover-empty"><svg class="icon"><use href="#i-note"></use></svg>等待推送</span>
+                        </div>
+                    </div>
+
+                    <div class="receiver-info">
+                        <div class="receiver-basic">
+                            <h2 class="receiver-title" id="gmr-title">GmediaRender</h2>
+                            <p class="receiver-artist">演唱者：<span id="gmr-artist">等待手机 / 电脑推送</span></p>
+                            <p class="receiver-album">专辑：<span id="gmr-album">在手机或电脑上选择这个设备推送音乐</span></p>
+                        </div>
+                        <div class="receiver-actions">
+                            <p class="receiver-submeta receiver-soundcard" id="gmr-soundcard">输出声卡：-</p>
+                        <div class="mini-progress">
+                            <span class="time" id="gmr-pos">0:00</span>
+                            <input id="gmr-progress" class="range range--progress" type="range" min="0" max="1000" step="1" value="0" aria-label="DLNA 播放进度">
+                            <span class="time" id="gmr-dur">0:00</span>
+                        </div>
+                        <div class="receiver-row">
+                            <div class="receiver-controls">
+                                <button type="button" class="sbtn" id="gmr-prev" title="上一曲" aria-label="上一曲">
+                                    <svg class="icon"><use href="#i-prev"></use></svg>
+                                </button>
+                                <button type="button" class="sbtn sbtn--play" id="gmr-play" title="播放 / 暂停" aria-label="播放 / 暂停">
+                                    <svg class="icon" id="gmr-play-icon"><use href="#i-play"></use></svg>
+                                </button>
+                                <button type="button" class="sbtn" id="gmr-next" title="下一曲" aria-label="下一曲">
+                                    <svg class="icon"><use href="#i-next"></use></svg>
+                                </button>
+                                <button type="button" class="sbtn" id="gmr-stop" title="停止" aria-label="停止">
+                                    <svg class="icon"><use href="#i-stop"></use></svg>
+                                </button>
+                            </div>
+                            <div class="receiver-volume">
+                                <svg class="icon"><use href="#i-volume"></use></svg>
+                                <input id="gmr-volume" class="range" type="range" min="0" max="100" step="1" value="0" aria-label="GMediaRender 音量">
+                                <output id="gmr-vol-value" class="volume-value">--%</output>
+                            </div>
+                        </div>
+                        </div>
                     </div>
                 </div>
 
-                <h2 class="receiver-title" id="gmr-title">GmediaRender</h2>
-                <p class="receiver-artist">演唱者：<span id="gmr-artist">等待手机 / 电脑推送</span></p>
-                <p class="receiver-album">专辑：<span id="gmr-album">在手机或电脑上选择这个设备推送音乐</span></p>
-                <p class="receiver-submeta" id="gmr-soundcard">输出声卡：-</p>
-                <p class="receiver-submeta receiver-broadcast">广播名称：<span id="gmr-broadcast">-</span></p>
 
-                <div class="mini-progress">
-                    <span class="time" id="gmr-pos">0:00</span>
-                    <input id="gmr-progress" class="range range--progress" type="range" min="0" max="1000" step="1" value="0" aria-label="DLNA 播放进度">
-                    <span class="time" id="gmr-dur">0:00</span>
-                </div>
-
-                <div class="receiver-controls">
-                    <button type="button" class="sbtn" id="gmr-prev" title="上一曲" aria-label="上一曲">
-                        <svg class="icon"><use href="#i-prev"></use></svg>
-                    </button>
-                    <button type="button" class="sbtn sbtn--play" id="gmr-play" title="播放 / 暂停" aria-label="播放 / 暂停">
-                        <svg class="icon" id="gmr-play-icon"><use href="#i-play"></use></svg>
-                    </button>
-                    <button type="button" class="sbtn" id="gmr-next" title="下一曲" aria-label="下一曲">
-                        <svg class="icon"><use href="#i-next"></use></svg>
-                    </button>
-                    <button type="button" class="sbtn" id="gmr-stop" title="停止" aria-label="停止">
-                        <svg class="icon"><use href="#i-stop"></use></svg>
-                    </button>
-                </div>
-
-                <div class="receiver-volume">
-                    <svg class="icon"><use href="#i-volume"></use></svg>
-                    <input id="gmr-volume" class="range" type="range" min="0" max="100" step="1" value="0" aria-label="GMediaRender 音量">
-                    <output id="gmr-vol-value" class="volume-value">--%</output>
-                </div>
 
                 <div class="source-panel">
-                    <div class="source-title">音频源地址</div>
+                    <div class="source-title">
+                        <span>音频源地址</span>
+                        <button type="button" class="mini-btn source-copy" id="gmr-copy-url" disabled>复制</button>
+                    </div>
                     <div class="source-line">
                         <code id="gmr-url" class="source-url" title="">-</code>
-                        <div class="source-actions">
-                            <button type="button" class="mini-btn" id="gmr-copy-url" disabled>复制</button>
-                            <a class="mini-btn" id="gmr-open-url" href="#" target="_blank" rel="noopener noreferrer">浏览器打开</a>
-                            <button type="button" class="mini-btn mini-btn--green" id="gmr-download" disabled>下载到设备</button>
-                        </div>
+
                     </div>
                     <div class="source-status" id="gmr-download-status" hidden></div>
                 </div>
@@ -425,28 +416,33 @@
             <article class="receiver card" id="air-card" style="--svc: var(--airplay);">
                 <header class="receiver-head">
                     <span class="receiver-kind"><svg class="icon"><use href="#i-airplay"></use></svg> AirPlay 2</span>
+                    <span class="receiver-broadcast-head">广播名称：<span id="air-broadcast">-</span></span>
                     <span class="chip chip--air" id="air-state"><i></i><span>连接中</span></span>
                 </header>
 
-                <div class="cover cover--receiver">
-                    <div class="vinyl" id="air-vinyl">
-                        <img id="air-cover" alt="AirPlay 专辑封面" decoding="async" loading="lazy">
-                        <span class="cover-empty"><svg class="icon"><use href="#i-note"></use></svg>等待推送</span>
+                <div class="receiver-main">
+                    <div class="cover cover--receiver">
+                        <div class="vinyl" id="air-vinyl">
+                            <img id="air-cover" alt="AirPlay 专辑封面" decoding="async" loading="lazy">
+                            <span class="cover-empty"><svg class="icon"><use href="#i-note"></use></svg>发送端未发送封面数据</span>
+                        </div>
+                    </div>
+
+                    <div class="receiver-info">
+                        <h2 class="receiver-title" id="air-title">Apple AirPlay 2</h2>
+                        <p class="receiver-artist">演唱者：<span id="air-artist">AirPlay 接收器</span></p>
+                        <p class="receiver-album">专辑：<span id="air-album">从 iPhone / iPad / Mac 选择这个设备</span></p>
+                        <p class="receiver-submeta" id="air-format">音频格式：ALAC 44.1kHz/16bit/立体声</p>
+                        <div class="lyric" id="air-lyric" aria-label="滚动歌词">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
                     </div>
                 </div>
 
-                <h2 class="receiver-title" id="air-title">Apple AirPlay 2</h2>
-                <p class="receiver-artist">演唱者：<span id="air-artist">AirPlay 接收器</span></p>
-                <p class="receiver-album">专辑：<span id="air-album">从 iPhone / iPad / Mac 选择这个设备</span></p>
-                <p class="receiver-submeta receiver-broadcast">广播名称：<span id="air-broadcast">-</span></p>
-                <p class="receiver-submeta" id="air-soundcard">输出声卡：-</p>
-                <p class="receiver-submeta" id="air-format">音频格式：ALAC 44.1kHz/16bit/立体声</p>
-
-                <div class="lyric" id="air-lyric" aria-label="滚动歌词">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
 
                 <div class="air-panel">
                     <div class="air-volume-meter" aria-hidden="true"><span id="air-vol-fill"></span></div>
@@ -460,6 +456,20 @@
                 <button type="button" class="btn btn--ghost btn--small receiver-start" id="air-start" hidden>启动 AirPlay 接收器</button>
             </article>
         </section>
+
+        <section class="master card">
+            <span class="master-icon"><svg class="icon"><use href="#i-volume"></use></svg></span>
+            <div class="master-copy">
+                <span class="master-label">物理声卡音量</span>
+                <span class="master-device" id="master-device">正在读取声卡…</span>
+            </div>
+            <div class="master-range">
+                <input id="master-slider" class="range range--master" type="range" min="0" max="100" step="1" value="0" aria-label="物理声卡音量">
+            </div>
+            <output id="master-value" class="master-value">--%</output>
+            <button type="button" class="icon-btn mute-btn" id="master-mute" title="静音" aria-label="静音">
+                <svg class="icon"><use id="master-mute-icon" href="#i-volume"></use></svg>
+            </button>
 
         <details class="services card" id="services">
             <summary class="services-summary">
@@ -527,6 +537,8 @@
             </div>
         </details>
 
+        </section>
+
         <footer class="footer">
             <span>音乐中心 · 免登录局域网控制</span>
             <span id="footer-services">正在读取服务状态…</span>
@@ -536,23 +548,28 @@
     <div id="soundcard-modal" class="sc-overlay" hidden>
         <div class="sc-panel" role="dialog" aria-modal="true" aria-labelledby="sc-title">
             <header class="sc-head">
-                <span class="sc-title" id="sc-title">声卡设置</span>
+                <span class="sc-title" id="sc-title">软件声卡</span>
                 <button type="button" class="sc-close" id="sc-close" title="关闭" aria-label="关闭">✕</button>
             </header>
             <p class="sc-current" id="sc-current">正在读取声卡…</p>
             <label class="sc-field">
-                <span>输出声卡</span>
+                <span>物理声卡（硬件）</span>
                 <select id="sc-card"></select>
             </label>
             <label class="sc-field">
-                <span>混音控制</span>
+                <span>物理音量混音器</span>
                 <select id="sc-control"></select>
+            </label>
+            <label class="sc-field">
+                <span>OwnTone 音量混音器</span>
+                <input type="text" value="Softvol（软件声卡，固定）" readonly>
             </label>
             <div class="sc-actions">
                 <button type="button" class="btn btn--ghost btn--small" id="sc-refresh">刷新</button>
                 <button type="button" class="btn btn--primary btn--small" id="sc-apply">应用并重启</button>
             </div>
-            <p class="sc-hint">应用后会重写 /etc/asound.conf，并重启 OwnTone / AirPlay / DLNA。</p>
+            <p class="sc-hint">应用后会重写 /etc/asound.conf（dmix + softvol 软件声卡），并重启 OwnTone / AirPlay / DLNA。</p>
+            <p class="sc-hint">OwnTone 的音量走 <b>Softvol</b>（软件声卡），与上面的「物理音量混音器」互不影响：调 OwnTone 不会改变物理声卡音量。</p>
         </div>
     </div>
 
@@ -560,6 +577,6 @@
         <span id="toast-text"></span>
     </div>
 
-    <script src="app.js?v=423"></script>
+    <script src="app.js?v=469"></script>
 </body>
 </html>

@@ -993,7 +993,7 @@ end
 -- 保留原插件的“播放时自动下载”：以前由 LuCI 的 nowplaying 轮询触发，
 -- 现在由音乐中心的状态轮询触发；只有打开音乐中心页面时才会执行，
 -- 和旧行为一致（旧页面关闭后同样不会继续下载）。
-local function trigger_download(url, title, artist)
+local function trigger_download(url, title, artist, cover)
     url = tostring(url or ""):gsub("&amp;", "&")
     if not url:match("^https?://") then return false, "无效链接" end
 
@@ -1031,19 +1031,171 @@ local function trigger_download(url, title, artist)
     if not filename:match("%.%w+$") then filename = filename .. "." .. ext end
 
     local filepath = dir .. "/" .. filename
-    local logfile = "/tmp/gmediarender_dl.log"
-    local lf = io.open(logfile, "w")
-    if lf then
-        lf:write("开始下载...\n")
-        lf:close()
+
+    -- 封面优先取 DLNA 元数据里的 albumArtURI；本地源再兜底从文件提取
+    local playsrc = ""
+
+    local script = [[
+#!/bin/sh
+LOG=/tmp/gmediarender_dl.log
+PROGF=/tmp/gmr_progress.txt
+URL=@URL@
+OUT=@OUT@
+COVER=@COVER@
+PLAYSRC=@PLAYSRC@
+TMP="$OUT.part"
+EXT=${OUT##*.}
+FTMP="$OUT.part.$EXT"
+COVERFILE=/tmp/gmr_cover.jpg
+
+: > "$LOG"
+: > "$PROGF"
+
+log() { echo "$(date '+%F %T') $*" >> "$LOG"; }
+human() { awk -v s="$1" 'BEGIN{split("B KB MB GB TB",u," ");i=1;while(s>=1024&&i<5){s/=1024;i++}printf "%.1f %s",s,u[i]}'; }
+
+log "文件: $(basename "$OUT")"
+log "位置: $(dirname "$OUT")"
+
+rm -f "$TMP" "$FTMP" "$COVERFILE"
+
+# ---------- 1) 先取封面 ----------
+if [ -n "$COVER" ]; then
+    if command -v wget >/dev/null 2>&1; then
+        wget -q -O "$COVERFILE" "$COVER" 2>/dev/null
+    else
+        uclient-fetch -q -O "$COVERFILE" "$COVER" 2>/dev/null
+    fi
+fi
+if [ ! -s "$COVERFILE" ] && [ -n "$PLAYSRC" ] && [ -f "$PLAYSRC" ]; then
+    ffmpeg -hide_banner -loglevel error -nostats -y -i "$PLAYSRC" -an -vcodec mjpeg -frames:v 1 "$COVERFILE" >/dev/null 2>&1
+fi
+
+case "$OUT" in
+    *.mp3|*.m4a|*.mp4|*.m4b|*.aac|*.flac) FMT=1 ;;
+    *) FMT=0 ;;
+esac
+
+if [ -s "$COVERFILE" ]; then
+    log "封面: 已获取 ($(human "$(wc -c < "$COVERFILE" | tr -d ' ')"))"
+else
+    log "封面: 未获取"
+fi
+if [ -s "$COVERFILE" ] && [ "$FMT" = "1" ]; then
+    log "可嵌入: 是"
+else
+    log "可嵌入: 否"
+fi
+
+# ---------- 2) 一次落盘（带实时进度） ----------
+if [ -s "$COVERFILE" ] && [ "$FMT" = "1" ] && command -v ffmpeg >/dev/null 2>&1; then
+    log "下载并嵌入封面（单次写盘）"
+    DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$URL" 2>/dev/null)
+    rm -f /tmp/gmr_ffprog
+    case "$OUT" in
+        *.mp3)
+            ffmpeg -hide_banner -loglevel error -nostats -progress /tmp/gmr_ffprog -stats_period 1 -y \
+                -i "$URL" -i "$COVERFILE" -map 0:a -map 1:v -c copy -id3v2_version 3 \
+                -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" "$FTMP" >>"$LOG" 2>&1 &
+            ;;
+        *)
+            ffmpeg -hide_banner -loglevel error -nostats -progress /tmp/gmr_ffprog -stats_period 1 -y \
+                -i "$URL" -i "$COVERFILE" -map 0:a -map 1:v -c copy -disposition:v:0 attached_pic "$FTMP" >>"$LOG" 2>&1 &
+            ;;
+    esac
+    FFPID=$!
+    while kill -0 "$FFPID" 2>/dev/null; do
+        sleep 1
+        TT=$(sed -n 's/^out_time_ms=//p' /tmp/gmr_ffprog 2>/dev/null | tail -1)
+        SS=$(sed -n 's/^total_size=//p' /tmp/gmr_ffprog 2>/dev/null | tail -1)
+        if [ -n "$TT" ] && [ -n "$DUR" ]; then
+            awk -v t="$TT" -v d="$DUR" -v s="$SS" 'BEGIN{ if(d>0){ p=t/1000000/d*100; if(p>100)p=100; if(p<0)p=0; printf "%d|%d\n", p, s } }' > "$PROGF" 2>/dev/null
+        fi
+    done
+    wait "$FFPID" 2>/dev/null
+    : > "$PROGF"
+
+    if [ -s "$FTMP" ]; then
+        mv -f "$FTMP" "$TMP"
+    fi
+    if [ ! -s "$TMP" ]; then
+        log "ffmpeg 直接下载失败，退回普通下载"
+        rm -f "$TMP" "$FTMP"
+        if command -v wget >/dev/null 2>&1; then
+            wget -O "$TMP" "$URL" >>"$LOG" 2>&1
+        else
+            uclient-fetch -O "$TMP" "$URL" >>"$LOG" 2>&1
+        fi
+    fi
+else
+    log "下载（不嵌封面）"
+    if command -v wget >/dev/null 2>&1; then
+        wget -O "$TMP" "$URL" >>"$LOG" 2>&1
+    else
+        uclient-fetch -O "$TMP" "$URL" >>"$LOG" 2>&1
+    fi
+fi
+
+if [ ! -s "$TMP" ]; then
+    log "下载失败"
+    log "状态: 失败"
+    rm -f "$TMP" "$FTMP" "$COVERFILE"
+    : > "$PROGF"
+    exit 1
+fi
+
+NEWSZ=$(wc -c < "$TMP" | tr -d ' ')
+
+# ---------- 3) 判重 ----------
+if [ -f "$OUT" ]; then
+    OLDSZ=$(wc -c < "$OUT" | tr -d ' ')
+    HASCOVER=0
+    if command -v ffprobe >/dev/null 2>&1; then
+        if ffprobe -v error -select_streams v -show_entries stream=codec_name -of csv=p=0 "$OUT" 2>/dev/null | grep -q .; then
+            HASCOVER=1
+        fi
+    fi
+    if [ "$HASCOVER" = "1" ] && [ "$OLDSZ" = "$NEWSZ" ]; then
+        log "已存在且带封面、大小一致，跳过覆盖"
+        log "大小: $NEWSZ 字节 ($(human "$NEWSZ"))"
+        log "状态: 已跳过"
+        rm -f "$TMP" "$FTMP" "$COVERFILE"
+        exit 0
+    fi
+    if [ "$HASCOVER" = "1" ]; then
+        log "已有封面但大小不同（旧 $(human "$OLDSZ") / 新 $(human "$NEWSZ")）"
+    else
+        log "旧文件无封面（旧 $(human "$OLDSZ") / 新 $(human "$NEWSZ")）"
+    fi
+fi
+
+mv -f "$TMP" "$OUT"
+log "大小: $NEWSZ 字节 ($(human "$NEWSZ"))"
+log "已带封面: $([ -s "$COVERFILE" ] && echo 是 || echo 否)"
+log "状态: 完成"
+rm -f "$COVERFILE" "$FTMP"
+: > "$PROGF"
+exit 0
+]]
+    local function fill(s)
+        s = s:gsub("@URL@", shell_quote(url))
+        s = s:gsub("@OUT@", shell_quote(filepath))
+        s = s:gsub("@COVER@", shell_quote(tostring(cover or "")))
+        s = s:gsub("@PLAYSRC@", shell_quote(playsrc))
+        s = s:gsub("@TOOL@", tool)
+        return s
     end
-    local cmd = string.format(
-        "( env LANG=C.UTF-8 LC_ALL=C.UTF-8 %s -O %s %s >> %s 2>&1 & )",
-        tool, shell_quote(filepath), shell_quote(url), shell_quote(logfile))
-    sys.call(cmd)
+
+    local spath = "/tmp/gmr_dl_" .. tostring(os.time()) .. ".sh"
+    local fh = io.open(spath, "w")
+    if not fh then return false, "无法写入下载脚本" end
+    fh:write(fill(script))
+    fh:close()
+
+    sys.call("chmod +x " .. shell_quote(spath))
+    sys.call("( /bin/sh " .. shell_quote(spath) .. " >/dev/null 2>&1 & )")
     return true, filename
 end
-
 local function maybe_auto_download(st)
     if not st.playing then return false end
     if not st.streamurl or not st.streamurl:match("^https?://") then return false end
@@ -1058,7 +1210,7 @@ local function maybe_auto_download(st)
     local f = io.open(GMR_LAST_DL, "w")
     if f then f:write(st.streamurl); f:close() end
 
-    local ok, file = trigger_download(st.streamurl, st.title, st.artist)
+    local ok, file = trigger_download(st.streamurl, st.title, st.artist, st.art)
     return ok, file
 end
 
@@ -1319,6 +1471,7 @@ function action_download()
     local url = http.formvalue("url") or ""
     local title = http.formvalue("title") or ""
     local artist = http.formvalue("artist") or ""
+    local cover = http.formvalue("cover") or ""
 
     http.prepare_content("application/json")
     if not url:match("^https?://") then
@@ -1326,7 +1479,7 @@ function action_download()
         return
     end
 
-    local ok, info = trigger_download(url, title, artist)
+    local ok, info = trigger_download(url, title, artist, cover)
     if ok then
         http.write(jsonc.stringify({ ok = true, file = info }))
     else
@@ -1342,13 +1495,26 @@ function action_download_log()
 
     local data = ""
     if fs.access("/tmp/gmediarender_dl.log") then
-        data = fs.readfile("/tmp/gmediarender_dl.log") or ""
+        local raw = fs.readfile("/tmp/gmediarender_dl.log") or ""
+        local keep = {}
+        for line in raw:gmatch("[^\r\n]+") do
+            -- 只保留脚本自己写的进度行（带时间戳），过滤 ffmpeg / wget 的底层输出
+            if line:match("^%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d ") then
+                keep[#keep + 1] = (line:gsub("^%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d ", ""))
+                if #keep > 80 then table.remove(keep, 1) end
+            end
+        end
+        data = table.concat(keep, "\n")
         if #data > 6000 then data = data:sub(-6000) end
         data = data:gsub("\\(%d%d%d)", function(oct)
             return string.char(tonumber(oct, 8))
         end)
     end
-    http.write(jsonc.stringify({ ok = true, log = data }))
+    local progress = ""
+    if fs.access("/tmp/gmr_progress.txt") then
+        progress = (fs.readfile("/tmp/gmr_progress.txt") or ""):gsub("[\r\n]+", "")
+    end
+    http.write(jsonc.stringify({ ok = true, log = data, progress = progress }))
 end
 
 function action_volume()
