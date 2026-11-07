@@ -59,7 +59,8 @@ local function apply_music(port, enabled)
         uci:set("uhttpd", "music", "rfc1918_filter", "1")
         uci:set("uhttpd", "music", "tcp_keepalive", "1")
         uci:set("uhttpd", "music", "cgi_prefix", "/cgi-bin")
-        uci:set("uhttpd", "music", "lua_prefix", "/cgi-bin/luci=/usr/lib/lua/luci/sgi/uhttpd.lua")
+        -- 让 888 站点能用 /cgi-bin/luci：软链到系统的 cgi-bin
+        sys.exec("ln -sfn /www/cgi-bin /www/music-center/cgi-bin")
         uci:delete("uhttpd", "music", "listen_http")
         uci:set_list("uhttpd", "music", "listen_http",
             { "0.0.0.0:" .. port, "[::]:" .. port })
@@ -110,18 +111,17 @@ end
 
 -- 后台重启脚本（/tmp 生成，不依赖额外文件）
 local function uhttpd_restart_script()
-    return [[
-#!/bin/sh
-LOG=/tmp/media-center-restart.log
-LOCK=/tmp/media-center-restart.lock
-echo $$ > "$LOCK"
-trap 'rm -f "$LOCK"' EXIT INT TERM
-echo "=== uhttpd restart ===" >> "$LOG"
-/etc/init.d/uhttpd restart >> "$LOG" 2>&1
-sleep 2
-echo "=== done ===" >> "$LOG"
-exit 0
-]]
+    local s = "#!/bin/sh\n"
+    s = s .. "LOG=/tmp/media-center-restart.log\n"
+    s = s .. "LOCK=/tmp/media-center-restart.lock\n"
+    s = s .. "echo $$ > \"$LOCK\"\n"
+    s = s .. "trap 'rm -f \"$LOCK\"' EXIT INT TERM\n"
+    s = s .. "echo \"=== uhttpd restart ===\" >> \"$LOG\"\n"
+    s = s .. "/etc/init.d/uhttpd restart >> \"$LOG\" 2>&1\n"
+    s = s .. "sleep 2\n"
+    s = s .. "echo \"=== done ===\" >> \"$LOG\"\n"
+    s = s .. "exit 0\n"
+    return s
 end
 
 -- AJAX：重启（POST ?ajax=uhttpd_restart）
