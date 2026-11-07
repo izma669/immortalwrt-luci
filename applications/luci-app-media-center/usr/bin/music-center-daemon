@@ -1,0 +1,106 @@
+#!/bin/sh
+# =============================================================================
+# 音乐中心 / 媒体服务器 —— 唯一后台脚本
+#
+# 负责：
+#   1) 确保 uhttpd 的媒体站点（880）随系统启动
+#   2) AirPlay / shairport 元数据读取器
+#   3) DLNA 接收端发现
+#   4) 歌曲封面后台下载
+#
+# 网页服务本身由 /etc/init.d/uhttpd 管理，配置在 /etc/config/uhttpd 的 files 段，
+# 由 LuCI「媒体中心」页面写入；系统 80/443 与本脚本无关。
+# =============================================================================
+
+DAEMON_LOG=/var/log/media-center-daemon.log
+READER=/usr/bin/music-center-reader.lua
+DLNA=/usr/bin/media-center.lua
+COVER=/usr/bin/music-cover-fetch
+
+READER_PID=""
+DLNA_PID=""
+COVER_PID=""
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >>"$DAEMON_LOG"
+}
+
+media_port() {
+    local p
+    p=$(uci -q get media-center.media.port 2>/dev/null)
+    [ -n "$p" ] || p=880
+    echo "$p"
+}
+
+ensure_uhttpd() {
+    [ -x /etc/init.d/uhttpd ] || return 0
+    # 没启用媒体站点就不管
+    [ "$(uci -q get media-center.media.enabled 2>/dev/null)" = "0" ] && return 0
+    uci -q get uhttpd.files >/dev/null 2>&1 || return 0
+    local port
+    port=$(media_port)
+    if netstat -ltn 2>/dev/null | grep -qE ":$port[[:space:]]"; then
+        return 0
+    fi
+    log "uhttpd 未监听 $port，重启 uhttpd"
+    /etc/init.d/uhttpd restart >>"$DAEMON_LOG" 2>&1
+}
+
+start_reader() {
+    [ -x "$READER" ] || return 0
+    [ -n "$READER_PID" ] && kill -0 "$READER_PID" 2>/dev/null && return 0
+    "$READER" >>"$DAEMON_LOG" 2>&1 &
+    READER_PID=$!
+    log "reader started: $READER_PID"
+}
+
+start_dlna() {
+    [ -x "$DLNA" ] || return 0
+    [ -n "$DLNA_PID" ] && kill -0 "$DLNA_PID" 2>/dev/null && return 0
+    "$DLNA" >>"$DAEMON_LOG" 2>&1 &
+    DLNA_PID=$!
+    log "dlna discovery started: $DLNA_PID"
+}
+
+COVER_LAST=0
+COVER_ENABLED=$(uci -q get music.@music[0].cover_scan 2>/dev/null)
+[ -z "$COVER_ENABLED" ] && COVER_ENABLED=0
+
+start_cover() {
+    [ "$COVER_ENABLED" = "1" ] || return 0
+    [ -x "$COVER" ] || return 0
+    if command -v ionice >/dev/null 2>&1; then
+        nice -n 19 ionice -c 3 "$COVER" --scan >>"$DAEMON_LOG" 2>&1 &
+    else
+        nice -n 19 "$COVER" --scan >>"$DAEMON_LOG" 2>&1 &
+    fi
+    COVER_PID=$!
+    COVER_LAST=$(date +%s)
+    log "cover scan started (nice19): $COVER_PID"
+}
+
+cleanup() {
+    log "stopping"
+    [ -n "$COVER_PID" ] && kill "$COVER_PID" 2>/dev/null
+    [ -n "$READER_PID" ] && kill "$READER_PID" 2>/dev/null
+    [ -n "$DLNA_PID" ] && kill "$DLNA_PID" 2>/dev/null
+    exit 0
+}
+
+trap cleanup TERM INT
+
+ensure_uhttpd
+start_reader
+start_dlna
+start_cover
+
+while true; do
+    ensure_uhttpd
+    start_reader
+    start_dlna
+    now=$(date +%s)
+    if [ $((now - COVER_LAST)) -ge 1800 ]; then
+        start_cover
+    fi
+    sleep 10
+done
