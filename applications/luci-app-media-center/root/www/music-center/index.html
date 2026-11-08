@@ -3,7 +3,27 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#070a10">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <script>
+    /* 自动版本检测：服务端 build.txt 变了就自动刷新，避免看到缓存的旧页面 */
+    (function () {
+        var BUILD = '565';
+        try {
+            var x = new XMLHttpRequest();
+            x.open('GET', 'build.txt?_=' + Date.now(), true);
+            x.onload = function () {
+                if (x.status !== 200) return;
+                var v = String(x.responseText || '').trim();
+                if (v && v !== BUILD) {
+                    location.replace(location.pathname + '?v=' + encodeURIComponent(v));
+                }
+            };
+            x.send();
+        } catch (e) {}
+    })();
+    </script>    <meta name="theme-color" content="#070a10">
     <meta name="color-scheme" content="dark light">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -11,7 +31,7 @@
     <title>音乐中心</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <script src="perf-lite.js?v=274"></script>
-    <link rel="stylesheet" href="app.css?v=469">
+    <link rel="stylesheet" href="app.css?v=565">
 </head>
 <body>
     <svg class="led-clip-defs" width="0" height="0" aria-hidden="true" focusable="false">
@@ -232,6 +252,7 @@
                                             <svg class="icon led-mute"><use href="#i-speaker-x"></use></svg>
                                         </span>
                                         <span class="time" id="owntone-dur">0:00</span>
+                                        <span class="led-volflash" id="led-volflash">音量 --%</span>
                                     </div>
                                     <div class="led-audio-info" id="owntone-audio-info" aria-label="音频信息">
                                         <span class="audio-cell" title="文件格式"><span class="audio-value" id="owntone-format">--</span></span>
@@ -285,7 +306,10 @@
                             </div>
 
                             <div class="deck-right">
-<div class="stream-panel" id="stream-panel">
+                                <span class="panel-screw panel-screw--tl" aria-hidden="true"></span>
+                                <span class="panel-screw panel-screw--tr" aria-hidden="true"></span>
+                                <span class="panel-screw panel-screw--bl" aria-hidden="true"></span>
+                                <span class="panel-screw panel-screw--br" aria-hidden="true"></span><div class="stream-panel" id="stream-panel">
                                 <span class="stream-state" id="stream-state">等待歌曲</span>
                                 <button type="button" class="stream-mute-crystal" id="stream-mute" aria-pressed="false" title="开启声音">
                                     <span class="stream-mute-on">监听</span>
@@ -318,10 +342,14 @@
                                     <span class="knob-tick knob-tick--0" data-snap="0">0</span>
                                     <span class="knob-tick knob-tick--100" data-snap="100">100</span>
                                     <span class="knob-ticks-lit" aria-hidden="true"></span>
+                                <span class="knob-breath" aria-hidden="true"></span>
                                 <div class="knob-dial"><span class="knob-pointer"></span></div>
                                 </div>
                                 <div class="volume-footer">
-                                <output id="owntone-vol-value" class="knob-value" data-softvol="1">--%</output>
+                                <output id="owntone-vol-value" class="knob-value" hidden>--%</output>
+                                </div>
+                                <input id="owntone-volume" class="knob-range" type="range" min="0" max="100" step="1" value="0" tabindex="-1" aria-hidden="true">
+                            </div>
                                 <div class="mute-wrap">
                                     <button type="button" class="mute-btn mute-bar" id="owntone-mute" title="静音" aria-pressed="false" aria-label="静音" disabled>
                                         <span class="mute-led" aria-hidden="true"></span>
@@ -331,9 +359,6 @@
                                         </svg>
                                     </button>
                                 </div>
-                                </div>
-                                <input id="owntone-volume" class="knob-range" type="range" min="0" max="100" step="1" value="0" tabindex="-1" aria-hidden="true">
-                            </div>
                             </div>
                         </div>
                         </div>
@@ -577,6 +602,6 @@
         <span id="toast-text"></span>
     </div>
 
-    <script src="app.js?v=469"></script>
+    <script src="app.js?v=565"></script>
 </body>
 </html>

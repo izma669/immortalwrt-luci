@@ -77,6 +77,7 @@ ctl.dmixer {
     card 0
 }
 
+# 仅保留定义，默认设备不经过它；OwnTone 使用自身软件音量
 pcm.softvol {
     type softvol
     slave.pcm "plug:dmixer"
@@ -87,6 +88,7 @@ pcm.softvol {
 }
 EOF
         log "created /etc/asound.conf with pcm.softvol"
+        aplay -D softvol /dev/zero -d 1 >/dev/null 2>&1
     elif ! grep -q 'pcm\.softvol' /etc/asound.conf 2>/dev/null; then
         cat >> /etc/asound.conf <<'EOF'
 
@@ -100,16 +102,81 @@ pcm.softvol {
 }
 EOF
         log "appended pcm.softvol to /etc/asound.conf"
+        aplay -D softvol /dev/zero -d 1 >/dev/null 2>&1
     fi
 
-    # 2) Owntone 启动脚本必须绑定 softvol，没有就补（幂等）
-    if [ -f /etc/init.d/owntone ] && ! grep -q 'card = "softvol"' /etc/init.d/owntone 2>/dev/null; then
-        sed -i 's|^\ttype = "alsa"$|\ttype = "alsa"\n\tcard = "softvol"\n\tmixer = "Softvol"\n\tmixer_device = "hw:0"|' /etc/init.d/owntone
-        log "patched owntone init: bind softvol"
-        /etc/init.d/owntone restart >>"$DAEMON_LOG" 2>&1
-    fi
 }
+
+# ---------------------------------------------------------------- nqptp
+# AirPlay 2 的 PTP 服务：nqptp 必须先于 owntone / shairport 运行
+# 只有 OwnTone 需要 Softvol：让它的 audio 段绑定 softvol（幂等，其他插件不动）
+ensure_owntone_softvol() {
+    [ -f /etc/init.d/owntone ] || return 0
+    grep -q 'card = "softvol"' /etc/init.d/owntone 2>/dev/null && return 0
+    sed -i 's|^\ttype = "alsa"$|\ttype = "alsa"\n\tcard = "softvol"\n\tmixer = "Softvol"\n\tmixer_device = "hw:0"|' /etc/init.d/owntone
+    log "owntone 绑定 softvol"
+    aplay -D softvol /dev/zero -d 1 >/dev/null 2>&1
+    /etc/init.d/owntone restart >>"$DAEMON_LOG" 2>&1
+}
+
+ensure_nqptp() {
+    [ -x /etc/init.d/nqptp ] || return 0
+    pidof nqptp >/dev/null 2>&1 && return 0
+
+    # 若 owntone 抢占了 PTP 端口（319/320），先停它，再起 nqptp，最后拉回来
+    local ptp_owner
+    ptp_owner=$(netstat -lnup 2>/dev/null | awk '$4 ~ /:319$/ {print $NF}' | head -1)
+    if echo "$ptp_owner" | grep -q 'owntone'; then
+        log "owntone 占用了 PTP 端口，先停止以便 nqptp 启动"
+        /etc/init.d/owntone stop >/dev/null 2>&1
+        local w=0
+        while [ $w -lt 6 ] && pidof owntone >/dev/null 2>&1; do sleep 1; w=$((w + 1)); done
+        pidof owntone >/dev/null 2>&1 && kill -9 $(pidof owntone) 2>/dev/null
+        sleep 1
+    fi
+
+    /etc/init.d/nqptp start >/dev/null 2>&1
+    sleep 1
+    pidof nqptp >/dev/null 2>&1 && log "nqptp started"
+}
+
+ensure_shairport() {
+    [ -x /etc/init.d/shairport-sync ] || return 0
+    [ "$(uci -q get shairport-sync.@shairport-sync[0].enabled 2>/dev/null)" = "0" ] && return 0
+    pidof shairport-sync >/dev/null 2>&1 && return 0
+    # AirPlay 2 依赖 nqptp，先保证它在跑
+    pidof nqptp >/dev/null 2>&1 || /etc/init.d/nqptp start >/dev/null 2>&1
+    /etc/init.d/shairport-sync start >/dev/null 2>&1
+    sleep 2
+    pidof shairport-sync >/dev/null 2>&1 && log "shairport-sync started"
+}
+
 ensure_owntone() {
+    # API 无响应时自动重启（进程在但 HTTP 卡死的情况）
+    if pidof owntone >/dev/null 2>&1; then
+        if ! curl -s -o /dev/null --max-time 4 "http://127.0.0.1:3689/api/player" 2>/dev/null; then
+            local now=$(date +%s)
+            if [ $((now - ${OWNTONE_API_RESTART:-0})) -ge 90 ]; then
+                OWNTONE_API_RESTART=$now
+                log "owntone api unresponsive, restarting"
+                /etc/init.d/owntone stop >>"$DAEMON_LOG" 2>&1
+                local w=0
+                while [ $w -lt 6 ] && pidof owntone >/dev/null 2>&1; do
+                    sleep 1
+                    w=$((w + 1))
+                done
+                if pidof owntone >/dev/null 2>&1; then
+                    log "owntone did not stop, killing"
+                    kill -9 $(pidof owntone) 2>/dev/null
+                    sleep 1
+                fi
+                aplay -D softvol /dev/zero -d 1 >/dev/null 2>&1
+                /etc/init.d/owntone start >>"$DAEMON_LOG" 2>&1
+                sleep 3
+            fi
+            return 0
+        fi
+    fi
     [ "$(uci -q get owntone.@owntone[0].enabled 2>/dev/null)" = "0" ] && return 0
     pidof owntone >/dev/null 2>&1 && return 0
     [ -x /etc/init.d/owntone ] || return 0
@@ -162,7 +229,11 @@ trap cleanup TERM INT
 
 ensure_uhttpd
 ensure_softvol
+ensure_owntone_softvol
+ensure_nqptp
 ensure_owntone
+ensure_shairport
+
 start_reader
 start_dlna
 start_cover
@@ -170,7 +241,11 @@ start_cover
 while true; do
     ensure_uhttpd
     ensure_softvol
+    ensure_owntone_softvol
+    ensure_nqptp
     ensure_owntone
+    ensure_shairport
+
     start_reader
     start_dlna
     now=$(date +%s)

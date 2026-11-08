@@ -715,9 +715,25 @@ end
 local function owntone_set_volume(value)
     local port = owntone_port()
     local v = math.max(0, math.min(100, tonumber(value) or 0))
+
+    -- 设成 0 视为静音：记住静音前的音量，供状态判断与恢复使用
+    if v <= 0 then
+        local current = 0
+        local body = http_get(lan_ip(), port, "/api/player", 1)
+        if body then
+            local pok, p = pcall(jsonc.parse, body)
+            if pok and type(p) == "table" then current = tonumber(p.volume) or 0 end
+        end
+        local saved = tonumber(fs.readfile(OWNTONE_MUTE_STATE) or "") or 0
+        if saved <= 0 then
+            if current > 0 then saved = current else saved = 70 end
+            fs.writefile(OWNTONE_MUTE_STATE, tostring(math.floor(saved)))
+        end
+    end
+
     local ok = http_put(lan_ip(), port,
         "/api/player/volume?volume=" .. tostring(math.floor(v)), 2)
-    if ok then fs.unlink(OWNTONE_MUTE_STATE) end
+    if ok and v > 0 then fs.unlink(OWNTONE_MUTE_STATE) end
     return ok, (not ok) and "OwnTone 音量接口无响应" or nil
 end
 
@@ -1387,6 +1403,20 @@ local function pick_now(status)
 end
 
 function action_status()
+    -- 临时诊断：带 w= 参数时记录页面实测宽度
+    do
+        local dw = http.formvalue("w")
+        if dw then
+            local f = io.open("/tmp/music-diag.log", "a")
+            if f then
+                f:write(os.date("%H:%M:%S"),
+                    " w=", tostring(dw),
+                    " sw=", tostring(http.formvalue("sw") or ""),
+                    " dpr=", tostring(http.formvalue("dpr") or ""), "\n")
+                f:close()
+            end
+        end
+    end
     if not guard(false) then return end
 
     http.header("Cache-Control", "no-store, max-age=0")

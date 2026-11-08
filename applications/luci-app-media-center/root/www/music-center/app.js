@@ -260,7 +260,7 @@
 
     function isFresh(target) {
         var o = state.overrides[target];
-        return !!(o && (performance.now() - o.at) < 2600);
+        return !!(o && (performance.now() - o.at) < 9000);
     }
 
     function toast(msg, isError) {
@@ -680,9 +680,19 @@
             el.coverNote.hidden = !(isOnline || hasArt);
             setText(el.coverNote, isOnline ? '封面来自在线下载（已嵌入文件）' : (hasArt ? '封面来自文件内嵌' : ''));
         }
-        setText(el.coverEmptyTitle, empty ? '暂无播放' : (COVER_STAGE_TEXT[coverStage] || '正在接收 OwnTone 封面…'));
-        setText(el.coverEmptySub, empty ? '' : [o.artist, o.album].filter(Boolean).join(' · '));
         var art = ownToneArtUrl(o.art);
+        // 文件没有内嵌封面时，OwnTone 不会返回图；等待 5 秒后直接显示“无封面”
+        if (!empty && !art) {
+            if (state.coverWaitPath !== o.path) {
+                state.coverWaitPath = o.path;
+                state.coverWaitAt = Date.now();
+            }
+            if (Date.now() - (state.coverWaitAt || Date.now()) > 5000) coverStage = 'none';
+        } else if (art) {
+            state.coverWaitPath = '';
+        }
+        setText(el.coverEmptyTitle, empty ? '暂无播放' : (COVER_STAGE_TEXT[coverStage] || '无封面'));
+        setText(el.coverEmptySub, empty ? '' : [o.artist, o.album].filter(Boolean).join(' · '));
         setCover(el.owntoneCover, el.owntoneVinyl, art);
         setTimeout(function () {
             if (!el.owntoneVinyl.classList.contains('has-art')) maybeFetchCover(o);
@@ -755,6 +765,11 @@
             } catch (e) {}
         }
         var muted = !!(o.muted || state.localMute);
+        if (el.owntoneMute) {
+            // 静音键位于旋钮中心，阻止事件冒泡到旋钮拖动
+            el.owntoneMute.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); });
+            el.owntoneMute.addEventListener('touchstart', function (ev) { ev.stopPropagation(); }, { passive: true });
+        }
         if (el.owntoneMute) {
             el.owntoneMute.disabled = !running;
             setMuteUI(muted);
@@ -1164,9 +1179,27 @@
         });
     }
 
+    var volFlashTimer = null;
+    /* 调节音量时：小屏临时隐藏时间，闪烁显示音量百分比 */
+    function flashVolume(v) {
+        var box = document.getElementById('owntone-lower');
+        var out = document.getElementById('led-volflash');
+        if (!box || !out) return;
+        out.textContent = 'SOFTVOL 音量 ' + v + '%';
+        box.classList.add('is-volflash');
+        clearTimeout(volFlashTimer);
+        volFlashTimer = setTimeout(function () {
+            box.classList.remove('is-volflash');
+        }, 900);
+    }
     function setKnobVisual(value, disabled) {
         var knob = el.owntoneKnob;
         if (!knob) return;
+        // 静音时按“静音前的音量”绘制弧线与刻度，便于看出原来的音量
+        if (knob.classList.contains('is-muted')) {
+            var keep = Number(state.localMuteVolume) || 0;
+            if (keep > 0) value = keep;
+        }
         var v = clamp(Math.round(Number(value) || 0), 0, 100);
         var dis = !!disabled;
         // 轮询时音量没变就跳过，避免反复写 4 个刻度标签和旋钮变量
@@ -1317,6 +1350,7 @@
 
         function apply(v) {
             v = clamp(Math.round(Number(v) || 0), 0, 100);
+            flashVolume(v);
             if (String(input.value) !== String(v)) {
                 input.value = v;
                 input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -2200,6 +2234,13 @@
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(refreshMarquee, 160);
         });
+        // CSS 布局改变宽度时不会触发 resize，补两次延迟重算
+        setTimeout(refreshMarquee, 500);
+        setTimeout(refreshMarquee, 1500);
+        window.addEventListener('load', function () {
+            setTimeout(refreshMarquee, 500);
+            setTimeout(refreshMarquee, 1500);
+        });
     }
 
     // LED 外框用像素坐标重画：圆角在任何宽高比下都是正圆；
@@ -2467,4 +2508,24 @@
     else if (mq.addListener) mq.addListener(show);
 
     show();
+})();
+
+/* 临时诊断：把视口宽度回报给后端，便于定位媒体查询断点 */
+(function () {
+    var last = 0;
+    function report() {
+        var now = Date.now();
+        if (last && now - last < 2500) return;
+        last = now;
+        try {
+            var x = new XMLHttpRequest();
+            x.open('GET', '/cgi-bin/luci/music/status?diag=1&w=' + window.innerWidth
+                + '&sw=' + document.body.scrollWidth
+                + '&dpr=' + (window.devicePixelRatio || 1), true);
+            x.send();
+        } catch (e) { }
+    }
+    window.addEventListener('resize', report);
+    window.addEventListener('load', report);
+    setTimeout(report, 1200);
 })();

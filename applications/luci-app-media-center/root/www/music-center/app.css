@@ -194,7 +194,7 @@ html[data-theme="light"] .blob { opacity: 0.22; }
     justify-content: space-between;
     gap: 16px;
     width: 100%;
-    max-width: 1180px;
+    max-width: 1080px;
     margin: 0 auto;
     padding: 18px 28px 14px;
     background: rgba(7, 10, 16, 0.7);
@@ -311,7 +311,7 @@ html[data-theme="dark"] .app-version {
    -------------------------------------------------------------------------- */
 .page {
     width: 100%;
-    max-width: 1180px;
+    max-width: 1080px;
     margin: 0 auto;
     padding: 8px 28px 36px;
 }
@@ -1259,7 +1259,6 @@ body.monitor-on .monitor-speaker {
 @keyframes speaker-wave {
     0%, 100% { opacity: 0.25; transform: scaleY(0.7); }
     50% { opacity: 0.9; transform: scaleY(1.1); }
-}
 }
 /* 5 个按键连成一个整体 */
 .control-cluster {
@@ -3017,7 +3016,7 @@ html[data-theme="light"] .banner { color: #9f1239; }
 }
 /* 宽屏下让播放器有足够横向空间容纳大封面与大音量面板 */
 @media (min-width: 1200px) {
-    .page { max-width: 1560px; }
+    .page { max-width: 1440px; }
 }
 /* 六个控制键嵌入 LED 面板，位于音频格式行下方，与小屏同宽 */
 .led-screen .control-cluster {
@@ -3964,7 +3963,7 @@ html[data-theme="light"] .banner { color: #9f1239; }
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
     pointer-events: none;
     z-index: 3;
-}}}
+}
 
 @media (min-width: 901px) and (max-width: 1200px) and (orientation: landscape) {
     .led-glass { left: 244px; right: 13px; }
@@ -3984,7 +3983,7 @@ html[data-theme="light"] .banner { color: #9f1239; }
             rgba(0, 0, 0, 0.14) 100%);
     pointer-events: none;
     z-index: 3;
-}}
+}
 
 /* LED 绿色进度条改成橙色 */
 .led-bar .range--progress {
@@ -4852,12 +4851,12 @@ html.perf-lite .receiver .vinyl img { clip-path: none !important; }
     .topbar-link { display: none !important; }
 }
 
-/* 窄窗口不再挤压重叠：低于 900px 出现横向滚动 */
+/* 允许页面在窄窗口真收缩（原 900px 硬下限已取消） */
 body {
-    overflow-x: auto;
+    overflow-x: hidden;
 }
 .page {
-    min-width: 900px;
+    min-width: 0;
 }
 
 /* 静音按钮内显示音量百分比，静音时只留喇叭 X 和红灯 */
@@ -4893,14 +4892,6 @@ body {
 @keyframes knob-muted-blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.30; }
-}
-.knob.is-muted .knob-dial::before {
-    background: conic-gradient(from -135deg,
-        #ff3b52 0deg,
-        #ff7280 var(--knob-fill),
-        rgba(255, 59, 82, 0.12) var(--knob-fill) 360deg) !important;
-    filter: drop-shadow(0 0 8px rgba(255, 59, 82, 0.85)) !important;
-    animation: knob-muted-blink 1s ease-in-out infinite;
 }
 .knob:not(.is-muted) .knob-dial::before {
     background: conic-gradient(from -135deg,
@@ -5654,15 +5645,7 @@ body {
 }
 
 
-/* ==========================================================================
-   v348：三处闪烁改为常亮（保留红色/金色状态，只去掉闪）
-   1) 主音量静音：旋钮四周红色环常亮
-   2) LED 小屏时间中间：红色喇叭常亮
-   3) 调主音量：右上角百分比常亮
-   ========================================================================== */
-.knob.is-muted .knob-dial::before {
-    animation: none !important;
-}
+
 .led-play.is-muted-blink {
     animation: none !important;
 }
@@ -5691,15 +5674,7 @@ body {
 }
 
 
-/* ==========================================================================
-   v350：修正 v348/v349
-   - 恢复三处闪烁（LED 静音喇叭、主音量红圈、调音量右上百分比）
-   - LED 金线/音量面板回到原位，不再整体左移
-   - 只把 LED 小屏（时间/音频块）和 7 个按钮向左移 50px
-   ========================================================================== */
-.knob.is-muted .knob-dial::before {
-    animation: knob-muted-blink 1s ease-in-out infinite !important;
-}
+
 .led-play.is-muted-blink {
     animation: led-mute-blink 0.8s ease-in-out infinite !important;
 }
@@ -5768,10 +5743,6 @@ body {
    ========================================================================== */
 @media (min-width: 1201px) {
     .cover-path { top: 442px !important; }
-}
-
-.knob.is-muted .knob-dial::before {
-    animation: knob-muted-blink 1s ease-in-out infinite !important;
 }
 .led-play.is-muted-blink {
     animation: led-mute-blink 0.8s ease-in-out infinite !important;
@@ -7041,4 +7012,1944 @@ input, textarea, [contenteditable="true"] {
 .receiver-info .lyric span.is-active {
     font-size: 20px;
     font-weight: 700;
+}
+
+/* ==========================================================================
+   ≤540px：内容整体再收窄，音量面板改为流式宽度
+   ========================================================================== */
+@media (max-width: 900px) {
+    .page { padding: 6px 10px 22px; }
+    .player { padding: 14px 12px 16px; border-radius: 18px; }
+    .player-main { padding: 10px; border-radius: 16px; }
+
+    .deck-right {
+        width: 100%;
+        max-width: 100%;
+        grid-template-columns: 88px minmax(0, 1fr);
+        column-gap: 8px;
+    }
+    .volume-row--knob { width: 100% !important; max-width: 100% !important; }
+    .volume-row--knob .knob {
+        width: 150px !important;
+        height: 150px !important;
+    }
+    .volume-row--knob .knob-dial::after { inset: 20px; }
+
+    .led-screen .control-cluster,
+    .control-cluster {
+        width: 100% !important;
+        max-width: 100% !important;
+        zoom: 1 !important;
+    }
+    .control-cluster .tbtn { width: 60px !important; height: 36px !important; }
+    .control-cluster .tbtn--play.tbtn--labeled { width: 76px !important; }
+    .led-time-flow .time { font-size: 16px !important; }
+
+    .section-head { flex-wrap: wrap; }
+    .section-actions { width: 100%; justify-content: flex-end; }
+
+    .receiver-main .cover--receiver,
+    .receiver-main .cover--receiver .vinyl {
+        flex-basis: 118px;
+        width: 118px;
+    }
+    .receiver-info > .receiver-title { margin-top: 8px; }
+    .receiver-info .lyric span { font-size: 16px; }
+
+    .master { padding: 12px 14px; gap: 10px; }
+    .topbar { padding: 12px 12px 10px; }
+}
+
+/* ==========================================================================
+   窄屏最终覆盖（放在最后，压制前面所有固定像素布局）
+   ========================================================================== */
+@media (max-width: 900px) {
+    html, body { overflow-x: hidden; }
+    .page, .topbar { max-width: 100% !important; }
+    .page { padding: 6px 10px 22px !important; }
+    .player { padding: 14px 12px 16px !important; }
+    .player-main {
+        width: 100% !important;
+        height: auto !important;
+        padding: 10px !important;
+        overflow: hidden;
+    }
+
+    /* 封面改为居中静态块 */
+    .cover--hero {
+        position: static !important;
+        width: 100% !important;
+        height: auto !important;
+        max-width: none !important;
+        margin: 0 0 10px !important;
+    }
+    .cover--hero .vinyl {
+        width: min(100%, 220px) !important;
+        height: auto !important;
+        margin: 0 auto !important;
+    }
+
+    /* LED 屏全宽 */
+    .led-screen {
+        width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        padding: 12px !important;
+    }
+    .led-black, .led-glass { display: none !important; }
+    .led-lower { width: 100% !important; }
+    .led-screen .control-cluster,
+    .control-cluster {
+        width: 100% !important;
+        max-width: 100% !important;
+        zoom: 1 !important;
+    }
+    .control-cluster .tbtn { width: 58px !important; height: 34px !important; }
+    .control-cluster .tbtn--play.tbtn--labeled { width: 72px !important; }
+    .led-time-flow .time { font-size: 16px !important; }
+
+    /* 监听 + 主音量改为单列，去掉所有固定定位 */
+    .deck-right {
+        position: static !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        grid-template-columns: 88px minmax(0, 1fr) !important;
+        column-gap: 8px !important;
+        margin: 12px 0 0 !important;
+    }
+    .deck-right .stream-panel { width: 100% !important; }
+    .volume-row--knob { width: 100% !important; max-width: 100% !important; }
+    .volume-row--knob .knob { width: 150px !important; height: 150px !important; }
+
+    .control-deck { width: 100% !important; }
+    .player-info { padding: 0 !important; }
+}
+
+/* 窄屏顶栏也允许换行，避免撑出横向滚动条 */
+@media (max-width: 900px) {
+    .topbar {
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 12px 12px 10px !important;
+    }
+    .clock { display: none !important; }
+    .brand { min-width: 0; }
+    .brand-text { min-width: 0; }
+    .brand-text h1 { font-size: 17px; }
+    .brand-text p { font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .topbar-right { margin-left: auto; }
+}
+
+/* 窄屏二次收缩：只压边距/字号/控件，封面尺寸不动 */
+@media (max-width: 900px) {
+    .page { padding: 4px 8px 18px !important; }
+    .player { padding: 10px 8px 12px !important; border-radius: 16px !important; }
+    .player-main { padding: 8px !important; border-radius: 14px !important; }
+    .cover--hero { margin-bottom: 6px !important; }
+
+    .led-screen { padding: 8px 9px !important; border-radius: 12px !important; }
+    .led-screen .led-text--title,
+    .led-text--title { font-size: 20px !important; line-height: 1.25 !important; }
+    .led-screen .led-text--meta,
+    .led-text--meta { font-size: 13px !important; }
+    .led-row { gap: 6px !important; min-height: 20px !important; }
+    .led-row--meta { margin-top: 4px !important; }
+    .led-time-flow { gap: 6px !important; }
+    .led-time-flow .time { font-size: 15px !important; }
+    .led-lower { margin-top: 6px !important; }
+    .control-cluster { gap: 5px !important; margin-top: 6px !important; }
+    .control-cluster .tbtn { width: 52px !important; height: 31px !important; border-radius: 8px !important; }
+    .control-cluster .tbtn--play.tbtn--labeled { width: 66px !important; }
+
+    .deck-right { grid-template-columns: 76px minmax(0, 1fr) !important; column-gap: 6px !important; margin-top: 8px !important; }
+    .volume-row--knob .knob { width: 136px !important; height: 136px !important; }
+    .volume-row--knob .knob-dial::after { inset: 18px !important; }
+    .stream-fader-scale span { font-size: 9px !important; }
+    .stream-buffer { width: 22px !important; }
+
+    .receiver { padding: 12px 10px 12px !important; }
+    .receiver-head { gap: 6px !important; }
+    .receiver-info > .receiver-title { font-size: 17px !important; }
+    .receiver-info .lyric { padding: 6px 8px !important; max-height: 170px !important; }
+    .receiver-info .lyric span { font-size: 14px !important; }
+    .receiver-info .lyric span.is-active { font-size: 15px !important; }
+
+    .mini-progress { grid-template-columns: 28px minmax(0, 1fr) 28px !important; gap: 6px !important; margin-top: 6px !important; }
+    .receiver-controls { gap: 6px !important; }
+    .sbtn { width: 34px !important; height: 34px !important; }
+    .sbtn--play { width: 42px !important; height: 42px !important; }
+    .receiver-volume { gap: 6px !important; }
+    .receiver-volume .volume-value { width: 32px !important; font-size: 10px !important; }
+
+    .source-panel { padding: 8px 9px !important; }
+    .source-url { font-size: 10px !important; padding: 5px 6px !important; }
+
+    .master { padding: 10px 12px !important; gap: 8px !important; }
+    .master-icon { width: 34px !important; height: 34px !important; border-radius: 11px !important; }
+    .master-icon .icon { width: 17px !important; height: 17px !important; }
+    .master-label { font-size: 13px !important; }
+    .master-value { width: 42px !important; font-size: 14px !important; }
+    .mute-btn { width: 34px !important; height: 34px !important; border-radius: 11px !important; }
+    .services-summary { padding: 8px 0 0 !important; }
+}
+
+/* 接收器卡片：窄屏下 DLNA / AirPlay 各占整行，不再并排 */
+@media (max-width: 900px) {
+    .receivers {
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 14px !important;
+    }
+    .receivers > .receiver {
+        width: 100% !important;
+        max-width: 100% !important;
+        grid-column: auto !important;
+    }
+}
+
+/* 只去掉控制键整组外面那一圈边框，按键本身样式不变 */
+.control-cluster {
+    border: 0 !important;
+    box-shadow: none !important;
+}
+.led-screen .control-cluster,
+.led-screen .control-cluster::before,
+.led-screen .control-cluster::after {
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+/* ==========================================================================
+   窄屏重排：信息屏独占顶部整行 → 封面左 + 小屏右 → 按钮整行 → 音量整行
+   ========================================================================== */
+@media (max-width: 900px) {
+    .player-main {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+        grid-template-areas:
+            "mt mt"
+            "mm mm"
+            "mb mb"
+            "cv sm"
+            "bt bt"
+            "dk dk"
+            "cp cp" !important;
+        gap: 8px !important;
+    }
+
+    /* 顶部三段信息独占整行 */
+    .led-row--title,
+    .led-row--meta,
+    .led-bar {
+        min-width: 0 !important;
+        width: 100% !important;
+        justify-self: stretch !important;
+    }
+    .led-viewport { max-width: 100% !important; }
+
+    /* 封面保持左侧，小屏在右 */
+    .cover--hero {
+        justify-self: stretch !important;
+        max-width: 100% !important;
+    }
+    .cover--hero .vinyl { width: min(100%, 210px) !important; margin: 0 auto !important; }
+    .led-lower {
+        justify-self: stretch !important;
+        align-self: center !important;
+        width: 100% !important;
+    }
+
+    /* 控制键整行 */
+    .control-cluster {
+        justify-self: stretch !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        justify-content: center !important;
+    }
+
+    /* 监听 + 主音量整行 */
+    .deck-right {
+        width: 100% !important;
+        max-width: 100% !important;
+        grid-template-columns: 84px minmax(0, 1fr) !important;
+        margin-top: 8px !important;
+    }
+
+    .cover-path { width: 100% !important; }
+}
+
+/* 窄屏监听列加宽，底部标签不再被截断 */
+@media (max-width: 900px) {
+    .deck-right {
+        grid-template-columns: 96px minmax(0, 1fr) !important;
+        column-gap: 8px !important;
+    }
+    .stream-state, .stream-mute-on { font-size: 10px !important; }
+    .stream-fader-scale span { font-size: 8.5px !important; }
+    /* 跑马灯重复副本在静止时隐藏，避免出现两遍文字 */
+    .led-viewport:not(.is-scrolling) .led-text[aria-hidden="true"] { display: none !important; }
+}
+
+/* 窄屏音量区：监听列加宽、标签完整、旋钮略小 */
+@media (max-width: 560px) {
+    .deck-right {
+        grid-template-columns: 112px minmax(0, 1fr) !important;
+        column-gap: 10px !important;
+    }
+    .stream-state {
+        white-space: normal !important;
+        text-align: center !important;
+        font-size: 9px !important;
+        line-height: 1.25 !important;
+        max-height: 24px;
+        overflow: hidden;
+    }
+    .stream-fader-scale span { font-size: 8px !important; }
+    .stream-buffer { width: 20px !important; }
+    .volume-row--knob .knob { width: 128px !important; height: 128px !important; }
+    .volume-row--knob .knob-dial::after { inset: 16px !important; }
+    .knob-tick { font-size: 9px !important; }
+    .volume-footer .knob-value[data-softvol] { font-size: 15px !important; }
+}
+
+/* 手机上再紧凑：整张播放器卡片压低高度 */
+@media (max-width: 560px) {
+    .player { padding: 8px 6px 10px !important; }
+    .player-main { padding: 6px !important; gap: 6px !important; }
+    .cover--hero .vinyl { width: min(100%, 168px) !important; }
+    .led-text--title { font-size: 17px !important; }
+    .led-text--meta { font-size: 12px !important; }
+    .led-row { min-height: 18px !important; }
+    .led-time-flow .time { font-size: 14px !important; }
+    .control-cluster .tbtn { width: 48px !important; height: 28px !important; }
+    .control-cluster .tbtn--play.tbtn--labeled { width: 60px !important; }
+    .deck-right { grid-template-columns: 96px minmax(0, 1fr) !important; }
+    .volume-row--knob .knob { width: 112px !important; height: 112px !important; }
+    .volume-row--knob .knob-dial::after { inset: 14px !important; }
+    .stream-fader { height: 92px !important; }
+    .source-panel { margin-top: 8px !important; }
+}
+
+/* 窄屏：封面左侧方图，右侧上半小屏、下半 7 键，整列与封面等高 */
+@media (max-width: 900px) {
+    .player-main {
+        grid-template-areas:
+            "mt mt"
+            "mm mm"
+            "mb mb"
+            "cv sm"
+            "cv bt"
+            "dk dk"
+            "cp cp" !important;
+        align-items: stretch !important;
+    }
+
+    .cover--hero {
+        grid-area: cv;
+        align-self: stretch !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .cover--hero .vinyl {
+        width: min(100%, 100%) !important;
+        max-width: 100% !important;
+        margin: 0 auto !important;
+    }
+
+    /* 小屏从上往下拉伸，填满按钮以上空间，与封面等高 */
+    .led-lower {
+        grid-area: sm;
+        align-self: stretch !important;
+        justify-self: stretch !important;
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        min-height: 0;
+    }
+
+    /* 7 键贴底，与封面下沿对齐 */
+    .control-cluster {
+        grid-area: bt;
+        align-self: end !important;
+        justify-self: stretch !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        flex-wrap: wrap;
+        justify-content: center !important;
+    }
+    .control-cluster .transport { flex: 1 1 100%; }
+    .control-cluster .transport .tbtn { flex: 1 1 0; }
+}
+
+/* ==========================================================================
+   音量区修复：监听区加宽、旋钮垂直居中、指针随旋钮等比缩放且同心
+   ========================================================================== */
+/* 指针改用百分比，任何旋钮尺寸都指向圆心 */
+.knob-pointer {
+    top: 12% !important;
+    height: 18% !important;
+    width: 3.6% !important;
+    margin-left: -1.8% !important;
+    transform-origin: 50% 211% !important;
+    border-radius: 999px !important;
+}
+
+/* 旋钮在面板内水平垂直都居中 */
+.volume-row--knob {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 10px 12px !important;
+}
+.volume-row--knob .knob {
+    align-self: center !important;
+    margin: 0 auto !important;
+}
+.volume-row--knob .volume-footer {
+    width: 100% !important;
+    align-items: center !important;
+}
+
+/* 监听区不再被挤压 */
+.deck-right {
+    grid-template-columns: minmax(118px, 30%) minmax(0, 1fr) !important;
+    column-gap: 10px !important;
+    align-items: center !important;
+}
+.stream-panel {
+    min-width: 0 !important;
+    padding: 6px 6px 8px !important;
+}
+.stream-fader { margin-left: 14px !important; }
+.stream-fader-scale span { font-size: 9px !important; }
+.stream-buffer { width: 22px !important; }
+.stream-state { font-size: 9.5px !important; line-height: 1.25 !important; }
+
+@media (max-width: 560px) {
+    .deck-right { grid-template-columns: minmax(106px, 34%) minmax(0, 1fr) !important; }
+    .volume-row--knob .knob { width: 104px !important; height: 104px !important; }
+    .knob-tick { font-size: 8px !important; }
+}
+
+/* 音量面板：恢复左右对称内边距，改用缩小旋钮来避免压住角落 */
+@media (max-width: 900px) {
+    .volume-row--knob { padding: 8px 10px !important; }
+    .volume-row--knob .knob { width: 104px !important; height: 104px !important; }
+    .knob-tick { font-size: 9px !important; }
+}
+@media (max-width: 560px) {
+    .volume-row--knob { padding: 8px 8px !important; }
+    .volume-row--knob .knob { width: 92px !important; height: 92px !important; }
+    .volume-row--knob .knob-dial::after { inset: 12px !important; }
+    .knob-tick { font-size: 8px !important; }
+}
+
+/* 窄屏隐藏旋钮的数字刻度，避免和右上 SOFTVOL / 右下静音键重叠 */
+@media (max-width: 900px) {
+    .knob-tick { display: none !important; }
+}
+
+/* ==========================================================================
+   音量面板定稿：旋钮居中，SOFTVOL 与静音键改为旋钮下方一行，不再浮层遮挡
+   ========================================================================== */
+@media (max-width: 900px) {
+    .volume-row--knob {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        padding: 10px 10px !important;
+    }
+    .volume-row--knob .knob { margin: 0 auto !important; }
+
+    .volume-row--knob .volume-footer {
+        position: static !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        gap: 8px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .volume-row--knob .volume-footer .knob-value {
+        position: static !important;
+        inset: auto !important;
+        transform: none !important;
+        width: auto !important;
+        min-width: 0 !important;
+        text-align: left !important;
+        order: 1;
+    }
+    .volume-row--knob .mute-wrap {
+        position: static !important;
+        inset: auto !important;
+        margin: 0 0 0 auto !important;
+        width: auto !important;
+        order: 2;
+    }
+    .volume-row--knob .mute-wrap .mute-btn {
+        position: static !important;
+        inset: auto !important;
+    }
+}
+
+/* 旋钮下方一行的顺序：左 SOFTVOL、右 静音键 */
+@media (max-width: 900px) {
+    .volume-row--knob .volume-footer .knob-value {
+        order: 1 !important;
+        margin: 0 auto 0 0 !important;
+    }
+    .volume-row--knob .volume-footer .mute-wrap { display: contents !important; }
+    .volume-row--knob .volume-footer .mute-btn {
+        order: 2 !important;
+        margin: 0 0 0 auto !important;
+        width: auto !important;
+        min-width: 64px !important;
+        height: 28px !important;
+    }
+}
+
+/* 窄屏音量区：内容紧凑居中，不再拉满整行留大片空白 */
+@media (max-width: 900px) {
+    .deck-right {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 14px !important;
+        width: 100% !important;
+        grid-template-columns: none !important;
+    }
+    .deck-right .stream-panel {
+        flex: 0 0 118px !important;
+        width: 118px !important;
+    }
+    .volume-row--knob {
+        flex: 0 0 auto !important;
+        width: auto !important;
+        max-width: none !important;
+        min-width: 210px !important;
+    }
+    .volume-row--knob .volume-footer {
+        width: 210px !important;
+    }
+    .volume-row--knob .volume-footer .knob-value {
+        font-size: 13px !important;
+        padding: 2px 8px !important;
+    }
+}
+@media (max-width: 560px) {
+    .deck-right { gap: 10px !important; }
+    .deck-right .stream-panel { flex-basis: 104px !important; width: 104px !important; }
+    .volume-row--knob { min-width: 176px !important; }
+    .volume-row--knob .volume-footer { width: 176px !important; }
+}
+
+/* 音量面板底部：容器高度自适应，SOFTVOL 与静音键正常占高 */
+@media (max-width: 900px) {
+    .volume-row--knob .volume-footer {
+        height: auto !important;
+        min-height: 30px !important;
+        max-height: none !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 2px 0 0 !important;
+        margin: 0 !important;
+    }
+}
+
+/* 监听区底部状态文字完整显示 */
+@media (max-width: 900px) {
+    .deck-right .stream-panel { padding-bottom: 12px !important; }
+    .stream-state {
+        white-space: normal !important;
+        word-break: break-all;
+        font-size: 9px !important;
+        line-height: 1.3 !important;
+        max-height: none !important;
+        overflow: visible !important;
+        padding: 0 2px 2px !important;
+    }
+}
+
+/* ==========================================================================
+   音量面板定稿 v2：监听贴左、SOFTVOL 右上角、静音右下角、旋钮正中
+   ========================================================================== */
+@media (max-width: 900px) {
+    .deck-right {
+        display: flex !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+        gap: 0 !important;
+        width: 100% !important;
+        grid-template-columns: none !important;
+        padding: 0 !important;
+    }
+    .deck-right .stream-panel {
+        flex: 0 0 132px !important;
+        width: 132px !important;
+        margin: 0 !important;
+        border-radius: 10px 0 0 10px !important;
+    }
+
+    .volume-row--knob {
+        position: relative !important;
+        flex: 1 1 auto !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 !important;
+    }
+    .volume-row--knob .knob { margin: 0 !important; }
+
+    /* 覆盖层铺满整个音量列 */
+    .volume-row--knob .volume-footer {
+        position: absolute !important;
+        inset: 0 !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+        pointer-events: none !important;
+    }
+    /* SOFTVOL 右上角 */
+    .volume-row--knob .volume-footer .knob-value {
+        position: absolute !important;
+        top: 10px !important;
+        right: 12px !important;
+        left: auto !important;
+        bottom: auto !important;
+        transform: none !important;
+        width: auto !important;
+        min-width: 0 !important;
+        font-size: 12px !important;
+        padding: 2px 8px !important;
+        pointer-events: auto !important;
+    }
+    /* 静音键右下角 */
+    .volume-row--knob .mute-wrap {
+        position: absolute !important;
+        right: 12px !important;
+        bottom: 10px !important;
+        left: auto !important;
+        top: auto !important;
+        display: flex !important;
+        width: auto !important;
+        margin: 0 !important;
+        pointer-events: auto !important;
+    }
+    .volume-row--knob .mute-wrap .mute-btn {
+        position: static !important;
+        width: auto !important;
+        min-width: 58px !important;
+        height: 26px !important;
+    }
+}
+@media (max-width: 560px) {
+    .deck-right .stream-panel { flex-basis: 116px !important; width: 116px !important; }
+    .volume-row--knob .knob { width: 96px !important; height: 96px !important; }
+    .volume-row--knob .volume-footer .knob-value { font-size: 11px !important; top: 8px !important; right: 8px !important; }
+    .volume-row--knob .mute-wrap { right: 8px !important; bottom: 8px !important; }
+    .volume-row--knob .mute-wrap .mute-btn { min-width: 50px !important; height: 24px !important; }
+}
+
+/* 修正：覆盖层宽度铺满音量列；mute-wrap 退出 display:contents 才能定位 */
+@media (max-width: 900px) {
+    .volume-row--knob .volume-footer {
+        left: 0 !important;
+        right: 0 !important;
+        width: auto !important;
+    }
+    .volume-row--knob .volume-footer .mute-wrap {
+        display: flex !important;
+    }
+    .volume-row--knob .volume-footer .mute-wrap .mute-btn {
+        pointer-events: auto !important;
+    }
+}
+
+/* 主音量旋钮再放大一档（不与右上 SOFTVOL、右下静音键重叠） */
+@media (max-width: 900px) {
+    .volume-row--knob .knob { width: 138px !important; height: 138px !important; }
+    .volume-row--knob .knob-dial::after { inset: 20px !important; }
+}
+@media (max-width: 560px) {
+    .volume-row--knob .knob { width: 124px !important; height: 124px !important; }
+    .volume-row--knob .knob-dial::after { inset: 18px !important; }
+}
+
+/* 监听区重排：刻度靠左、推子居中、缓冲条靠右，三者互不重叠 */
+@media (max-width: 900px) {
+    .deck-right .stream-panel {
+        flex: 0 0 152px !important;
+        width: 152px !important;
+    }
+    .stream-fader {
+        padding: 6px 26px 4px 30px !important;
+        min-height: 0 !important;
+    }
+    .stream-fader-scale {
+        left: 2px !important;
+        right: auto !important;
+        width: 24px !important;
+        text-align: right !important;
+        font-size: 8px !important;
+    }
+    .stream-fader-track {
+        margin: 0 auto 0 0 !important;
+    }
+    .stream-buffer {
+        right: 2px !important;
+        width: 20px !important;
+    }
+    .stream-buffer-tick { font-size: 7px !important; }
+    .stream-mute-crystal { margin-left: auto !important; }
+    .stream-state { margin-left: auto !important; }
+}
+@media (max-width: 560px) {
+    .deck-right .stream-panel {
+        flex-basis: 138px !important;
+        width: 138px !important;
+    }
+    .stream-fader { padding: 6px 22px 4px 26px !important; }
+    .stream-fader-scale { width: 22px !important; font-size: 7.5px !important; }
+}
+
+/* 监听区底部状态文字独立占位，不再压住推子 */
+@media (max-width: 900px) {
+    .deck-right .stream-panel {
+        position: relative !important;
+        padding-bottom: 26px !important;
+        box-sizing: border-box !important;
+    }
+    .stream-state {
+        position: absolute !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 6px !important;
+        margin: 0 !important;
+        text-align: center !important;
+        font-size: 9px !important;
+        line-height: 1.2 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    .stream-fader { height: calc(100% - 46px) !important; }
+}
+
+/* 音量百分比显示在旋钮正中；右上角只留 SOFTVOL 标签 */
+@media (max-width: 900px) {
+    .volume-row--knob .knob { position: relative !important; }
+    .volume-row--knob .knob-center-value {
+        position: absolute !important;
+        inset: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: auto !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: none !important;
+        box-shadow: none !important;
+        color: #ffcf86 !important;
+        font-size: 20px !important;
+        font-weight: 700 !important;
+        font-variant-numeric: tabular-nums !important;
+        text-shadow: 0 0 8px rgba(255, 160, 40, 0.55) !important;
+        pointer-events: none !important;
+        z-index: 3;
+    }
+    .vol-chip-label {
+        position: absolute !important;
+        top: 10px !important;
+        right: 12px !important;
+        padding: 2px 8px !important;
+        border: 1px solid rgba(226, 183, 93, 0.45) !important;
+        border-radius: 7px !important;
+        background: rgba(226, 183, 93, 0.10) !important;
+        color: #ffffff !important;
+        font-size: 11px !important;
+        letter-spacing: 0.05em !important;
+        pointer-events: none !important;
+    }
+}
+@media (max-width: 560px) {
+    .volume-row--knob .knob-center-value { font-size: 17px !important; }
+    .vol-chip-label { top: 8px !important; right: 8px !important; font-size: 10px !important; }
+}
+
+/* 调音量时：时间隐藏，音量百分比闪烁 */
+.led-volflash {
+    display: none;
+    width: 100%;
+    text-align: center;
+    color: #ffcf86;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 10px rgba(255, 160, 40, 0.55);
+    font-variant-numeric: tabular-nums;
+    animation: volflash-blink 0.5s steps(2, start) infinite;
+}
+.led-lower.is-volflash .led-time-flow { display: none !important; }
+.led-lower.is-volflash .led-volflash { display: block; }
+
+@keyframes volflash-blink {
+    0%, 49%   { opacity: 1; }
+    50%, 100% { opacity: 0.2; }
+}
+@media (max-width: 560px) {
+    .led-volflash { font-size: 17px; }
+}
+
+/* 右上角百分比彻底隐藏（hidden 被 display:flex 覆盖过） */
+#owntone-vol-value {
+    display: none !important;
+}
+
+/* 旋钮两侧刻度线加密 */
+.knob-ticks-lit::before,
+.knob-ticks-lit::after {
+    background: repeating-linear-gradient(180deg,
+        rgba(255, 236, 200, 0.95) 0 2px,
+        transparent 2px 7px) !important;
+}
+
+/* ==========================================================================
+   音量面板样式全宽度生效（原先只在 ≤900px 里，宽屏时标签会掉到底部）
+   ========================================================================== */
+.volume-row--knob { position: relative !important; }
+.volume-row--knob .volume-footer {
+    position: absolute !important;
+    inset: 0 !important;
+    width: auto !important;
+    height: 100% !important;
+    display: block !important;
+    pointer-events: none !important;
+}
+.vol-chip-label {
+    position: absolute !important;
+    top: 10px !important;
+    right: 12px !important;
+    padding: 2px 8px !important;
+    border: 1px solid rgba(226, 183, 93, 0.45) !important;
+    border-radius: 7px !important;
+    background: rgba(226, 183, 93, 0.10) !important;
+    color: #ffffff !important;
+    font-size: 11px !important;
+    letter-spacing: 0.05em !important;
+    pointer-events: none !important;
+}
+.volume-row--knob .mute-wrap {
+    position: absolute !important;
+    right: 12px !important;
+    bottom: 10px !important;
+    display: flex !important;
+    width: auto !important;
+    margin: 0 !important;
+    pointer-events: auto !important;
+}
+
+/* 刻度线粗细统一：1px 实线，6px 周期 */
+.knob-ticks-lit::before,
+.knob-ticks-lit::after {
+    background: repeating-linear-gradient(180deg,
+        rgba(255, 236, 200, 0.95) 0 1px,
+        transparent 1px 6px) !important;
+}
+
+/* 小屏调音量时高度不变：闪烁层覆盖显示，时间只隐藏不改布局 */
+.led-lower { position: relative; }
+.led-lower .led-volflash {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    margin: 0;
+}
+.led-lower.is-volflash .led-time-flow { visibility: hidden !important; display: flex !important; }
+.led-lower.is-volflash .led-volflash { display: flex; }
+
+/* ==========================================================================
+   窄屏旋钮：隐藏数字刻度标签（会被裁切且与装饰线重叠），装饰线统一 1px
+   ========================================================================== */
+@media (max-width: 900px) {
+    .knob-tick { display: none !important; }
+    .knob-ticks-lit::before,
+    .knob-ticks-lit::after {
+        width: 30px !important;
+        background: repeating-linear-gradient(180deg,
+            rgba(255, 236, 200, 0.9) 0 1px,
+            transparent 1px 6px) !important;
+    }
+    .knob-ticks-lit::before { left: -38px !important; }
+    .knob-ticks-lit::after { right: -38px !important; }
+}
+@media (max-width: 560px) {
+    .knob-ticks-lit::before,
+    .knob-ticks-lit::after {
+        width: 26px !important;
+        background: repeating-linear-gradient(180deg,
+            rgba(255, 236, 200, 0.9) 0 1px,
+            transparent 1px 6px) !important;
+    }
+    .knob-ticks-lit::before { left: -32px !important; }
+    .knob-ticks-lit::after { right: -32px !important; }
+}
+
+/* ==========================================================================
+   旋钮刻度：数字标签全局隐藏（宽屏也会被裁切），装饰线全宽度统一 1px
+   ========================================================================== */
+.knob-tick { display: none !important; }
+.knob-ticks-lit::before,
+.knob-ticks-lit::after {
+    width: 30px !important;
+    background: repeating-linear-gradient(180deg,
+        rgba(255, 236, 200, 0.9) 0 1px,
+        transparent 1px 6px) !important;
+}
+.knob-ticks-lit::before { left: -38px !important; }
+.knob-ticks-lit::after { right: -38px !important; }
+
+/* SOFTVOL 标签彻底不显示 */
+.vol-chip-label { display: none !important; }
+
+/* 刻度线：去掉渐隐遮罩（0.9 缩放下会导致线条粗细/长短不一），改为等宽实线 */
+.knob-ticks-lit::before,
+.knob-ticks-lit::after {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+    width: 30px !important;
+    background: repeating-linear-gradient(180deg,
+        rgba(255, 236, 200, 0.85) 0 2px,
+        transparent 2px 8px) !important;
+    background-size: 30px 8px !important;
+}
+.knob-ticks-lit::before { left: -40px !important; }
+.knob-ticks-lit::after { right: -40px !important; }
+
+/* 刻度条纹在 90% 等非整数缩放下必然出现粗细不均，改为隐藏（保留指针与金环） */
+.knob-ticks-lit { display: none !important; }
+
+/* 旋钮两侧条纹装饰：1px 条纹在 90% 等缩放比例下会出现粗细不均，直接去掉 */
+.knob::before,
+.knob::after,
+.knob-ticks-lit {
+    display: none !important;
+}
+
+/* ==========================================================================
+   恢复主音量刻度数字：改用百分比定位，任何宽度都不会被裁切
+   ========================================================================== */
+.knob-tick {
+    display: block !important;
+    font-size: 10px !important;
+    color: rgba(220, 228, 240, 0.85) !important;
+    line-height: 1 !important;
+    text-shadow: 0 0 6px rgba(0, 0, 0, 0.6) !important;
+}
+.knob-tick--0   { left: -15% !important; bottom: 4% !important; }
+.knob-tick--33  { left: -15% !important; top: 4% !important; }
+.knob-tick--66  { right: -15% !important; top: 4% !important; }
+.knob-tick--100 { right: -15% !important; bottom: 4% !important; }
+
+/* 调音量时的文字：放到时间那一行里，垂直居中 */
+#owntone-time-flow { position: relative; }
+.led-lower .led-volflash {
+    position: absolute !important;
+    inset: 0 !important;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    margin: 0 !important;
+    width: auto !important;
+}
+.led-lower.is-volflash .led-time-flow > *:not(.led-volflash) { visibility: hidden !important; }
+.led-lower.is-volflash .led-volflash { display: flex !important; visibility: visible !important; }
+
+/* 闪烁文字不换行，窄屏自动缩小 */
+.led-volflash {
+    white-space: nowrap !important;
+    font-size: clamp(12px, 4.6vw, 20px) !important;
+    letter-spacing: 0.02em !important;
+}
+
+/* 旋钮四个刻度数字放大 */
+.knob-tick {
+    font-size: clamp(13px, 3vw, 17px) !important;
+    font-weight: 600 !important;
+    color: rgba(232, 238, 248, 0.92) !important;
+}
+.knob-tick--0   { left: -19% !important; bottom: 2% !important; }
+.knob-tick--33  { left: -19% !important; top: 2% !important; }
+.knob-tick--66  { right: -19% !important; top: 2% !important; }
+.knob-tick--100 { right: -19% !important; bottom: 2% !important; }
+
+/* ==========================================================================
+   静音键移到旋钮正中：圆形金属质感，金色描边，静音时转红
+   ========================================================================== */
+.volume-row--knob .mute-wrap {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translate(-50%, -50%) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: auto !important;
+    margin: 0 !important;
+    z-index: 5;
+}
+.volume-row--knob .mute-wrap .mute-btn {
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    border: 1px solid rgba(255, 190, 90, 0.45) !important;
+    background:
+        radial-gradient(circle at 34% 28%, rgba(255, 224, 170, 0.20), rgba(10, 14, 20, 0.92) 68%) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        inset 0 -6px 12px rgba(0, 0, 0, 0.55),
+        0 4px 14px rgba(0, 0, 0, 0.55) !important;
+    color: #ffcf86 !important;
+    transition: color .15s, border-color .15s, box-shadow .15s !important;
+}
+.volume-row--knob .mute-wrap .mute-btn .icon {
+    width: 19px !important;
+    height: 19px !important;
+}
+.volume-row--knob .mute-wrap .mute-btn .mute-led { display: none !important; }
+.volume-row--knob .mute-wrap .mute-btn .mute-label {
+    display: none !important;
+    font-size: 0 !important;
+}
+.volume-row--knob .mute-wrap .mute-btn:hover {
+    border-color: rgba(255, 205, 130, 0.75) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 0 14px rgba(255, 170, 60, 0.35),
+        0 4px 14px rgba(0, 0, 0, 0.55) !important;
+}
+.volume-row--knob .mute-wrap .mute-btn.is-muted {
+    color: #ff6b6b !important;
+    border-color: rgba(255, 107, 107, 0.6) !important;
+    background:
+        radial-gradient(circle at 34% 28%, rgba(255, 130, 130, 0.22), rgba(22, 10, 12, 0.94) 68%) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 0 16px rgba(255, 80, 80, 0.35),
+        0 4px 14px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* ==========================================================================
+   静音键图标跟随主题：平时琥珀金描边，静音时红色
+   ========================================================================== */
+.volume-footer .mute-wrap .mute-btn .icon,
+.volume-footer .mute-wrap .mute-btn .icon use,
+.volume-footer .mute-wrap .mute-btn:not(.is-muted) .icon,
+.volume-footer .mute-wrap .mute-btn:not(.is-muted) .icon use {
+    color: #ffcf86 !important;
+    fill: transparent !important;
+    stroke: #ffcf86 !important;
+    stroke-width: 1.8 !important;
+}
+.volume-footer .mute-wrap .mute-btn.is-muted .icon,
+.volume-footer .mute-wrap .mute-btn.is-muted .icon use {
+    color: #ff3b52 !important;
+    fill: transparent !important;
+    stroke: #ff3b52 !important;
+    stroke-width: 1.8 !important;
+    filter: drop-shadow(0 0 5px rgba(255, 59, 82, 0.65));
+}
+.volume-footer .mute-wrap .mute-btn:hover .icon {
+    filter: drop-shadow(0 0 6px rgba(255, 190, 90, 0.6));
+}
+
+/* 主音量旋钮放大（静音键居中后不再受角落元素限制） */
+@media (max-width: 900px) {
+    .volume-row--knob .knob { width: 168px !important; height: 168px !important; }
+    .volume-row--knob .knob-dial::after { inset: 24px !important; }
+    .volume-row--knob .mute-wrap .mute-btn { width: 50px !important; height: 50px !important; }
+    .volume-row--knob .mute-wrap .mute-btn .icon { width: 21px !important; height: 21px !important; }
+}
+@media (max-width: 560px) {
+    .volume-row--knob .knob { width: 148px !important; height: 148px !important; }
+    .volume-row--knob .knob-dial::after { inset: 20px !important; }
+    .volume-row--knob .mute-wrap .mute-btn { width: 46px !important; height: 46px !important; }
+}
+@media (min-width: 901px) and (max-width: 1200px) {
+    .volume-row--knob .knob { width: 214px !important; height: 214px !important; }
+}
+
+/* 静音键挂在旋钮内部：定位基准就是旋钮，宽屏窄屏都同心 */
+.volume-row--knob .knob .mute-wrap {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translate(-50%, -50%) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: auto !important;
+    margin: 0 !important;
+    z-index: 6 !important;
+}
+
+/* 旋钮内静音键的图标配色（父级已改为 .knob） */
+.volume-row--knob .knob .mute-wrap .mute-btn .icon,
+.volume-row--knob .knob .mute-wrap .mute-btn .icon use {
+    color: #ffcf86 !important;
+    fill: transparent !important;
+    stroke: #ffcf86 !important;
+    stroke-width: 1.8 !important;
+}
+.volume-row--knob .knob .mute-wrap .mute-btn.is-muted .icon,
+.volume-row--knob .knob .mute-wrap .mute-btn.is-muted .icon use {
+    color: #ff3b52 !important;
+    fill: transparent !important;
+    stroke: #ff3b52 !important;
+    filter: drop-shadow(0 0 6px rgba(255, 59, 82, 0.65)) !important;
+}
+
+/* ==========================================================================
+   静音键：底部椭圆按键（拇指按压），让开 0 / 100 刻度
+   ========================================================================== */
+/* 底部两个刻度隐藏，把位置让给椭圆键 */
+.knob-tick--0,
+.knob-tick--100 { display: none !important; }
+
+.volume-row--knob .knob .mute-wrap {
+    position: absolute !important;
+    left: 50% !important;
+    top: auto !important;
+    bottom: 2% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: auto !important;
+    margin: 0 !important;
+    z-index: 6 !important;
+}
+.volume-row--knob .knob .mute-wrap .mute-btn {
+    width: 82px !important;
+    height: 34px !important;
+    min-width: 0 !important;
+    padding: 0 12px !important;
+    border-radius: 999px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    border: 1px solid rgba(255, 190, 90, 0.5) !important;
+    background:
+        linear-gradient(180deg, rgba(60, 52, 38, 0.95), rgba(14, 12, 10, 0.98)) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 220, 170, 0.22),
+        inset 0 -4px 10px rgba(0, 0, 0, 0.6),
+        0 4px 12px rgba(0, 0, 0, 0.55) !important;
+    color: #ffcf86 !important;
+    transition: all .15s !important;
+}
+.volume-row--knob .knob .mute-wrap .mute-btn .icon {
+    width: 18px !important;
+    height: 18px !important;
+}
+.volume-row--knob .knob .mute-wrap .mute-btn:hover {
+    border-color: rgba(255, 210, 140, 0.85) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 230, 180, 0.3),
+        0 0 14px rgba(255, 170, 60, 0.4),
+        0 4px 12px rgba(0, 0, 0, 0.55) !important;
+}
+.volume-row--knob .knob .mute-wrap .mute-btn:active {
+    transform: translateY(1px) !important;
+    box-shadow:
+        inset 0 2px 6px rgba(0, 0, 0, 0.7),
+        0 1px 4px rgba(0, 0, 0, 0.5) !important;
+}
+.volume-row--knob .knob .mute-wrap .mute-btn.is-muted {
+    border-color: rgba(255, 107, 107, 0.65) !important;
+    background:
+        linear-gradient(180deg, rgba(70, 30, 32, 0.95), rgba(20, 10, 12, 0.98)) !important;
+    color: #ff6b6b !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 150, 150, 0.22),
+        0 0 16px rgba(255, 70, 70, 0.4),
+        0 4px 12px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* ==========================================================================
+   音量旋钮列：去掉独立底色，融入面板；静音键做内嵌倒角质感
+   ========================================================================== */
+.volume-row--knob {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+
+.volume-row--knob .knob .mute-wrap .mute-btn {
+    position: relative !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(255, 196, 110, 0.55) !important;
+    background:
+        linear-gradient(180deg, rgba(255, 226, 180, 0.12), rgba(0, 0, 0, 0.30) 46%, rgba(0, 0, 0, 0.55)),
+        linear-gradient(180deg, #2b2620 0%, #17130f 52%, #0d0b09 100%) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 238, 205, 0.42),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.75),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.55),
+        0 2px 0 rgba(0, 0, 0, 0.55),
+        0 5px 12px rgba(0, 0, 0, 0.6) !important;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8) !important;
+}
+.volume-row--knob .knob .mute-wrap .mute-btn::before {
+    content: "" !important;
+    position: absolute !important;
+    inset: 3px !important;
+    border-radius: 999px !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 206, 132, 0.16),
+        inset 0 1px 2px rgba(255, 225, 180, 0.12) !important;
+    pointer-events: none !important;
+}
+.volume-row--knob .knob .mute-wrap .mute-btn::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 10% !important;
+    right: 10% !important;
+    top: 1px !important;
+    height: 45% !important;
+    border-radius: 999px !important;
+    background: linear-gradient(180deg, rgba(255, 240, 210, 0.16), transparent) !important;
+    pointer-events: none !important;
+}
+.volume-row--knob .knob .mute-wrap .mute-btn:active {
+    transform: translateY(1.5px) !important;
+    box-shadow:
+        inset 0 3px 7px rgba(0, 0, 0, 0.85),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+        0 1px 3px rgba(0, 0, 0, 0.45) !important;
+}
+.volume-row--knob .knob .mute-wrap .mute-btn.is-muted {
+    border-color: rgba(255, 120, 120, 0.65) !important;
+    background:
+        linear-gradient(180deg, rgba(255, 200, 200, 0.10), rgba(0, 0, 0, 0.35) 46%, rgba(0, 0, 0, 0.6)),
+        linear-gradient(180deg, #33201f 0%, #1a0f10 52%, #0d0708 100%) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 170, 170, 0.32),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.75),
+        0 0 16px rgba(255, 70, 70, 0.32),
+        0 5px 12px rgba(0, 0, 0, 0.6) !important;
+}
+
+
+.knob.is-muted .knob-pointer {
+    background: linear-gradient(180deg, #d9dde5, #8f98a6) !important;
+    box-shadow: 0 0 6px rgba(200, 210, 225, 0.45) !important;
+}
+
+
+.knob.is-muted .knob-pointer {
+    background: linear-gradient(180deg, #fff3cf, #ffb238) !important;
+    box-shadow: 0 0 7px rgba(255, 170, 40, 0.95) !important;
+}
+
+/* 按键底座：椭圆暗色渐变，向外柔和淡出，压住圆环 */
+.volume-row--knob .knob .mute-wrap {
+    padding: 9px 14px !important;
+    border-radius: 999px !important;
+    background:
+        radial-gradient(ellipse 100% 100% at 50% 50%,
+            rgba(7, 9, 13, 0.98) 0%,
+            rgba(7, 9, 13, 0.96) 58%,
+            rgba(7, 9, 13, 0.55) 78%,
+            rgba(7, 9, 13, 0) 100%) !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+}
+.volume-row--knob .knob .mute-wrap .mute-btn {
+    pointer-events: auto !important;
+}
+
+/* 按键凹槽：底色与旋钮面板同色，边缘内阴影，读作面板上的沉槽 */
+.volume-row--knob .knob .mute-wrap {
+    padding: 8px 13px !important;
+    border-radius: 999px !important;
+    background:
+        radial-gradient(ellipse 100% 100% at 50% 42%,
+            #221f1a 0%,
+            #1a1814 55%,
+            #121110 78%,
+            rgba(18, 17, 16, 0) 100%) !important;
+    box-shadow:
+        inset 0 1px 2px rgba(255, 220, 170, 0.10),
+        inset 0 -1px 2px rgba(0, 0, 0, 0.8) !important;
+    pointer-events: none !important;
+}
+.volume-row--knob .knob .mute-wrap .mute-btn {
+    pointer-events: auto !important;
+}
+
+/* ==========================================================================
+   静音键回到右下角：扁平红色描边款
+   ========================================================================== */
+/* 恢复底部两个刻度 */
+.knob-tick--0,
+.knob-tick--100 { display: block !important; }
+
+.volume-row--knob .mute-wrap {
+    position: absolute !important;
+    right: 12px !important;
+    bottom: 10px !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+    padding: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    width: auto !important;
+    margin: 0 !important;
+    z-index: 6 !important;
+}
+.volume-row--knob .mute-wrap .mute-btn {
+    width: auto !important;
+    min-width: 62px !important;
+    height: 26px !important;
+    padding: 0 10px !important;
+    border-radius: 7px !important;
+    border: 1px solid rgba(255, 59, 82, 0.35) !important;
+    background: rgba(255, 59, 82, 0.08) !important;
+    box-shadow: none !important;
+    color: #ff3b52 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+.volume-row--knob .mute-wrap .mute-btn::before,
+.volume-row--knob .mute-wrap .mute-btn::after { display: none !important; }
+.volume-row--knob .mute-wrap .mute-btn .icon {
+    width: 15px !important;
+    height: 15px !important;
+    color: #ff3b52 !important;
+    stroke: #ff3b52 !important;
+    fill: transparent !important;
+}
+.volume-row--knob .mute-wrap .mute-btn.is-muted {
+    background: rgba(255, 59, 82, 0.18) !important;
+    border-color: rgba(255, 59, 82, 0.6) !important;
+    box-shadow: 0 0 10px rgba(255, 59, 82, 0.35) !important;
+}
+
+/* 静音红光：改为平滑呼吸（不再硬闪） */
+@keyframes knob-glow-breath {
+    0%, 100% {
+        opacity: 0.55;
+        filter: drop-shadow(0 0 4px rgba(255, 59, 82, 0.55));
+    }
+    50% {
+        opacity: 1;
+        filter: drop-shadow(0 0 12px rgba(255, 59, 82, 0.95));
+    }
+}
+
+/* 指针缩短：只占内侧一段，不顶到外环 */
+.knob-pointer {
+    top: 16% !important;
+    height: 13% !important;
+    width: 3.2% !important;
+    margin-left: -1.6% !important;
+    transform-origin: 50% 262% !important;
+}
+
+/* ==========================================================================
+   静音呼吸指示灯：恢复按键上的红色小灯，静音时缓慢呼吸
+   ========================================================================== */
+.volume-row--knob .mute-wrap .mute-btn .mute-led {
+    display: inline-block !important;
+    width: 7px !important;
+    height: 7px !important;
+    border-radius: 50% !important;
+    margin-right: 5px !important;
+    background: rgba(255, 59, 82, 0.28) !important;
+    box-shadow: none !important;
+    flex: 0 0 auto !important;
+    transition: background .2s !important;
+}
+.volume-row--knob .mute-wrap .mute-btn.is-muted .mute-led {
+    background: #ff3b52 !important;
+    animation: mute-led-breath 2s ease-in-out infinite !important;
+}
+@keyframes mute-led-breath {
+    0%, 100% {
+        opacity: 0.45;
+        box-shadow: 0 0 2px rgba(255, 59, 82, 0.45);
+    }
+    50% {
+        opacity: 1;
+        box-shadow: 0 0 10px rgba(255, 59, 82, 0.95), 0 0 18px rgba(255, 59, 82, 0.55);
+    }
+}
+
+
+/* 按键小灯强制红色 + 呼吸 */
+.volume-row--knob .volume-footer .mute-wrap .mute-btn .mute-led {
+    display: inline-block !important;
+    width: 7px !important;
+    height: 7px !important;
+    border-radius: 50% !important;
+    margin-right: 5px !important;
+    background-color: rgba(255, 59, 82, 0.3) !important;
+    box-shadow: none !important;
+}
+.volume-row--knob .volume-footer .mute-wrap .mute-btn.is-muted .mute-led {
+    background-color: #ff3b52 !important;
+    animation: mute-led-breath 2s ease-in-out infinite !important;
+}
+
+
+@keyframes knob-halo-breath {
+    0%, 100% {
+        box-shadow:
+            inset 0 2px 6px rgba(255, 255, 255, 0.08),
+            inset 0 -8px 16px rgba(0, 0, 0, 0.7),
+            0 0 0 1px rgba(255, 59, 82, 0.30),
+            0 0 8px rgba(255, 59, 82, 0.30);
+    }
+    50% {
+        box-shadow:
+            inset 0 2px 6px rgba(255, 255, 255, 0.10),
+            inset 0 -8px 16px rgba(0, 0, 0, 0.7),
+            0 0 0 2px rgba(255, 59, 82, 0.85),
+            0 0 26px rgba(255, 59, 82, 0.80);
+    }
+}
+.knob.is-muted .knob-pointer {
+    background: linear-gradient(180deg, #fff3cf, #ffb238) !important;
+    box-shadow: 0 0 7px rgba(255, 170, 40, 0.95) !important;
+}
+
+
+@keyframes knob-ring-breath {
+    0%, 100% {
+        filter: brightness(0.62) drop-shadow(0 0 4px rgba(255, 59, 82, 0.45));
+    }
+    50% {
+        filter: brightness(1.18) drop-shadow(0 0 15px rgba(255, 59, 82, 0.95));
+    }
+}
+
+
+.knob .knob-dial { z-index: 2; }
+@keyframes knob-breath-glow {
+    0%, 100% {
+        opacity: 0.18;
+        transform: scale(0.94);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.08);
+    }
+}
+
+
+@keyframes knob-breath-strong {
+    0%, 100% {
+        opacity: 0.10;
+        transform: scale(0.90);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.14);
+    }
+}
+@keyframes knob-ring-pulse {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 1; }
+}
+
+/* ==========================================================================
+   恢复原始设计：旋钮两侧垂直刻度条 + 0/33/66/100 数字（按比例适配任意尺寸）
+   ========================================================================== */
+.knob::before,
+.knob::after {
+    display: block !important;
+    content: "" !important;
+    position: absolute !important;
+    top: 15% !important;
+    bottom: 15% !important;
+    width: 24% !important;
+    background: repeating-linear-gradient(180deg,
+        rgba(200, 210, 225, 0.75) 0 1px,
+        transparent 1px 9px) !important;
+    opacity: 0.85 !important;
+    pointer-events: none !important;
+}
+.knob::before { left: -31.3% !important; right: auto !important; }
+.knob::after  { right: -31.3% !important; left: auto !important; }
+
+.knob-tick {
+    display: block !important;
+    position: absolute !important;
+    z-index: 4 !important;
+    font-family: "Cascadia Mono", Consolas, "Courier New", monospace !important;
+    font-size: clamp(11px, 2.1vw, 13px) !important;
+    font-weight: 700 !important;
+    color: rgba(255, 255, 255, 0.55) !important;
+    text-shadow: none !important;
+    opacity: 0.55 !important;
+    pointer-events: none !important;
+    transition: color .25s ease, text-shadow .25s ease, opacity .25s ease !important;
+}
+.knob-tick.is-lit {
+    color: #ffffff !important;
+    opacity: 1 !important;
+    text-shadow: 0 0 6px rgba(255, 255, 255, .85), 0 0 14px rgba(255, 255, 255, .45) !important;
+}
+.knob-tick--0   { left: -41.3% !important; bottom: 3% !important; }
+.knob-tick--33  { left: -41.3% !important; top: 3% !important; }
+.knob-tick--66  { right: -41.3% !important; top: 3% !important; }
+.knob-tick--100 { right: -46.7% !important; bottom: 3% !important; }
+
+/* 窄屏适配：刻度条内收，数字空间不足时隐藏，保证不出界 */
+@media (max-width: 900px) {
+    .knob::before, .knob::after { width: 22% !important; }
+    .knob::before { left: -28% !important; }
+    .knob::after  { right: -28% !important; }
+    .knob-tick--0, .knob-tick--33 { left: -36% !important; }
+    .knob-tick--66, .knob-tick--100 { right: -36% !important; }
+}
+@media (max-width: 560px) {
+    .knob::before, .knob::after { width: 20% !important; }
+    .knob::before { left: -24% !important; }
+    .knob::after  { right: -24% !important; }
+    .knob-tick { display: none !important; }
+}
+
+/* ==========================================================================
+   静音呼吸灯：完全照搬旧版原始实现（红色弧线 + 1 秒呼吸 + 红色描边光晕）
+   ========================================================================== */
+@keyframes knob-muted-blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.30; }
+}
+.knob.is-muted .knob-dial::before {
+    background: conic-gradient(from -135deg,
+        #ff3b52 0deg,
+        #ff7280 var(--knob-fill),
+        rgba(255, 59, 82, 0.12) var(--knob-fill) 360deg) !important;
+    filter: drop-shadow(0 0 8px rgba(255, 59, 82, 0.85)) !important;
+    animation: knob-muted-blink 1s ease-in-out infinite !important;
+}
+.knob:not(.is-muted) .knob-dial::before {
+    background: conic-gradient(from -135deg,
+        #ffffff 0deg,
+        #e8edf6 var(--knob-fill),
+        rgba(255, 255, 255, 0.12) var(--knob-fill) 360deg) !important;
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.55)) !important;
+}
+.knob .knob-breath { display: none !important; }
+
+
+/* 静音键吸附到音量面板右下角：贴边、右上与左下圆角与面板呼应 */
+.volume-row--knob .mute-wrap {
+    right: 1px !important;
+    bottom: 1px !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+}
+.volume-row--knob .mute-wrap .mute-btn {
+    border-radius: 10px 0 15px 0 !important;
+    border-width: 1px 0 0 1px !important;
+    border-color: rgba(255, 59, 82, 0.45) !important;
+    min-width: 66px !important;
+    height: 28px !important;
+}
+
+/* ==========================================================================
+   恢复刻度逐渐点亮：上层金色刻度按音量比例露出
+   ========================================================================== */
+.knob-ticks-lit {
+    display: block !important;
+    position: absolute !important;
+    inset: 0 !important;
+    pointer-events: none !important;
+    z-index: 3 !important;
+}
+.knob-ticks-lit::before,
+.knob-ticks-lit::after {
+    content: "" !important;
+    position: absolute !important;
+    top: 15% !important;
+    bottom: 15% !important;
+    width: 24% !important;
+    background: repeating-linear-gradient(180deg,
+        rgba(255, 236, 200, 0.95) 0 1px,
+        transparent 1px 9px) !important;
+    filter: drop-shadow(0 0 3px rgba(255, 200, 120, 0.55)) !important;
+    opacity: 0.9 !important;
+}
+.knob-ticks-lit::before {
+    left: -31.3% !important;
+    right: auto !important;
+    -webkit-mask-image: linear-gradient(0deg, #000 0 var(--knob-pct-left, 0%), transparent var(--knob-pct-left, 0%) 100%) !important;
+    mask-image: linear-gradient(0deg, #000 0 var(--knob-pct-left, 0%), transparent var(--knob-pct-left, 0%) 100%) !important;
+}
+.knob-ticks-lit::after {
+    right: -31.3% !important;
+    left: auto !important;
+    -webkit-mask-image: linear-gradient(180deg, #000 0 var(--knob-pct-right, 0%), transparent var(--knob-pct-right, 0%) 100%) !important;
+    mask-image: linear-gradient(180deg, #000 0 var(--knob-pct-right, 0%), transparent var(--knob-pct-right, 0%) 100%) !important;
+}
+@media (max-width: 900px) {
+    .knob-ticks-lit::before, .knob-ticks-lit::after { width: 22% !important; }
+    .knob-ticks-lit::before { left: -28% !important; }
+    .knob-ticks-lit::after { right: -28% !important; }
+}
+@media (max-width: 560px) {
+    .knob-ticks-lit::before, .knob-ticks-lit::after { width: 20% !important; }
+    .knob-ticks-lit::before { left: -24% !important; }
+    .knob-ticks-lit::after { right: -24% !important; }
+}
+
+/* 静音键补全四条轮廓线，圆角仍与面板右下角同心 */
+.volume-row--knob .mute-wrap .mute-btn {
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-color: rgba(255, 59, 82, 0.5) !important;
+    border-radius: 10px 0 15px 0 !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 160, 170, 0.12),
+        0 0 10px rgba(255, 59, 82, 0.18) !important;
+}
+.volume-row--knob .mute-wrap .mute-btn.is-muted {
+    border-color: rgba(255, 59, 82, 0.8) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 170, 175, 0.18),
+        0 0 14px rgba(255, 59, 82, 0.45) !important;
+}
+
+/* ==========================================================================
+   静音键改为圆形，吸附右下角
+   ========================================================================== */
+.volume-row--knob .mute-wrap {
+    right: 12px !important;
+    bottom: 12px !important;
+}
+.volume-row--knob .mute-wrap .mute-btn {
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(255, 59, 82, 0.5) !important;
+    background: rgba(255, 59, 82, 0.08) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: none !important;
+}
+.volume-row--knob .mute-wrap .mute-btn .icon {
+    width: 19px !important;
+    height: 19px !important;
+}
+.volume-row--knob .mute-wrap .mute-btn .mute-led {
+    display: none !important;
+}
+.volume-row--knob .mute-wrap .mute-btn:hover {
+    border-color: rgba(255, 110, 120, 0.85) !important;
+    background: rgba(255, 59, 82, 0.14) !important;
+}
+.volume-row--knob .mute-wrap .mute-btn:active {
+    transform: scale(0.94) !important;
+}
+.volume-row--knob .mute-wrap .mute-btn.is-muted {
+    border-color: rgba(255, 59, 82, 0.85) !important;
+    background: rgba(255, 59, 82, 0.20) !important;
+    box-shadow: 0 0 14px rgba(255, 59, 82, 0.45) !important;
+}
+
+/* 圆形静音键内不再显示小圆点，图标居中 */
+.volume-row--knob .volume-footer .mute-wrap .mute-btn .mute-led,
+.volume-row--knob .mute-wrap .mute-btn .mute-led {
+    display: none !important;
+}
+
+/* 静音键再向右下贴一点，补偿面板圆角造成的视觉偏移 */
+.volume-row--knob .mute-wrap {
+    right: 8px !important;
+    bottom: 8px !important;
+}
+
+/* 静音键再贴近角落一档 */
+.volume-row--knob .mute-wrap {
+    right: 5px !important;
+    bottom: 5px !important;
+}
+
+/* 静音键贴到极限：距边 2px，圆形按键与面板圆角叠合 */
+.volume-row--knob .mute-wrap {
+    right: 2px !important;
+    bottom: 2px !important;
+    z-index: 8 !important;
+}
+
+/* ==========================================================================
+   静音键位置分档：宽屏留白大一些，窄屏收回一点，不再一律贴边
+   ========================================================================== */
+.volume-row--knob .mute-wrap {
+    right: 18px !important;
+    bottom: 16px !important;
+    left: auto !important;
+    top: auto !important;
+}
+@media (max-width: 900px) {
+    .volume-row--knob .mute-wrap {
+        right: 14px !important;
+        bottom: 14px !important;
+    }
+}
+@media (max-width: 560px) {
+    .volume-row--knob .mute-wrap {
+        right: 12px !important;
+        bottom: 12px !important;
+    }
+}
+
+/* ==========================================================================
+   静音键改挂到面板层：以 .deck-right 为定位基准，各宽度都能贴面板右下角
+   ========================================================================== */
+.deck-right > .mute-wrap {
+    position: absolute !important;
+    right: 18px !important;
+    bottom: 16px !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    z-index: 9 !important;
+}
+.deck-right > .mute-wrap .mute-btn {
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(255, 59, 82, 0.5) !important;
+    background: rgba(255, 59, 82, 0.08) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: none !important;
+    color: #ff3b52 !important;
+}
+.deck-right > .mute-wrap .mute-btn .icon {
+    width: 19px !important;
+    height: 19px !important;
+    stroke: #ff3b52 !important;
+    fill: transparent !important;
+}
+.deck-right > .mute-wrap .mute-btn .mute-led { display: none !important; }
+.deck-right > .mute-wrap .mute-btn.is-muted {
+    border-color: rgba(255, 59, 82, 0.85) !important;
+    background: rgba(255, 59, 82, 0.20) !important;
+    box-shadow: 0 0 14px rgba(255, 59, 82, 0.45) !important;
+}
+@media (max-width: 900px) {
+    .deck-right > .mute-wrap { right: 14px !important; bottom: 14px !important; }
+}
+@media (max-width: 560px) {
+    .deck-right > .mute-wrap { right: 12px !important; bottom: 12px !important; }
+    .deck-right > .mute-wrap .mute-btn { width: 42px !important; height: 42px !important; }
+}
+
+/* 极窄屏：刻度条收窄并留出与面板/监听区的间距，避免相贴 */
+@media (max-width: 900px) {
+    .knob::before, .knob::after,
+    .knob-ticks-lit::before, .knob-ticks-lit::after {
+        width: 20% !important;
+    }
+    .knob::before, .knob-ticks-lit::before { left: -26% !important; }
+    .knob::after,  .knob-ticks-lit::after  { right: -26% !important; }
+}
+@media (max-width: 560px) {
+    .knob::before, .knob::after,
+    .knob-ticks-lit::before, .knob-ticks-lit::after {
+        width: 16% !important;
+    }
+    .knob::before, .knob-ticks-lit::before { left: -20% !important; }
+    .knob::after,  .knob-ticks-lit::after  { right: -20% !important; }
+}
+
+/* ==========================================================================
+   刻度条让开旋钮外环：环向外 8px + 发光 6px，内缘至少留 14px
+   ========================================================================== */
+.knob::before, .knob::after,
+.knob-ticks-lit::before, .knob-ticks-lit::after {
+    width: 16% !important;
+}
+.knob::before, .knob-ticks-lit::before { left: -30% !important; right: auto !important; }
+.knob::after,  .knob-ticks-lit::after  { right: -30% !important; left: auto !important; }
+
+@media (max-width: 900px) {
+    .knob::before, .knob::after,
+    .knob-ticks-lit::before, .knob-ticks-lit::after { width: 16% !important; }
+    .knob::before, .knob-ticks-lit::before { left: -30% !important; }
+    .knob::after,  .knob-ticks-lit::after  { right: -30% !important; }
+}
+@media (max-width: 560px) {
+    .knob::before, .knob::after,
+    .knob-ticks-lit::before, .knob-ticks-lit::after { width: 8% !important; }
+    .knob::before, .knob-ticks-lit::before { left: -20% !important; }
+    .knob::after,  .knob-ticks-lit::after  { right: -20% !important; }
+}
+
+/* 极窄屏：刻度数字隐藏，避免压到静音键 */
+@media (max-width: 560px) {
+    .knob-tick { display: none !important; }
+}
+
+/* 极窄屏：监听状态文字放大，推子整体上移，避免把手压住文字 */
+@media (max-width: 560px) {
+    .deck-right .stream-fader {
+        transform: translateY(-12px) !important;
+    }
+    .stream-state {
+        font-size: 12px !important;
+        bottom: 4px !important;
+        line-height: 1.15 !important;
+        letter-spacing: 0 !important;
+    }
+}
+
+/* ==========================================================================
+   音量面板四角圆螺丝装饰
+   ========================================================================== */
+.deck-right > .panel-screw {
+    position: absolute !important;
+    width: 9px !important;
+    height: 9px !important;
+    border-radius: 50% !important;
+    background:
+        radial-gradient(circle at 34% 28%,
+            #eef3f9 0%,
+            #b9c3cf 28%,
+            #78838f 58%,
+            #39404a 100%) !important;
+    box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.55),
+        inset 0 -1px 2px rgba(0, 0, 0, 0.75),
+        0 1px 2px rgba(0, 0, 0, 0.55) !important;
+    z-index: 7 !important;
+    pointer-events: none !important;
+}
+.deck-right > .panel-screw::before,
+.deck-right > .panel-screw::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    background: rgba(16, 20, 26, 0.9) !important;
+    border-radius: 1px !important;
+}
+.deck-right > .panel-screw::before {
+    width: 6px !important;
+    height: 1px !important;
+    transform: translate(-50%, -50%) rotate(45deg) !important;
+}
+.deck-right > .panel-screw::after {
+    width: 1px !important;
+    height: 6px !important;
+    transform: translate(-50%, -50%) rotate(45deg) !important;
+}
+.deck-right > .panel-screw--tl { left: 7px !important; top: 7px !important; }
+.deck-right > .panel-screw--tr { right: 7px !important; top: 7px !important; }
+.deck-right > .panel-screw--bl { left: 7px !important; bottom: 7px !important; }
+.deck-right > .panel-screw--br { right: 7px !important; bottom: 7px !important; }
+
+/* 静音键与右下角螺丝错开：中窄屏把按键再往里收一点 */
+@media (max-width: 900px) {
+    .deck-right > .mute-wrap { right: 22px !important; bottom: 20px !important; }
+}
+@media (max-width: 560px) {
+    .deck-right > .mute-wrap { right: 22px !important; bottom: 20px !important; }
+}
+
+/* ==========================================================================
+   监听区文字放大：宽屏 13px、中屏 12.5px、窄屏 12px；刻度数字同步放大
+   ========================================================================== */
+.stream-state {
+    font-size: 13px !important;
+    line-height: 1.25 !important;
+}
+.stream-fader-scale span {
+    font-size: 10px !important;
+}
+.stream-mute-on {
+    font-size: 13px !important;
+}
+@media (max-width: 900px) {
+    .stream-state { font-size: 12.5px !important; }
+    .stream-fader-scale span { font-size: 9.5px !important; }
+    .stream-mute-on { font-size: 12.5px !important; }
+}
+@media (max-width: 560px) {
+    .stream-state { font-size: 12px !important; }
+}
+
+/* 螺丝放大到 12px，位置略往角内收，静音键相应再让开一点 */
+.deck-right > .panel-screw {
+    width: 12px !important;
+    height: 12px !important;
+}
+.deck-right > .panel-screw--tl { left: 6px !important; top: 6px !important; }
+.deck-right > .panel-screw--tr { right: 6px !important; top: 6px !important; }
+.deck-right > .panel-screw--bl { left: 6px !important; bottom: 6px !important; }
+.deck-right > .panel-screw--br { right: 6px !important; bottom: 6px !important; }
+.deck-right > .panel-screw::before { width: 8px !important; height: 1.2px !important; }
+.deck-right > .panel-screw::after  { width: 1.2px !important; height: 8px !important; }
+.deck-right > .mute-wrap {
+    right: 22px !important;
+    bottom: 20px !important;
+}
+@media (max-width: 900px) {
+    .deck-right > .mute-wrap { right: 24px !important; bottom: 22px !important; }
 }
